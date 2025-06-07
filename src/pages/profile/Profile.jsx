@@ -9,6 +9,7 @@ export function Profile() {
   const [media, setMedia] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -158,6 +159,51 @@ export function Profile() {
     }
   };
 
+  const handleMediaDelete = async (mediaId) => {
+    try {
+      setDeleting(mediaId);
+      
+      // Get media info first
+      const { data: mediaItem, error: fetchError } = await supabase
+        .from('media')
+        .select('url')
+        .eq('id', mediaId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Extract file path from URL
+      const url = new URL(mediaItem.url);
+      const filePath = url.pathname.split('/').slice(-2).join('/'); // Get last two parts of path
+
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('media')
+        .remove([filePath]);
+
+      if (storageError) {
+        console.warn('Storage deletion error:', storageError);
+        // Continue with database deletion even if storage fails
+      }
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('media')
+        .delete()
+        .eq('id', mediaId);
+
+      if (dbError) throw dbError;
+
+      // Refresh media list
+      getProfile();
+    } catch (error) {
+      console.error('Error deleting media:', error);
+      alert('Помилка при видаленні медіафайлу');
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen">
@@ -275,7 +321,7 @@ export function Profile() {
                     {media.map((item) => (
                       <div
                         key={item.id}
-                        className="aspect-square rounded-lg overflow-hidden"
+                        className="aspect-square rounded-lg overflow-hidden relative group"
                       >
                         {item.type === 'photo' ? (
                           <img
@@ -290,6 +336,24 @@ export function Profile() {
                             controls
                           />
                         )}
+                        
+                        {/* Delete button overlay */}
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center">
+                          <button
+                            onClick={() => handleMediaDelete(item.id)}
+                            disabled={deleting === item.id}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-red-600 hover:bg-red-700 text-white p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Видалити"
+                          >
+                            {deleting === item.id ? (
+                              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

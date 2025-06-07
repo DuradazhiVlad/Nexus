@@ -1,4 +1,5 @@
 import React from 'react';
+import { Trash2 } from 'lucide-react';
 
 interface Media {
   id: string;
@@ -9,9 +10,15 @@ interface Media {
 
 interface MediaGalleryProps {
   media: Media[];
+  onDelete: (mediaId: string) => void;
+  deleting: string | null;
 }
 
-export const MediaGallery: React.FC<MediaGalleryProps> = ({ media }) => {
+export const MediaGallery: React.FC<MediaGalleryProps> = ({ 
+  media, 
+  onDelete, 
+  deleting 
+}) => {
   if (media.length === 0) {
     return (
       <p className="text-gray-600 text-center py-8">
@@ -23,9 +30,13 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media }) => {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       {media.map((item) => (
-        <div key={item.id} className="aspect-square rounded-lg overflow-hidden">
+        <div key={item.id} className="aspect-square rounded-lg overflow-hidden relative group">
           {item.type === 'photo' ? (
-            <img src={item.url} alt="" className="w-full h-full object-cover" />
+            <img 
+              src={item.url} 
+              alt="" 
+              className="w-full h-full object-cover" 
+            />
           ) : (
             <video
               src={item.url}
@@ -33,9 +44,26 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({ media }) => {
               controls
             />
           )}
+          
+          {/* Delete button overlay */}
+          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center">
+            <button
+              onClick={() => onDelete(item.id)}
+              disabled={deleting === item.id}
+              className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-red-600 hover:bg-red-700 text-white p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Видалити"
+            >
+              {deleting === item.id ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <Trash2 size={20} />
+              )}
+            </button>
+          </div>
         </div>
       ))}
     </div>
   );
 };
+
 export default MediaGallery;
