@@ -160,6 +160,10 @@ export function Profile() {
   };
 
   const handleMediaDelete = async (mediaId) => {
+    if (!confirm('Ви впевнені, що хочете видалити цей медіафайл?')) {
+      return;
+    }
+
     try {
       setDeleting(mediaId);
       
@@ -172,18 +176,23 @@ export function Profile() {
 
       if (fetchError) throw fetchError;
 
-      // Extract file path from URL
+      // Extract file path from URL for storage deletion
       const url = new URL(mediaItem.url);
-      const filePath = url.pathname.split('/').slice(-2).join('/'); // Get last two parts of path
+      const pathParts = url.pathname.split('/');
+      // Get the file path after /storage/v1/object/public/media/
+      const storageIndex = pathParts.indexOf('media');
+      if (storageIndex !== -1 && storageIndex < pathParts.length - 1) {
+        const filePath = pathParts.slice(storageIndex + 1).join('/');
+        
+        // Delete from storage
+        const { error: storageError } = await supabase.storage
+          .from('media')
+          .remove([filePath]);
 
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
-        .from('media')
-        .remove([filePath]);
-
-      if (storageError) {
-        console.warn('Storage deletion error:', storageError);
-        // Continue with database deletion even if storage fails
+        if (storageError) {
+          console.warn('Storage deletion error:', storageError);
+          // Continue with database deletion even if storage fails
+        }
       }
 
       // Delete from database
@@ -196,6 +205,7 @@ export function Profile() {
 
       // Refresh media list
       getProfile();
+      alert('Медіафайл успішно видалено');
     } catch (error) {
       console.error('Error deleting media:', error);
       alert('Помилка при видаленні медіафайлу');
@@ -337,23 +347,21 @@ export function Profile() {
                           />
                         )}
                         
-                        {/* Delete button overlay */}
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center">
-                          <button
-                            onClick={() => handleMediaDelete(item.id)}
-                            disabled={deleting === item.id}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-red-600 hover:bg-red-700 text-white p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Видалити"
-                          >
-                            {deleting === item.id ? (
-                              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            ) : (
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            )}
-                          </button>
-                        </div>
+                        {/* Delete button in top right corner */}
+                        <button
+                          onClick={() => handleMediaDelete(item.id)}
+                          disabled={deleting === item.id}
+                          className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                          title="Видалити"
+                        >
+                          {deleting === item.id ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                        </button>
                       </div>
                     ))}
                   </div>

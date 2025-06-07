@@ -45,21 +45,19 @@ export const MediaGallery: React.FC<MediaGalleryProps> = ({
             />
           )}
           
-          {/* Delete button overlay */}
-          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center">
-            <button
-              onClick={() => onDelete(item.id)}
-              disabled={deleting === item.id}
-              className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-red-600 hover:bg-red-700 text-white p-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Видалити"
-            >
-              {deleting === item.id ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <Trash2 size={20} />
-              )}
-            </button>
-          </div>
+          {/* Delete button in top right corner */}
+          <button
+            onClick={() => onDelete(item.id)}
+            disabled={deleting === item.id}
+            className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+            title="Видалити"
+          >
+            {deleting === item.id ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <Trash2 size={16} />
+            )}
+          </button>
         </div>
       ))}
     </div>
