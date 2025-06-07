@@ -3,14 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://DuradazhiVlad.github.io/Nexus",  // Доданий рядок
+  "homepage": "https://DuradazhiVlad.github.io/Nexus",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "predeploy": "npm run build",   // Доданий скрипт
-    "deploy": "gh-pages -d build"   // Доданий скрипт
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.7",
@@ -30,6 +30,6 @@
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "vite": "^5.4.2",
-    "gh-pages": "^6.1.1" // Доданий рядок (після встановлення)
+    "gh-pages": "^6.1.1"
   }
 }
