@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
-import { Camera, Settings, Upload } from 'lucide-react';
+import { Camera, Settings, Upload, Trash2 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 
 export function Profile() {
@@ -25,21 +25,61 @@ export function Profile() {
         return;
       }
 
-      // Get user data
-      const { data: userData, error: userError } = await supabase
+      console.log('Auth user:', authUser);
+
+      // Get user data - спробуємо різні варіанти пошуку
+      let userData = null;
+      
+      // Спочатку спробуємо знайти за users_Id
+      const { data: userData1, error: userError1 } = await supabase
         .from('users')
         .select('*')
         .eq('users_Id', authUser.id)
         .single();
 
-      if (userError) {
-        console.error('Error fetching user data:', userError);
-        return;
+      if (userData1) {
+        userData = userData1;
+      } else {
+        // Якщо не знайшли, спробуємо за email
+        const { data: userData2, error: userError2 } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', authUser.email)
+          .single();
+        
+        if (userData2) {
+          userData = userData2;
+        }
       }
 
+      if (!userData) {
+        console.error('User not found in database');
+        // Створимо користувача, якщо його немає
+        const { data: newUser, error: createError } = await supabase
+          .from('users')
+          .insert([
+            {
+              users_Id: authUser.id,
+              email: authUser.email,
+              name: authUser.user_metadata?.name || 'Користувач',
+              lastName: authUser.user_metadata?.last_name || '',
+              date: new Date().toISOString(),
+            }
+          ])
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating user:', createError);
+          return;
+        }
+        userData = newUser;
+      }
+
+      console.log('User data:', userData);
       setUser(userData);
 
-      // Get media data
+      // Get media data - використовуємо правильний ID
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .select('*')
@@ -48,10 +88,10 @@ export function Profile() {
 
       if (mediaError) {
         console.error('Error fetching media:', mediaError);
-        return;
+      } else {
+        console.log('Media data:', mediaData);
+        setMedia(mediaData || []);
       }
-
-      setMedia(mediaData || []);
     } catch (error) {
       console.error('Error loading profile:', error);
     } finally {
@@ -71,7 +111,7 @@ export function Profile() {
       if (!file) return;
 
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-avatar.${fileExt}`;
+      const fileName = `${user.users_Id || user.id}-avatar.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
       // Upload to Supabase storage
@@ -117,9 +157,11 @@ export function Profile() {
       const file = event.target.files[0];
       if (!file) return;
 
+      console.log('Uploading file:', file.name, 'for user:', user.id);
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${user.id}/${fileName}`;
+      const filePath = `${user.users_Id || user.id}/${fileName}`;
       const fileType = file.type.startsWith('video/') ? 'video' : 'photo';
 
       // Upload to Supabase storage
@@ -127,17 +169,25 @@ export function Profile() {
         .from('media')
         .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
 
       // Get public URL
       const { data: { publicUrl }, error: urlError } = supabase.storage
         .from('media')
         .getPublicUrl(filePath);
 
-      if (urlError) throw urlError;
+      if (urlError) {
+        console.error('URL error:', urlError);
+        throw urlError;
+      }
+
+      console.log('File uploaded, creating database record...');
 
       // Create media record
-      const { error: insertError } = await supabase
+      const { data: insertData, error: insertError } = await supabase
         .from('media')
         .insert([
           {
@@ -145,15 +195,22 @@ export function Profile() {
             type: fileType,
             url: publicUrl
           }
-        ]);
+        ])
+        .select();
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        throw insertError;
+      }
+
+      console.log('Media record created:', insertData);
 
       // Refresh media list
       getProfile();
+      alert('Медіафайл успішно завантажено!');
     } catch (error) {
       console.error('Error uploading media:', error);
-      alert('Error uploading media');
+      alert('Помилка при завантаженні медіафайлу: ' + error.message);
     } finally {
       setUploading(false);
     }
@@ -167,6 +224,8 @@ export function Profile() {
     try {
       setDeleting(mediaId);
       
+      console.log('Deleting media with ID:', mediaId);
+      
       // Get media info first
       const { data: mediaItem, error: fetchError } = await supabase
         .from('media')
@@ -174,7 +233,12 @@ export function Profile() {
         .eq('id', mediaId)
         .single();
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('Fetch error:', fetchError);
+        throw fetchError;
+      }
+
+      console.log('Media item to delete:', mediaItem);
 
       // Extract file path from URL for storage deletion
       const url = new URL(mediaItem.url);
@@ -183,6 +247,8 @@ export function Profile() {
       const storageIndex = pathParts.indexOf('media');
       if (storageIndex !== -1 && storageIndex < pathParts.length - 1) {
         const filePath = pathParts.slice(storageIndex + 1).join('/');
+        
+        console.log('Deleting from storage:', filePath);
         
         // Delete from storage
         const { error: storageError } = await supabase.storage
@@ -201,14 +267,19 @@ export function Profile() {
         .delete()
         .eq('id', mediaId);
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error('Database deletion error:', dbError);
+        throw dbError;
+      }
+
+      console.log('Media deleted successfully');
 
       // Refresh media list
       getProfile();
       alert('Медіафайл успішно видалено');
     } catch (error) {
       console.error('Error deleting media:', error);
-      alert('Помилка при видаленні медіафайлу');
+      alert('Помилка при видаленні медіафайлу: ' + error.message);
     } finally {
       setDeleting(null);
     }
@@ -220,6 +291,17 @@ export function Profile() {
         <Sidebar />
         <div className="flex-1 ml-64 p-8">
           <div className="text-center">Завантаження...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex min-h-screen">
+        <Sidebar />
+        <div className="flex-1 ml-64 p-8">
+          <div className="text-center">Користувач не знайдений</div>
         </div>
       </div>
     );
@@ -312,7 +394,7 @@ export function Profile() {
               <div className="mt-8 border-t border-gray-200 pt-8">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-semibold text-gray-900">
-                    Фото та Відео
+                    Фото та Відео ({media.length})
                   </h2>
                   <label className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer">
                     <input
@@ -338,12 +420,19 @@ export function Profile() {
                             src={item.url}
                             alt=""
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              console.error('Image failed to load:', item.url);
+                              e.target.style.display = 'none';
+                            }}
                           />
                         ) : (
                           <video
                             src={item.url}
                             className="w-full h-full object-cover"
                             controls
+                            onError={(e) => {
+                              console.error('Video failed to load:', item.url);
+                            }}
                           />
                         )}
                         
@@ -357,18 +446,21 @@ export function Profile() {
                           {deleting === item.id ? (
                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                           ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                            <Trash2 size={16} />
                           )}
                         </button>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-600 text-center py-8">
-                    У вас поки немає медіафайлів
-                  </p>
+                  <div className="text-center py-8">
+                    <p className="text-gray-600 mb-4">
+                      У вас поки немає медіафайлів
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Натисніть кнопку "Завантажити" щоб додати фото або відео
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
