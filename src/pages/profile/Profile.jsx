@@ -27,39 +27,29 @@ export function Profile() {
 
       console.log('Auth user:', authUser);
 
-      // Get user data - спробуємо різні варіанти пошуку
+      // Get user data using auth_user_id
       let userData = null;
       
-      // Спочатку спробуємо знайти за users_Id
       const { data: userData1, error: userError1 } = await supabase
         .from('users')
         .select('*')
-        .eq('users_Id', authUser.id)
+        .eq('auth_user_id', authUser.id)
         .single();
 
       if (userData1) {
         userData = userData1;
-      } else {
-        // Якщо не знайшли, спробуємо за email
-        const { data: userData2, error: userError2 } = await supabase
-          .from('users')
-          .select('*')
-          .eq('email', authUser.email)
-          .single();
-        
-        if (userData2) {
-          userData = userData2;
-        }
+      } else if (userError1?.code !== 'PGRST116') {
+        console.error('Error fetching user:', userError1);
       }
 
       if (!userData) {
-        console.error('User not found in database');
-        // Створимо користувача, якщо його немає
+        console.log('User not found in database, creating new user');
+        // Create user if doesn't exist
         const { data: newUser, error: createError } = await supabase
           .from('users')
           .insert([
             {
-              users_Id: authUser.id,
+              auth_user_id: authUser.id,
               email: authUser.email,
               name: authUser.user_metadata?.name || 'Користувач',
               lastName: authUser.user_metadata?.last_name || '',
@@ -79,11 +69,11 @@ export function Profile() {
       console.log('User data:', userData);
       setUser(userData);
 
-      // Get media data - використовуємо правильний ID
+      // Get media data using auth_user_id
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .select('*')
-        .eq('user_id', userData.id)
+        .eq('user_id', authUser.id)
         .order('created_at', { ascending: false });
 
       if (mediaError) {
@@ -101,7 +91,7 @@ export function Profile() {
 
   const handleAvatarUpload = async (event) => {
     try {
-      if (!user || !user.id) {
+      if (!user || !user.auth_user_id) {
         console.error("User not loaded yet");
         return;
       }
@@ -111,7 +101,7 @@ export function Profile() {
       if (!file) return;
 
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.users_Id || user.id}-avatar.${fileExt}`;
+      const fileName = `${user.auth_user_id}-avatar.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
       // Upload to Supabase storage
@@ -132,7 +122,7 @@ export function Profile() {
       const { error: updateError } = await supabase
         .from('users')
         .update({ avatar: publicUrl })
-        .eq('id', user.id);
+        .eq('auth_user_id', user.auth_user_id);
 
       if (updateError) throw updateError;
 
@@ -148,8 +138,10 @@ export function Profile() {
 
   const handleMediaUpload = async (event) => {
     try {
-      if (!user || !user.id) {
-        console.error("User not loaded yet");
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !authUser) {
+        console.error("User not authenticated");
         return;
       }
 
@@ -157,11 +149,11 @@ export function Profile() {
       const file = event.target.files[0];
       if (!file) return;
 
-      console.log('Uploading file:', file.name, 'for user:', user.id);
+      console.log('Uploading file:', file.name, 'for user:', authUser.id);
 
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${user.users_Id || user.id}/${fileName}`;
+      const filePath = `${authUser.id}/${fileName}`;
       const fileType = file.type.startsWith('video/') ? 'video' : 'photo';
 
       // Upload to Supabase storage
@@ -186,12 +178,12 @@ export function Profile() {
 
       console.log('File uploaded, creating database record...');
 
-      // Create media record
+      // Create media record using auth user ID
       const { data: insertData, error: insertError } = await supabase
         .from('media')
         .insert([
           {
-            user_id: user.id,
+            user_id: authUser.id,
             type: fileType,
             url: publicUrl
           }

@@ -62,7 +62,7 @@ export function Settings() {
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('users_Id', authUser.id)
+        .eq('auth_user_id', authUser.id)
         .single();
 
       if (error) {
@@ -104,7 +104,7 @@ export function Settings() {
           notifications: settings.notifications,
           privacy: settings.privacy,
         })
-        .eq('users_Id', authUser.id);
+        .eq('auth_user_id', authUser.id);
 
       if (error) throw error;
 
