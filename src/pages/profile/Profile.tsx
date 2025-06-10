@@ -111,3 +111,5 @@ export default function Profile() {
     </div>
   );
 }
+
+export { Profile }
