@@ -14,9 +14,8 @@ export function Sidebar() {
   };
 
   const menuItems = [
-    { icon: Home, label: 'Головна', path: '/' },
     { icon: User, label: 'Профіль', path: '/profile' },
-    { icon: Users, label: 'Друзі', path: '/friends' },
+    { icon: Users, label: 'Люди', path: '/people' },
     { icon: MessageCircle, label: 'Повідомлення', path: '/messages' },
     { icon: Settings, label: 'Налаштування', path: '/settings' },
   ];
