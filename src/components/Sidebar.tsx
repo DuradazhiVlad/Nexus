@@ -16,6 +16,7 @@ export function Sidebar() {
   const menuItems = [
     { icon: User, label: 'Профіль', path: '/profile' },
     { icon: Users, label: 'Люди', path: '/people' },
+    { icon: Users, label: 'Групи', path: '/groups' },
     { icon: MessageCircle, label: 'Повідомлення', path: '/messages' },
     { icon: Settings, label: 'Налаштування', path: '/settings' },
   ];

@@ -8,6 +8,7 @@ import { Register } from './pages/Register';
 import { Profile } from './pages/profile/Profile';
 import { Messages } from './pages/Messages';
 import { People } from './pages/People';
+import { Groups } from './pages/Groups';
 import { Settings } from './pages/Settings';
 
 // Головна компонента App, яка налаштовує маршрутизацію
@@ -25,6 +26,7 @@ function App() {
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/messages" element={<Messages />} />
                 <Route path="/people" element={<People />} />
+                <Route path="/groups" element={<Groups />} />
                 <Route path="/settings" element={<Settings />} />
             </Routes>
         </Router>
