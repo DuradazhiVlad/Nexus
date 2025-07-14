@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { Search, MessageCircle, Users } from 'lucide-react';
+import { Search, MessageCircle, Users, UserPlus, UserCheck, UserX, Clock } from 'lucide-react';
 
 interface User {
   id: string;
@@ -14,11 +14,25 @@ interface User {
   city: string | null;
 }
 
+interface FriendRequest {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  created_at: string;
+}
+
+interface UserWithFriendStatus extends User {
+  friendship_status: 'none' | 'friend' | 'request_sent' | 'request_received';
+  request_id?: string;
+}
+
 export function People() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserWithFriendStatus[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -72,13 +86,181 @@ export function People() {
         query = query.or(`name.ilike.%${searchQuery}%,lastname.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`);
       }
 
-      const { data, error } = await query.limit(50);
+      const { data: usersData, error } = await query.limit(50);
 
       if (error) throw error;
 
-      setUsers(data || []);
+      // Отримати статуси дружби для кожного користувача
+      const usersWithStatus = await Promise.all(
+        (usersData || []).map(async (user) => {
+          const status = await getFriendshipStatus(user.id);
+          return {
+            ...user,
+            ...status
+          };
+        })
+      );
+
+      setUsers(usersWithStatus);
     } catch (error) {
       console.error('Error searching users:', error);
+    }
+  }
+
+  async function getFriendshipStatus(userId: string) {
+    if (!currentUser) return { friendship_status: 'none' as const };
+
+    try {
+      // Перевірити чи є дружба
+      const { data: friendship } = await supabase
+        .from('friendships')
+        .select('*')
+        .or(`and(user1_id.eq.${Math.min(currentUser.id, userId)},user2_id.eq.${Math.max(currentUser.id, userId)})`)
+        .single();
+
+      if (friendship) {
+        return { friendship_status: 'friend' as const };
+      }
+
+      // Перевірити запити на дружбу
+      const { data: sentRequest } = await supabase
+        .from('friend_requests')
+        .select('*')
+        .eq('sender_id', currentUser.id)
+        .eq('receiver_id', userId)
+        .eq('status', 'pending')
+        .single();
+
+      if (sentRequest) {
+        return { 
+          friendship_status: 'request_sent' as const,
+          request_id: sentRequest.id
+        };
+      }
+
+      const { data: receivedRequest } = await supabase
+        .from('friend_requests')
+        .select('*')
+        .eq('sender_id', userId)
+        .eq('receiver_id', currentUser.id)
+        .eq('status', 'pending')
+        .single();
+
+      if (receivedRequest) {
+        return { 
+          friendship_status: 'request_received' as const,
+          request_id: receivedRequest.id
+        };
+      }
+
+      return { friendship_status: 'none' as const };
+    } catch (error) {
+      console.error('Error getting friendship status:', error);
+      return { friendship_status: 'none' as const };
+    }
+  }
+
+  async function sendFriendRequest(userId: string) {
+    if (!currentUser) return;
+
+    setActionLoading(userId);
+    try {
+      const { error } = await supabase
+        .from('friend_requests')
+        .insert([
+          {
+            sender_id: currentUser.id,
+            receiver_id: userId,
+            status: 'pending'
+          }
+        ]);
+
+      if (error) throw error;
+
+      // Оновити список користувачів
+      searchUsers();
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function acceptFriendRequest(requestId: string) {
+    setActionLoading(requestId);
+    try {
+      const { error } = await supabase
+        .from('friend_requests')
+        .update({ status: 'accepted', updated_at: new Date().toISOString() })
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      // Оновити список користувачів
+      searchUsers();
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function rejectFriendRequest(requestId: string) {
+    setActionLoading(requestId);
+    try {
+      const { error } = await supabase
+        .from('friend_requests')
+        .update({ status: 'rejected', updated_at: new Date().toISOString() })
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      // Оновити список користувачів
+      searchUsers();
+    } catch (error) {
+      console.error('Error rejecting friend request:', error);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function cancelFriendRequest(requestId: string) {
+    setActionLoading(requestId);
+    try {
+      const { error } = await supabase
+        .from('friend_requests')
+        .delete()
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      // Оновити список користувачів
+      searchUsers();
+    } catch (error) {
+      console.error('Error canceling friend request:', error);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function removeFriend(userId: string) {
+    if (!currentUser) return;
+
+    setActionLoading(userId);
+    try {
+      const { error } = await supabase
+        .from('friendships')
+        .delete()
+        .or(`and(user1_id.eq.${Math.min(currentUser.id, userId)},user2_id.eq.${Math.max(currentUser.id, userId)})`);
+
+      if (error) throw error;
+
+      // Оновити список користувачів
+      searchUsers();
+    } catch (error) {
+      console.error('Error removing friend:', error);
+    } finally {
+      setActionLoading(null);
     }
   }
 
@@ -118,6 +300,79 @@ export function People() {
     }
   }
 
+  const renderActionButton = (user: UserWithFriendStatus) => {
+    const isLoading = actionLoading === user.id || actionLoading === user.request_id;
+
+    switch (user.friendship_status) {
+      case 'friend':
+        return (
+          <div className="flex space-x-2">
+            <button
+              onClick={() => startConversation(user)}
+              className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            >
+              <MessageCircle size={14} className="mr-1" />
+              Написати
+            </button>
+            <button
+              onClick={() => removeFriend(user.id)}
+              disabled={isLoading}
+              className="flex items-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors text-sm"
+            >
+              <UserX size={14} className="mr-1" />
+              {isLoading ? '...' : 'Видалити'}
+            </button>
+          </div>
+        );
+
+      case 'request_sent':
+        return (
+          <button
+            onClick={() => user.request_id && cancelFriendRequest(user.request_id)}
+            disabled={isLoading}
+            className="flex items-center px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors text-sm"
+          >
+            <Clock size={14} className="mr-1" />
+            {isLoading ? '...' : 'Скасувати запит'}
+          </button>
+        );
+
+      case 'request_received':
+        return (
+          <div className="flex space-x-2">
+            <button
+              onClick={() => user.request_id && acceptFriendRequest(user.request_id)}
+              disabled={isLoading}
+              className="flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors text-sm"
+            >
+              <UserCheck size={14} className="mr-1" />
+              {isLoading ? '...' : 'Прийняти'}
+            </button>
+            <button
+              onClick={() => user.request_id && rejectFriendRequest(user.request_id)}
+              disabled={isLoading}
+              className="flex items-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors text-sm"
+            >
+              <UserX size={14} className="mr-1" />
+              {isLoading ? '...' : 'Відхилити'}
+            </button>
+          </div>
+        );
+
+      default:
+        return (
+          <button
+            onClick={() => sendFriendRequest(user.id)}
+            disabled={isLoading}
+            className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors text-sm"
+          >
+            <UserPlus size={14} className="mr-1" />
+            {isLoading ? '...' : 'Додати в друзі'}
+          </button>
+        );
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen">
@@ -136,7 +391,7 @@ export function People() {
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Люди</h1>
-            <p className="text-gray-600">Знайдіть та спілкуйтеся з іншими користувачами</p>
+            <p className="text-gray-600">Знайдіть та додайте нових друзів</p>
           </div>
 
           {/* Пошук */}
@@ -188,9 +443,20 @@ export function People() {
                           )}
                         </div>
                         <div>
-                          <h3 className="text-lg font-medium text-gray-900">
-                            {user.name} {user.lastname}
-                          </h3>
+                          <div className="flex items-center space-x-2">
+                            <h3 className="text-lg font-medium text-gray-900">
+                              {user.name} {user.lastname}
+                            </h3>
+                            {user.friendship_status === 'friend' && (
+                              <UserCheck size={16} className="text-green-600" />
+                            )}
+                            {user.friendship_status === 'request_sent' && (
+                              <Clock size={16} className="text-yellow-600" />
+                            )}
+                            {user.friendship_status === 'request_received' && (
+                              <UserPlus size={16} className="text-blue-600" />
+                            )}
+                          </div>
                           <p className="text-gray-600">{user.email}</p>
                           {user.city && (
                             <p className="text-sm text-gray-500">📍 {user.city}</p>
@@ -201,13 +467,7 @@ export function People() {
                         </div>
                       </div>
                       <div className="flex space-x-2">
-                        <button
-                          onClick={() => startConversation(user)}
-                          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                          <MessageCircle size={16} className="mr-2" />
-                          Написати
-                        </button>
+                        {renderActionButton(user)}
                       </div>
                     </div>
                   </div>
