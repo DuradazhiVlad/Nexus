@@ -84,7 +84,7 @@ export function Groups() {
         .from('groups')
         .select(`
           *,
-          creator:users!groups_created_by_fkey(*)
+          creator:users!created_by(*)
         `)
         .order('created_at', { ascending: false });
 
