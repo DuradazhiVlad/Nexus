@@ -28,7 +28,11 @@ export function Login() {
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err.message || 'Помилка входу');
+      if (err.message === 'Email not confirmed' || err.code === 'email_not_confirmed') {
+        setError('Будь ласка, підтвердьте свою електронну пошту, перевіривши папку вхідних повідомлень.');
+      } else {
+        setError(err.message || 'Помилка входу');
+      }
     } finally {
       setLoading(false);
     }

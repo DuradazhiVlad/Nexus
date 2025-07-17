@@ -32,7 +32,7 @@ export function Register() {
             {
               auth_user_id: authData.user.id,
               name,
-              lastName,
+              lastname: lastName,
               email,
               date: new Date().toISOString(),
             }
