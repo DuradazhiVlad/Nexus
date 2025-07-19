@@ -203,7 +203,7 @@ export function Groups() {
                 <div key={group.id} className="bg-white rounded-lg shadow-sm border hover:shadow-md transition">
                   <div
                     className="p-6 cursor-pointer"
-                    onClick={() => navigate(`/group/${group.id}`)}
+                    onClick={() => group.is_member ? navigate(`/group/${group.id}`) : null}
                   >
                     <div className="flex items-start space-x-4 mb-4">
                       <div className="w-16 h-16 bg-gray-300 rounded-lg flex items-center justify-center">
@@ -240,11 +240,25 @@ export function Groups() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          joinGroup(group.id);
+                          if (!group.is_private) {
+                            navigate(`/group/${group.id}`);
+                          } else {
+                            joinGroup(group.id);
+                          }
                         }}
-                        className="w-full flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                        className={`w-full flex items-center justify-center px-3 py-2 rounded-lg ${
+                          group.is_private 
+                            ? 'bg-green-600 text-white hover:bg-green-700' 
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
                       >
-                        <UserPlus size={14} className="mr-2" /> Приєднатися
+                        {group.is_private ? (
+                          <>
+                            <UserPlus size={14} className="mr-2" /> Приєднатися
+                          </>
+                        ) : (
+                          'Переглянути'
+                        )}
                       </button>
                     )}
                   </div>
