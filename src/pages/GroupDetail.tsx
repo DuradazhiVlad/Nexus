@@ -13,8 +13,11 @@ import {
   Shield, 
   Calendar,
   ArrowLeft,
-  MessageCircle
+  MessageCircle,
+  FileText
 } from 'lucide-react';
+import { GroupPostForm } from '../components/GroupPostForm';
+import { GroupPostsList } from '../components/GroupPostsList';
 
 interface User {
   id: string;
@@ -54,6 +57,8 @@ export function GroupDetail() {
   const [userMembership, setUserMembership] = useState<GroupMember | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'posts' | 'members'>('posts');
+  const [postsRefreshTrigger, setPostsRefreshTrigger] = useState(0);
 
   useEffect(() => {
     getCurrentUser();
@@ -199,6 +204,10 @@ export function GroupDetail() {
       setActionLoading(false);
     }
   }
+
+  const handlePostCreated = () => {
+    setPostsRefreshTrigger(prev => prev + 1);
+  };
 
   const getRoleIcon = (role: string) => {
     switch (role) {
@@ -358,8 +367,57 @@ export function GroupDetail() {
             </div>
           </div>
 
+          {/* Вкладки */}
+          {isMember && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+              <div className="flex border-b border-gray-200">
+                <button
+                  onClick={() => setActiveTab('posts')}
+                  className={`px-6 py-4 text-sm font-medium transition-colors ${
+                    activeTab === 'posts'
+                      ? 'text-blue-600 border-b-2 border-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <FileText size={16} className="inline mr-2" />
+                  Пости
+                </button>
+                <button
+                  onClick={() => setActiveTab('members')}
+                  className={`px-6 py-4 text-sm font-medium transition-colors ${
+                    activeTab === 'members'
+                      ? 'text-blue-600 border-b-2 border-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Users size={16} className="inline mr-2" />
+                  Учасники ({group.member_count})
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Контент вкладок */}
+          {isMember && activeTab === 'posts' && (
+            <div className="space-y-6">
+              {/* Форма створення посту */}
+              <GroupPostForm 
+                groupId={group.id}
+                currentUser={currentUser}
+                onPostCreated={handlePostCreated}
+              />
+              
+              {/* Список постів */}
+              <GroupPostsList 
+                groupId={group.id}
+                currentUser={currentUser}
+                refreshTrigger={postsRefreshTrigger}
+              />
+            </div>
+          )}
+
           {/* Учасники */}
-          {canViewMembers && (
+          {canViewMembers && (!isMember || activeTab === 'members') && (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200">
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-900">
@@ -415,7 +473,7 @@ export function GroupDetail() {
           )}
 
           {/* Повідомлення для приватних груп */}
-          {!canViewMembers && (
+          {!canViewMembers && !isMember && (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
               <Lock size={48} className="mx-auto mb-4 text-gray-300" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">Приватна група</h3>
