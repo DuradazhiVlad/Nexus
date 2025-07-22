@@ -4,6 +4,8 @@ import { DatabaseService, DatabaseUser } from '../../../lib/database';
 import { Camera, Settings, Upload, X, Edit3, MapPin, Calendar, Briefcase, GraduationCap, Phone, Globe, Eye, EyeOff, ChevronLeft, ChevronRight, Image, Trash2, Palette } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PhotoFilters } from './PhotoFilters';
+import { useForm } from 'react-hook-form';
+// import { Tabs, Tab } from '@headlessui/react'; // Видаляємо, бо не використовується
 
 interface Media {
   id: string;
@@ -12,8 +14,27 @@ interface Media {
   created_at: string;
 }
 
+// Додаємо тип для постів
+interface Post {
+  id: string;
+  author: DatabaseUser;
+  content: string;
+  images: string[];
+  created_at: string;
+  likes: number;
+  comments: number;
+}
+
+// Розширюємо тип DatabaseUser для локального використання (додаємо status, phone, website, familyStatus)
+type ExtendedDatabaseUser = DatabaseUser & {
+  status?: string;
+  phone?: string;
+  website?: string;
+  familyStatus?: string;
+};
+
 export function Profile() {
-  const [user, setUser] = useState<DatabaseUser | null>(null);
+  const [user, setUser] = useState<ExtendedDatabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [media, setMedia] = useState<Media[]>([]);
   const [error, setError] = useState<string>('');
@@ -33,6 +54,37 @@ export function Profile() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const multiFileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+
+  // Додаємо стейт для модалки редагування профілю
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  // Додаємо стейт для вкладок медіа
+  const [mediaTab, setMediaTab] = useState<'photo' | 'video' | 'album'>('photo');
+  // Мок-пости
+  const [posts, setPosts] = useState<Post[]>([
+    {
+      id: '1',
+      author: user || { id: '', name: 'User', lastName: '', avatar: '' },
+      content: 'Мій перший пост! Гарного дня всім!',
+      images: [
+        'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80',
+      ],
+      created_at: '2024-07-20T10:00:00Z',
+      likes: 5,
+      comments: 2,
+    },
+    {
+      id: '2',
+      author: user || { id: '', name: 'User', lastName: '', avatar: '' },
+      content: 'Відпочинок на природі!',
+      images: [
+        'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80',
+        'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=400&q=80',
+      ],
+      created_at: '2024-07-18T15:30:00Z',
+      likes: 8,
+      comments: 3,
+    },
+  ]);
 
   useEffect(() => {
     async function loadProfile() {
@@ -236,6 +288,39 @@ export function Profile() {
     return age;
   };
 
+  // --- Додаємо компонент модалки редагування профілю ---
+  function EditProfileModal({ open, onClose, user, onSave }: { open: boolean; onClose: () => void; user: ExtendedDatabaseUser; onSave: (data: any) => void }) {
+    const { register, handleSubmit, formState: { errors }, reset } = useForm({ defaultValues: user });
+    useEffect(() => { reset(user); }, [user, reset]);
+    return open ? (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <form onSubmit={handleSubmit(onSave)} className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 p-8">
+          <h2 className="text-2xl font-bold mb-6">Редагувати профіль</h2>
+          <div className="grid grid-cols-1 gap-4">
+            <input {...register('name', { required: true })} placeholder="Ім'я" className="border rounded p-2" />
+            <input {...register('lastName', { required: true })} placeholder="Прізвище" className="border rounded p-2" />
+            <input {...register('city')} placeholder="Місто" className="border rounded p-2" />
+            <input {...register('familyStatus')} placeholder="Сімейний стан" className="border rounded p-2" />
+            <input {...register('status')} placeholder="Статус" className="border rounded p-2" />
+            <input {...register('phone')} placeholder="Телефон" className="border rounded p-2" />
+            <input {...register('website')} placeholder="Веб-сайт" className="border rounded p-2" />
+            <input {...register('birthDate')} type="date" placeholder="День народження" className="border rounded p-2" />
+          </div>
+          <div className="flex justify-end mt-6 space-x-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Скасувати</button>
+            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Зберегти</button>
+          </div>
+        </form>
+      </div>
+    ) : null;
+  }
+
+  // --- Додаємо функцію збереження профілю ---
+  const handleSaveProfile = async (data: any) => {
+    setUser({ ...user!, ...data });
+    setShowEditProfile(false);
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen">
@@ -329,12 +414,14 @@ export function Profile() {
               <div className="flex items-center text-sm text-gray-500 mt-2 space-x-4">
                 {user.city && <span><MapPin size={14} className="inline mr-1" />{user.city}</span>}
                 {user.birthDate && <span><Calendar size={14} className="inline mr-1" />{formatDate(user.birthDate)}</span>}
+                {user.phone && <span><Phone size={14} className="inline mr-1" />{user.phone}</span>}
+                {user.website && <span><Globe size={14} className="inline mr-1" />{user.website}</span>}
               </div>
             </div>
             <div className="flex space-x-3 mt-4 md:mt-0">
               <button className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">Написати</button>
               <button className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300">Додати у друзі</button>
-              <button onClick={() => navigate('/settings')} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center"><Edit3 size={16} className="mr-2" />Редагувати</button>
+              <button onClick={() => setShowEditProfile(true)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center"><Edit3 size={16} className="mr-2" />Редагувати</button>
             </div>
           </div>
 
@@ -347,9 +434,9 @@ export function Profile() {
                 <div><b>Місто:</b> {user.city || 'Не вказано'}</div>
                 <div><b>День народження:</b> {formatDate(user.birthDate)}</div>
                 <div><b>Мова:</b> Українська</div>
-                <div><b>Сімейний стан:</b> Не вказано</div>
-                <div><b>Телефон:</b> Не вказано</div>
-                <div><b>Веб-сайт:</b> Не вказано</div>
+                <div><b>Сімейний стан:</b> {user.familyStatus || 'Не вказано'}</div>
+                <div><b>Телефон:</b> {user.phone || 'Не вказано'}</div>
+                <div><b>Веб-сайт:</b> {user.website || 'Не вказано'}</div>
               </div>
             </div>
             {/* Friends */}
@@ -360,8 +447,8 @@ export function Profile() {
                   <span className="text-gray-500">Немає друзів</span>
                 ) : (
                   friends.slice(0, 6).map(friend => (
-                    <div key={friend.id} className="flex flex-col items-center w-16">
-                      <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 mb-1">
+                    <button key={friend.id} className="flex flex-col items-center w-16 group" onClick={() => navigate(`/profile/${friend.id}`)}>
+                      <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 mb-1 group-hover:ring-2 group-hover:ring-blue-500 transition">
                         {friend.avatar ? (
                           <img src={friend.avatar} alt={friend.name} className="w-full h-full object-cover" />
                         ) : (
@@ -371,23 +458,33 @@ export function Profile() {
                         )}
                       </div>
                       <span className="text-xs text-gray-700 text-center">{friend.name}</span>
-                    </div>
+                    </button>
                   ))
                 )}
               </div>
             </div>
-            {/* Photos */}
+            {/* Photos/Media Tabs */}
             <div className="bg-white rounded-xl shadow-sm p-6 col-span-1">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Фото ({media.length})</h2>
-              <div className="grid grid-cols-3 gap-2">
-                {media.length === 0 ? (
-                  <span className="text-gray-500">Немає фото</span>
-                ) : (
-                  media.filter(m => m.type === 'photo').slice(0, 6).map(photo => (
-                    <img key={photo.id} src={photo.url} alt="Фото" className="w-full h-16 object-cover rounded" />
-                  ))
-                )}
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Медіа</h2>
+              <div className="mb-2 flex space-x-2">
+                <button onClick={() => setMediaTab('photo')} className={`px-3 py-1 rounded ${mediaTab === 'photo' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>Фото</button>
+                <button onClick={() => setMediaTab('video')} className={`px-3 py-1 rounded ${mediaTab === 'video' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>Відео</button>
+                <button onClick={() => setMediaTab('album')} className={`px-3 py-1 rounded ${mediaTab === 'album' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>Альбоми</button>
               </div>
+              {mediaTab === 'photo' && (
+                <div className="grid grid-cols-3 gap-2">
+                  {media.filter(m => m.type === 'photo').slice(0, 6).map(photo => (
+                    <img key={photo.id} src={photo.url} alt="Фото" className="w-full h-16 object-cover rounded" />
+                  ))}
+                  {media.filter(m => m.type === 'photo').length === 0 && <span className="text-gray-500 col-span-3">Немає фото</span>}
+                </div>
+              )}
+              {mediaTab === 'video' && (
+                <div className="text-gray-500">Немає відео</div>
+              )}
+              {mediaTab === 'album' && (
+                <div className="text-gray-500">Немає альбомів</div>
+              )}
             </div>
           </div>
 
@@ -399,8 +496,8 @@ export function Profile() {
                 <span className="text-gray-500">Немає груп</span>
               ) : (
                 groups.map(group => (
-                  <div key={group.id} className="flex flex-col items-center w-20">
-                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 mb-1">
+                  <button key={group.id} className="flex flex-col items-center w-20 group" onClick={() => navigate(`/group/${group.id}`)}>
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 mb-1 group-hover:ring-2 group-hover:ring-green-500 transition">
                       {group.avatar ? (
                         <img src={group.avatar} alt={group.name} className="w-full h-full object-cover" />
                       ) : (
@@ -411,7 +508,7 @@ export function Profile() {
                     </div>
                     <span className="text-xs text-gray-700 text-center">{group.name}</span>
                     <span className="text-[10px] text-gray-500">{group.members} учасників</span>
-                  </div>
+                  </button>
                 ))
               )}
             </div>
@@ -437,13 +534,48 @@ export function Profile() {
               />
               <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Опублікувати</button>
             </div>
-            <div className="bg-gray-50 rounded-lg p-8 text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Edit3 className="text-gray-400" size={24} />
+            {/* Відображення постів */}
+            {posts.length === 0 ? (
+              <div className="bg-gray-50 rounded-lg p-8 text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Edit3 className="text-gray-400" size={24} />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">На стіні поки немає жодного запису</h3>
+                <p className="text-gray-600">Ви можете додати перший запис на стіну</p>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">На стіні поки немає жодного запису</h3>
-              <p className="text-gray-600">Ви можете додати перший запис на стіну</p>
-            </div>
+            ) : (
+              <div className="space-y-6">
+                {posts.map(post => (
+                  <div key={post.id} className="border-b pb-6 last:border-b-0">
+                    <div className="flex items-center mb-2">
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 mr-2">
+                        {post.author.avatar ? (
+                          <img src={post.author.avatar} alt={post.author.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600">
+                            <span className="text-white font-bold text-sm">{post.author.name?.[0]?.toUpperCase() || '?'}</span>
+                          </div>
+                        )}
+                      </div>
+                      <span className="font-semibold text-gray-900 mr-2">{post.author.name} {post.author.lastName}</span>
+                      <span className="text-xs text-gray-500">{formatDate(post.created_at)}</span>
+                    </div>
+                    <div className="mb-2 text-gray-800">{post.content}</div>
+                    {post.images.length > 0 && (
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        {post.images.map((img, idx) => (
+                          <img key={idx} src={img} alt="post" className="w-full h-40 object-cover rounded" />
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex space-x-4 text-gray-500 text-sm">
+                      <span>👍 {post.likes}</span>
+                      <span>💬 {post.comments}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -669,6 +801,9 @@ export function Profile() {
           }}
         />
       )}
+
+      {/* Edit Profile Modal */}
+      <EditProfileModal open={showEditProfile} onClose={() => setShowEditProfile(false)} user={user} onSave={handleSaveProfile} />
     </div>
   );
 }
