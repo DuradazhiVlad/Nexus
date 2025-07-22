@@ -8,6 +8,8 @@ import { People } from './pages/People';
 import { Messages } from './pages/Messages';
 import { Friends } from './pages/Friends';
 import { Settings } from './pages/Settings';
+import { Groups } from './pages/Groups';
+import { GroupDetail } from './pages/GroupDetail';
 
 function LandingPage() {
   return (
@@ -86,6 +88,8 @@ function App() {
         <Route path="/messages" element={<Messages />} />
         <Route path="/friends" element={<Friends />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/groups" element={<Groups />} />
+        <Route path="/groups/:groupId" element={<GroupDetail />} />
       </Routes>
     </BrowserRouter>
   );
