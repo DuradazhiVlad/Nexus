@@ -5,6 +5,7 @@ import {
   Users,
   Settings,
   LogOut,
+  UsersIcon,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -37,6 +38,17 @@ export function Sidebar() {
         >
           <UserCircle className="w-5 h-5 mr-3" />
           Профіль
+        </NavLink>
+        <NavLink
+          to="/people"
+          className={({ isActive }) =>
+            `flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 ${
+              isActive ? 'bg-gray-100' : ''
+            }`
+          }
+        >
+          <UsersIcon className="w-5 h-5 mr-3" />
+          Люди
         </NavLink>
         <NavLink
           to="/messages"

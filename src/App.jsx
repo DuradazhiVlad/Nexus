@@ -4,6 +4,7 @@ import { Users } from 'lucide-react';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Profile } from './pages/profile/Profile';
+import { People } from './pages/People';
 import { Messages } from './pages/Messages';
 import { Friends } from './pages/Friends';
 import { Settings } from './pages/Settings';
@@ -81,6 +82,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/people" element={<People />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/friends" element={<Friends />} />
         <Route path="/settings" element={<Settings />} />
