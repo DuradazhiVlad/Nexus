@@ -28,6 +28,8 @@ export function Profile() {
   const [showPhotoEditor, setShowPhotoEditor] = useState(false);
   const [editingImageUrl, setEditingImageUrl] = useState<string>('');
   const [editingImageIndex, setEditingImageIndex] = useState<number>(-1);
+  const [friends, setFriends] = useState<DatabaseUser[]>([]);
+  const [groups, setGroups] = useState<any[]>([]); // Заглушка для груп
   const fileInputRef = useRef<HTMLInputElement>(null);
   const multiFileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -48,6 +50,15 @@ export function Profile() {
         setUser(userProfile);
         const userMedia = await DatabaseService.getUserMedia();
         setMedia(userMedia);
+
+        // Друзі
+        const userFriends = await DatabaseService.getUserFriends();
+        setFriends(userFriends);
+        // Групи (заглушка)
+        setGroups([
+          { id: 1, name: 'Frontend Devs', avatar: '', members: 12 },
+          { id: 2, name: 'React Ukraine', avatar: '', members: 8 }
+        ]);
 
       } catch (error) {
         console.error('Error loading profile:', error);
@@ -466,21 +477,82 @@ export function Profile() {
 
             {/* Right Column - Posts and Media */}
             <div className="flex-1 space-y-6">
-              {/* Post Creation */}
+              {/* Друзі */}
               <div className="bg-white rounded-lg shadow-sm p-6">
-                <div className="flex items-center space-x-3">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Друзі ({friends.length})</h2>
+                <div className="flex flex-wrap gap-4">
+                  {friends.length === 0 ? (
+                    <span className="text-gray-500">Немає друзів</span>
+                  ) : (
+                    friends.slice(0, 8).map(friend => (
+                      <div key={friend.id} className="flex flex-col items-center w-20">
+                        <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 mb-1">
+                          {friend.avatar ? (
+                            <img src={friend.avatar} alt={friend.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600">
+                              <span className="text-white font-bold">{friend.name?.[0]?.toUpperCase() || '?'}</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-700 text-center">{friend.name}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Фото */}
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Фото ({media.length})</h2>
+                <div className="grid grid-cols-5 gap-2">
+                  {media.length === 0 ? (
+                    <span className="text-gray-500">Немає фото</span>
+                  ) : (
+                    media.slice(0, 10).map(photo => (
+                      <img key={photo.id} src={photo.url} alt="Фото" className="w-full h-20 object-cover rounded" />
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Групи */}
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Групи ({groups.length})</h2>
+                <div className="flex flex-wrap gap-4">
+                  {groups.length === 0 ? (
+                    <span className="text-gray-500">Немає груп</span>
+                  ) : (
+                    groups.map(group => (
+                      <div key={group.id} className="flex flex-col items-center w-20">
+                        <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 mb-1">
+                          {group.avatar ? (
+                            <img src={group.avatar} alt={group.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-400 to-blue-600">
+                              <span className="text-white font-bold">{group.name?.[0]?.toUpperCase() || '?'}</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-700 text-center">{group.name}</span>
+                        <span className="text-[10px] text-gray-500">{group.members} учасників</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Стіна (пости) */}
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Стіна</h2>
+                {/* Post Creation */}
+                <div className="flex items-center space-x-3 mb-4">
                   <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200">
                     {user.avatar ? (
-                      <img
-                        src={user.avatar}
-                        alt={user.name}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600">
-                        <span className="text-white font-bold">
-                          {user.name?.[0]?.toUpperCase() || '?'}
-                        </span>
+                        <span className="text-white font-bold">{user.name?.[0]?.toUpperCase() || '?'}</span>
                       </div>
                     )}
                   </div>
@@ -489,46 +561,16 @@ export function Profile() {
                     placeholder="Що у вас нового?"
                     className="flex-1 px-4 py-2 bg-gray-50 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Опублікувати</button>
                 </div>
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex items-center space-x-4">
-                    <button className="flex items-center text-gray-600 hover:text-blue-600">
-                      <Camera size={18} className="mr-2" />
-                      Фото
-                    </button>
-                    <button 
-                      onClick={() => multiFileInputRef.current?.click()}
-                      className="flex items-center text-gray-600 hover:text-blue-600"
-                    >
-                      <Image size={18} className="mr-2" />
-                      Декілька фото
-                    </button>
-                    <button className="flex items-center text-gray-600 hover:text-blue-600">
-                      <Upload size={18} className="mr-2" />
-                      Документ
-                    </button>
-                    <input
-                      ref={multiFileInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleMultipleFileSelect}
-                      className="hidden"
-                    />
+                {/* No Posts Message */}
+                <div className="bg-gray-50 rounded-lg p-8 text-center">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Edit3 className="text-gray-400" size={24} />
                   </div>
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                    Опублікувати
-                  </button>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">На стіні поки немає жодного запису</h3>
+                  <p className="text-gray-600">Ви можете додати перший запис на стіну</p>
                 </div>
-              </div>
-
-              {/* No Posts Message */}
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Edit3 className="text-gray-400" size={24} />
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">На стіні поки немає жодного запису</h3>
-                <p className="text-gray-600">Ви можете додати перший запис на стіну</p>
               </div>
             </div>
           </div>
