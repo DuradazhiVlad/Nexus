@@ -104,7 +104,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Тригер для автоматичного створення дружби
+DROP TRIGGER IF EXISTS friend_request_accepted_trigger ON friend_requests;
 CREATE TRIGGER friend_request_accepted_trigger
   AFTER UPDATE ON friend_requests
   FOR EACH ROW
