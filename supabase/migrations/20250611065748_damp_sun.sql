@@ -124,7 +124,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Тригер для автоматичного оновлення updated_at
+DROP TRIGGER IF EXISTS update_conversation_timestamp_trigger ON messages;
 CREATE TRIGGER update_conversation_timestamp_trigger
   AFTER INSERT ON messages
   FOR EACH ROW
