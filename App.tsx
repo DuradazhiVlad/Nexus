@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Link, useEffect } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link, useEffect } from 'react-router-dom';
 import { Users } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { Login } from './pages/Login';
@@ -128,7 +128,7 @@ function LandingPage() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <EmailConfirmationHandler />
       <Routes>
         <Route path="/" element={<LandingPage />} />
@@ -142,7 +142,7 @@ function App() {
         <Route path="/groups/:groupId" element={<GroupDetail />} />
         <Route path="/games" element={<Games />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

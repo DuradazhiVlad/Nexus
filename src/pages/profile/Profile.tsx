@@ -3,7 +3,7 @@ import { Sidebar } from '../../components/Sidebar';
 import { DatabaseService, DatabaseUser } from '../../../lib/database';
 import { Camera, Settings, Upload, X, Edit3, MapPin, Calendar, Briefcase, GraduationCap, Phone, Globe, Eye, EyeOff, ChevronLeft, ChevronRight, Image, Trash2, Palette } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { PhotoFilters } from '../../components/profile/PhotoFilters';
+import { PhotoFilters } from './PhotoFilters';
 
 interface Media {
   id: string;
@@ -85,7 +85,7 @@ export function Profile() {
     e.preventDefault();
     setDragOver(false);
     
-    const files = Array.from(e.dataTransfer.files);
+    const files = Array.from(e.dataTransfer.files) as File[];
     const imageFiles = files.filter(file => file.type.startsWith('image/')).slice(0, 10); // Максимум 10 фото
     
     if (imageFiles.length === 1) {
@@ -103,7 +103,7 @@ export function Profile() {
   };
 
   const handleMultipleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+    const files = Array.from(e.target.files || []) as File[];
     const imageFiles = files.filter(file => file.type.startsWith('image/')).slice(0, 10);
     
     if (imageFiles.length > 0) {
