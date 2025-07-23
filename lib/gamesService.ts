@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from '../src/lib/supabase';
 import { DatabaseService } from './database';
 import { Game, GameRating, GamePlay, GameCategory } from '../types/games';
 

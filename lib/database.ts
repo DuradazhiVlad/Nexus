@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from '../src/lib/supabase';
 
 export interface DatabaseUser {
   id: string;
@@ -228,6 +228,33 @@ export class DatabaseService {
     } catch (error) {
       console.error('Error loading media:', error);
       return [];
+    }
+  }
+
+  // Create a new post
+  static async createPost(content: string, images: string[]): Promise<boolean> {
+    try {
+      const currentUser = await this.getCurrentUserProfile();
+      if (!currentUser) {
+        return false;
+      }
+      const { error } = await supabase
+        .from('posts')
+        .insert([
+          {
+            user_id: currentUser.id,
+            content,
+            images,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+      if (error) {
+        throw error;
+      }
+      return true;
+    } catch (error) {
+      console.error('Error creating post:', error);
+      return false;
     }
   }
 }

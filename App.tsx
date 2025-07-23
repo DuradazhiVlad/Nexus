@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import { Users } from 'lucide-react';
-import { supabase } from './lib/supabase';
+import { supabase } from './src/lib/supabase';
 import { Login } from './src/pages/Login';
 import { Register } from './src/pages/Register';
 import { Profile } from './src/pages/profile/Profile';

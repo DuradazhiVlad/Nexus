@@ -62,11 +62,15 @@ export function People() {
       if (error) throw error;
 
       // Фільтруємо поточного користувача зі списку
-      const otherUsers = data?.filter(user => user.auth_user_id !== authUser.id) || [];
+      let otherUsers = data?.filter(user => user.auth_user_id !== authUser.id) || [];
+      // Додаємо фільтрацію: не показувати користувачів з помилками (без id, name, lastName, email)
+      otherUsers = otherUsers.filter(user => user && user.id && user.name && user.lastName && user.email);
       setUsers(otherUsers);
       setFilteredUsers(otherUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
+      setUsers([]);
+      setFilteredUsers([]);
     } finally {
       setLoading(false);
     }

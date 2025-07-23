@@ -5,6 +5,7 @@ import { Camera, Settings, Upload, X, Edit3, MapPin, Calendar, Briefcase, Gradua
 import { useNavigate } from 'react-router-dom';
 import { PhotoFilters } from './PhotoFilters';
 import { useForm } from 'react-hook-form';
+import { supabase } from '../../lib/supabase';
 // import { Tabs, Tab } from '@headlessui/react'; // Видаляємо, бо не використовується
 
 interface Media {
@@ -54,6 +55,7 @@ export function Profile() {
   const fileInputRef = useRef(null);
   const multiFileInputRef = useRef(null);
   const navigate = useNavigate();
+  const [postContent, setPostContent] = useState('');
 
   // Додаємо стейт для модалки редагування профілю
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -242,26 +244,43 @@ export function Profile() {
   };
 
   const createPost = async () => {
-    if (selectedFiles.length === 0) return;
-    
+    if (selectedFiles.length === 0 && !postContent.trim()) return;
     setUploading(true);
     try {
-      // В реальному додатку тут би було завантаження на сервер
-      // Поки що просто симулюємо успішне створення поста
-      console.log('Creating post with', selectedFiles.length, 'images');
-      
-      // Очищуємо preview URLs
-      previewUrls.forEach(url => URL.revokeObjectURL(url));
-      
-      setSelectedFiles([]);
-      setPreviewUrls([]);
-      setShowCreatePost(false);
-      setCurrentImageIndex(0);
-      
-      // Тут можна додати логіку збереження поста в базу даних
-      
+      // 1. Завантажити всі зображення у Supabase Storage
+      const uploadedUrls: string[] = [];
+      for (const file of selectedFiles) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}_${Date.now()}_${Math.random().toString(36).substr(2, 8)}.${fileExt}`;
+        const { data, error } = await supabase.storage.from('post-images').upload(fileName, file);
+        if (error) throw error;
+        const { data: publicUrlData } = supabase.storage.from('post-images').getPublicUrl(fileName);
+        uploadedUrls.push(publicUrlData.publicUrl);
+      }
+      // 2. Зберегти пост у базу
+      const success = await DatabaseService.createPost(postContent, uploadedUrls);
+      if (success) {
+        setPosts([
+          {
+            id: Date.now().toString(),
+            author: user,
+            content: postContent,
+            images: uploadedUrls,
+            created_at: new Date().toISOString(),
+            likes: 0,
+            comments: 0,
+          },
+          ...posts,
+        ]);
+        setPostContent('');
+        setSelectedFiles([]);
+        setPreviewUrls([]);
+        setShowCreatePost(false);
+        setCurrentImageIndex(0);
+      }
     } catch (error) {
       console.error('Error creating post:', error);
+      setError('Помилка при створенні поста');
     } finally {
       setUploading(false);
     }
@@ -725,6 +744,8 @@ export function Profile() {
                     placeholder="Додайте підпис..."
                     className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                     maxLength={500}
+                    value={postContent}
+                    onChange={e => setPostContent(e.target.value)}
                   />
 
                   {/* Image thumbnails */}
