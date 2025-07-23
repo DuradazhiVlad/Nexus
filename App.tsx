@@ -1,16 +1,16 @@
-import React from 'react';
-import { HashRouter, Routes, Route, Link, useEffect } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, Link } from 'react-router-dom';
 import { Users } from 'lucide-react';
 import { supabase } from './lib/supabase';
-import { Login } from './pages/Login';
-import { Register } from './pages/Register';
-import { Profile } from './pages/profile/Profile';
-import { Messages } from './pages/Messages';
-import { Friends } from './pages/Friends';
-import { Settings } from './pages/Settings';
-import { Groups } from './pages/Groups';
-import { GroupDetail } from './pages/GroupDetail';
-import { Games } from './pages/Games';
+import { Login } from './src/pages/Login';
+import { Register } from './src/pages/Register';
+import { Profile } from './src/pages/profile/Profile';
+import { Messages } from './src/pages/Messages';
+import { Friends } from './src/pages/Friends';
+import { Settings } from './src/pages/Settings';
+import { Groups } from './src/pages/Groups';
+import { GroupDetail } from './src/pages/GroupDetail';
+import { Games } from './Games';
 
 // Email confirmation handler component
 function EmailConfirmationHandler() {
@@ -128,7 +128,7 @@ function LandingPage() {
 
 function App() {
   return (
-    <HashRouter>
+    <>
       <EmailConfirmationHandler />
       <Routes>
         <Route path="/" element={<LandingPage />} />
@@ -142,7 +142,7 @@ function App() {
         <Route path="/groups/:groupId" element={<GroupDetail />} />
         <Route path="/games" element={<Games />} />
       </Routes>
-    </HashRouter>
+    </>
   );
 }
 

@@ -34,14 +34,13 @@ export function Register() {
               name,
               lastName,
               email,
-              password,
               date: new Date().toISOString(),
             }
           ]);
 
         if (profileError) throw profileError;
 
-        navigate('/profile');
+        navigate('/profile/confirm');
       }
     } catch (err: any) {
       console.error('Registration error:', err);

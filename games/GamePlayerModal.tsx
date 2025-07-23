@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Star, MessageSquare, RotateCcw, Maximize2, Play } from 'lucide-react';
 import { Game, GameRating } from '../../types/games';
-import { GamesService } from '../../lib/gamesService';
+import { GamesService } from '../lib/gamesService';
 
 interface GamePlayerModalProps {
   game: Game;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link } from 'react-router-dom';
 import { Users } from 'lucide-react';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -10,6 +10,7 @@ import { Friends } from './pages/Friends';
 import { Settings } from './pages/Settings';
 import { Groups } from './pages/Groups';
 import { GroupDetail } from './pages/GroupDetail';
+import ConfirmProfile from './pages/profile/ConfirmProfile';
 
 function LandingPage() {
   return (
@@ -78,12 +79,13 @@ function LandingPage() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/profile/confirm" element={<ConfirmProfile />} />
         <Route path="/people" element={<People />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/friends" element={<Friends />} />
@@ -91,7 +93,7 @@ function App() {
         <Route path="/groups" element={<Groups />} />
         <Route path="/groups/:groupId" element={<GroupDetail />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

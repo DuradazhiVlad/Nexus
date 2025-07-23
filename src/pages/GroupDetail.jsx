@@ -35,6 +35,11 @@ export function GroupDetail() {
   const [newPost, setNewPost] = useState('');
   const [selectedMedia, setSelectedMedia] = useState([]);
   const [posting, setPosting] = useState(false);
+  // Додаємо стейт для редагування опису та аватара
+  const [editMode, setEditMode] = useState(false);
+  const [editDescription, setEditDescription] = useState('');
+  const [editAvatar, setEditAvatar] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -424,6 +429,12 @@ export function GroupDetail() {
                   >
                     Учасники ({members.length})
                   </button>
+                  <button
+                    onClick={() => setActiveTab('info')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'info' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                  >
+                    Інформація
+                  </button>
                 </div>
               </div>
 
@@ -673,6 +684,85 @@ export function GroupDetail() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'info' && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 max-w-xl mx-auto">
+                  <div className="flex flex-col items-center">
+                    <div className="relative w-24 h-24 mb-4">
+                      <img
+                        src={editAvatar ? URL.createObjectURL(editAvatar) : group.avatar || ''}
+                        alt="Group avatar"
+                        className="w-24 h-24 rounded-full object-cover border border-gray-200"
+                      />
+                      {isAdmin && (
+                        <label className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-1 cursor-pointer hover:bg-blue-700">
+                          <Upload size={16} />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={e => setEditAvatar(e.target.files[0])}
+                          />
+                        </label>
+                      )}
+                    </div>
+                    <h2 className="text-2xl font-bold mb-2">{group.name}</h2>
+                    <div className="text-gray-600 mb-2">Створено: {formatDate(group.created_at)}</div>
+                    <div className="text-gray-600 mb-2">Адміністратор: {members.find(m => m.role === 'admin')?.user?.name || '—'}</div>
+                    {editMode ? (
+                      <>
+                        <textarea
+                          className="w-full border rounded p-2 mb-2"
+                          rows={3}
+                          value={editDescription}
+                          onChange={e => setEditDescription(e.target.value)}
+                        />
+                        <div className="flex space-x-2">
+                          <button
+                            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            disabled={saving}
+                            onClick={async () => {
+                              setSaving(true);
+                              let avatarUrl = group.avatar;
+                              if (editAvatar) {
+                                const fileExt = editAvatar.name.split('.').pop();
+                                const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+                                const filePath = `group-avatars/${groupId}/${fileName}`;
+                                const { error: uploadError } = await supabase.storage.from('media').upload(filePath, editAvatar);
+                                if (!uploadError) {
+                                  const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(filePath);
+                                  avatarUrl = publicUrl;
+                                }
+                              }
+                              const { error } = await supabase.from('groups').update({ description: editDescription, avatar: avatarUrl }).eq('id', groupId);
+                              if (!error) {
+                                setGroup({ ...group, description: editDescription, avatar: avatarUrl });
+                                setEditMode(false);
+                                setEditAvatar(null);
+                              }
+                              setSaving(false);
+                            }}
+                          >Зберегти</button>
+                          <button
+                            className="px-4 py-2 border rounded hover:bg-gray-100"
+                            onClick={() => { setEditMode(false); setEditDescription(group.description || ''); setEditAvatar(null); }}
+                          >Скасувати</button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="mb-4 text-gray-800 w-full text-center min-h-[48px]">{group.description || 'Опис відсутній'}</div>
+                        {isAdmin && (
+                          <button
+                            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                            onClick={() => { setEditMode(true); setEditDescription(group.description || ''); }}
+                          >Редагувати опис</button>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               )}

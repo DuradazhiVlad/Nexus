@@ -21,6 +21,10 @@ interface UserSettings {
     showBirthDate: boolean;
     showEmail: boolean;
   };
+  familyStatus: string;
+  status: string;
+  phone: string;
+  website: string;
 }
 
 export function Settings() {
@@ -44,6 +48,10 @@ export function Settings() {
       showBirthDate: true,
       showEmail: false,
     },
+    familyStatus: '',
+    status: '',
+    phone: '',
+    website: '',
   });
 
   useEffect(() => {
@@ -103,6 +111,10 @@ export function Settings() {
           birthDate: settings.birthDate,
           notifications: settings.notifications,
           privacy: settings.privacy,
+          familyStatus: settings.familyStatus,
+          status: settings.status,
+          phone: settings.phone,
+          website: settings.website,
         })
         .eq('auth_user_id', authUser.id);
 
@@ -168,9 +180,7 @@ export function Settings() {
                       <input
                         type="text"
                         value={settings.name}
-                        onChange={(e) =>
-                          setSettings({ ...settings, name: e.target.value })
-                        }
+                        onChange={(e) => setSettings({ ...settings, name: e.target.value })}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       />
                     </div>
@@ -181,9 +191,82 @@ export function Settings() {
                       <input
                         type="text"
                         value={settings.lastName}
-                        onChange={(e) =>
-                          setSettings({ ...settings, lastName: e.target.value })
-                        }
+                        onChange={(e) => setSettings({ ...settings, lastName: e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Місто
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.city || ''}
+                        onChange={(e) => setSettings({ ...settings, city: e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Сімейний стан
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.familyStatus || ''}
+                        onChange={(e) => setSettings({ ...settings, familyStatus: e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Статус
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.status || ''}
+                        onChange={(e) => setSettings({ ...settings, status: e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Телефон
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.phone || ''}
+                        onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Веб-сайт
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.website || ''}
+                        onChange={(e) => setSettings({ ...settings, website: e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Дата народження
+                      </label>
+                      <input
+                        type="date"
+                        value={settings.birthDate || ''}
+                        onChange={(e) => setSettings({ ...settings, birthDate: e.target.value })}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       />
                     </div>
@@ -195,41 +278,10 @@ export function Settings() {
                     </label>
                     <textarea
                       value={settings.bio}
-                      onChange={(e) =>
-                        setSettings({ ...settings, bio: e.target.value })
-                      }
+                      onChange={(e) => setSettings({ ...settings, bio: e.target.value })}
                       rows={4}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Місто
-                      </label>
-                      <input
-                        type="text"
-                        value={settings.city}
-                        onChange={(e) =>
-                          setSettings({ ...settings, city: e.target.value })
-                        }
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Дата народження
-                      </label>
-                      <input
-                        type="date"
-                        value={settings.birthDate}
-                        onChange={(e) =>
-                          setSettings({ ...settings, birthDate: e.target.value })
-                        }
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      />
-                    </div>
                   </div>
 
                   <div className="flex justify-end">

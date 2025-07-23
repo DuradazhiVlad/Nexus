@@ -34,33 +34,33 @@ type ExtendedDatabaseUser = DatabaseUser & {
 };
 
 export function Profile() {
-  const [user, setUser] = useState<ExtendedDatabaseUser | null>(null);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [media, setMedia] = useState<Media[]>([]);
-  const [error, setError] = useState<string>('');
+  const [media, setMedia] = useState([]);
+  const [error, setError] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showDetailedInfo, setShowDetailedInfo] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [previewUrls, setPreviewUrls] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [showPhotoEditor, setShowPhotoEditor] = useState(false);
-  const [editingImageUrl, setEditingImageUrl] = useState<string>('');
-  const [editingImageIndex, setEditingImageIndex] = useState<number>(-1);
-  const [friends, setFriends] = useState<DatabaseUser[]>([]);
-  const [groups, setGroups] = useState<any[]>([]); // Заглушка для груп
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const multiFileInputRef = useRef<HTMLInputElement>(null);
+  const [editingImageUrl, setEditingImageUrl] = useState('');
+  const [editingImageIndex, setEditingImageIndex] = useState(-1);
+  const [friends, setFriends] = useState([]); // DatabaseUser[]
+  const [groups, setGroups] = useState([]); // any[]
+  const fileInputRef = useRef(null);
+  const multiFileInputRef = useRef(null);
   const navigate = useNavigate();
 
   // Додаємо стейт для модалки редагування профілю
   const [showEditProfile, setShowEditProfile] = useState(false);
   // Додаємо стейт для вкладок медіа
-  const [mediaTab, setMediaTab] = useState<'photo' | 'video' | 'album'>('photo');
+  const [mediaTab, setMediaTab] = useState('photo');
   // Мок-пости
-  const [posts, setPosts] = useState<Post[]>([
+  const [posts, setPosts] = useState([
     {
       id: '1',
       author: user || { id: '', name: 'User', lastName: '', avatar: '' },
@@ -123,17 +123,17 @@ export function Profile() {
     loadProfile();
   }, [navigate]);
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e) => {
     e.preventDefault();
     setDragOver(true);
   };
 
-  const handleDragLeave = (e: React.DragEvent) => {
+  const handleDragLeave = (e) => {
     e.preventDefault();
     setDragOver(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = (e) => {
     e.preventDefault();
     setDragOver(false);
     
@@ -147,14 +147,14 @@ export function Profile() {
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
     if (file && file.type.startsWith('image/')) {
       handleFileUpload(file);
     }
   };
 
-  const handleMultipleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMultipleFileSelect = (e) => {
     const files = Array.from(e.target.files || []) as File[];
     const imageFiles = files.filter(file => file.type.startsWith('image/')).slice(0, 10);
     
@@ -385,52 +385,48 @@ export function Profile() {
       <Sidebar />
       <div className="flex-1 ml-64">
         <div className="max-w-4xl mx-auto">
-          {/* Cover + Avatar */}
+          {/* Cover + Avatar + Name */}
           <div className="relative h-60 bg-gradient-to-r from-blue-400 to-blue-600 rounded-b-2xl shadow-md">
-            {/* Cover (можна додати зміну обкладинки) */}
             <img
               src={user.cover || 'https://vk.com/images/cover_default.jpg'}
               alt="Cover"
               className="w-full h-60 object-cover rounded-b-2xl"
               style={{ objectPosition: 'center' }}
             />
-            {/* Avatar */}
-            <div className="absolute left-8 -bottom-16 w-40 h-40 rounded-full border-4 border-white bg-gray-200 overflow-hidden shadow-lg">
-              {user.avatar ? (
-                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600">
-                  <span className="text-5xl text-white font-bold">{user.name?.[0]?.toUpperCase() || '?'}</span>
+            {/* Avatar + Name/Lastname */}
+            <div className="absolute left-8 -bottom-16 flex items-center space-x-8">
+              <div className="w-40 h-40 rounded-full border-4 border-white bg-gray-200 overflow-hidden shadow-lg">
+                {user.avatar ? (
+                  <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-blue-600">
+                    <span className="text-5xl text-white font-bold">{user.name?.[0]?.toUpperCase() || '?'}</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col justify-center">
+                <h1 className="text-3xl font-bold text-gray-900 whitespace-nowrap">{user.name} {user.lastName}</h1>
+                <div className="text-gray-600 mt-1">{user.status || 'Вітаю у моєму профілі!'}</div>
+                <div className="flex items-center text-sm text-gray-500 mt-2 space-x-4">
+                  {user.city && <span><MapPin size={14} className="inline mr-1" />{user.city}</span>}
+                  {user.birthDate && <span><Calendar size={14} className="inline mr-1" />{formatDate(user.birthDate)}</span>}
+                  {user.phone && <span><Phone size={14} className="inline mr-1" />{user.phone}</span>}
+                  {user.website && <span><Globe size={14} className="inline mr-1" />{user.website}</span>}
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Main Info */}
-          <div className="pt-20 px-8 flex flex-col md:flex-row md:items-end md:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{user.name} {user.lastName}</h1>
-              <div className="text-gray-600 mt-1">{user.status || 'Вітаю у моєму профілі!'}</div>
-              <div className="flex items-center text-sm text-gray-500 mt-2 space-x-4">
-                {user.city && <span><MapPin size={14} className="inline mr-1" />{user.city}</span>}
-                {user.birthDate && <span><Calendar size={14} className="inline mr-1" />{formatDate(user.birthDate)}</span>}
-                {user.phone && <span><Phone size={14} className="inline mr-1" />{user.phone}</span>}
-                {user.website && <span><Globe size={14} className="inline mr-1" />{user.website}</span>}
+                <div className="flex space-x-3 mt-4">
+                  <button className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">Написати</button>
+                  <button className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300">Додати у друзі</button>
+                  <button onClick={() => setShowEditProfile(true)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center"><Edit3 size={16} className="mr-2" />Редагувати</button>
+                </div>
               </div>
             </div>
-            <div className="flex space-x-3 mt-4 md:mt-0">
-              <button className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">Написати</button>
-              <button className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300">Додати у друзі</button>
-              <button onClick={() => setShowEditProfile(true)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center"><Edit3 size={16} className="mr-2" />Редагувати</button>
-            </div>
           </div>
 
-          {/* Info blocks */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8 px-8">
-            {/* About */}
-            <div className="bg-white rounded-xl shadow-sm p-6 col-span-1">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Інформація</h2>
-              <div className="space-y-2 text-gray-700">
+          {/* Особиста інформація - під аватаркою */}
+          <div className="px-8 pt-28">
+            <div className="bg-white rounded-2xl shadow-md p-8 mb-8 w-full max-w-2xl mx-auto">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Особиста інформація</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-700 text-lg">
                 <div><b>Місто:</b> {user.city || 'Не вказано'}</div>
                 <div><b>День народження:</b> {formatDate(user.birthDate)}</div>
                 <div><b>Мова:</b> Українська</div>
@@ -439,6 +435,10 @@ export function Profile() {
                 <div><b>Веб-сайт:</b> {user.website || 'Не вказано'}</div>
               </div>
             </div>
+          </div>
+
+          {/* Info blocks (без About) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2 px-8">
             {/* Friends */}
             <div className="bg-white rounded-xl shadow-sm p-6 col-span-1">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Друзі ({friends.length})</h2>
