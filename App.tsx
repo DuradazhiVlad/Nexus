@@ -10,6 +10,8 @@ import { Friends } from './src/pages/Friends';
 import { Settings } from './src/pages/Settings';
 import { Groups } from './src/pages/Groups';
 import { GroupDetail } from './src/pages/GroupDetail';
+import { People } from './src/pages/People';
+import { Users } from './src/pages/Users';
 import { Games } from './Games';
 
 // Email confirmation handler component
@@ -137,6 +139,8 @@ function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/friends" element={<Friends />} />
+        <Route path="/people" element={<People />} />
+        <Route path="/users" element={<Users />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/groups" element={<Groups />} />
         <Route path="/groups/:groupId" element={<GroupDetail />} />
