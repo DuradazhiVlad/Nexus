@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
-import { Users } from 'lucide-react';
+import { Users as UsersIcon } from 'lucide-react';
 import { supabase } from './src/lib/supabase';
 import { Login } from './src/pages/Login';
 import { Register } from './src/pages/Register';
@@ -11,7 +11,6 @@ import { Settings } from './src/pages/Settings';
 import { Groups } from './src/pages/Groups';
 import { GroupDetail } from './src/pages/GroupDetail';
 import { People } from './src/pages/People';
-import { Users } from './src/pages/Users';
 import { Games } from './Games';
 
 // Email confirmation handler component
@@ -140,7 +139,6 @@ function App() {
         <Route path="/messages" element={<Messages />} />
         <Route path="/friends" element={<Friends />} />
         <Route path="/people" element={<People />} />
-        <Route path="/users" element={<Users />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/groups" element={<Groups />} />
         <Route path="/groups/:groupId" element={<GroupDetail />} />
