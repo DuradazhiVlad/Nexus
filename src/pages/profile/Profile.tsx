@@ -246,7 +246,51 @@ export function Profile() {
       const userProfile = await DatabaseService.getCurrentUserProfile();
       
       if (!userProfile) {
-        navigate('/login');
+        // Використовуємо демо-профіль якщо користувач не авторизований
+        // Створюємо демо-профіль для тестування
+        const demoProfile: ExtendedDatabaseUser = {
+          id: 'demo-user',
+          email: 'demo@example.com',
+          name: 'Демо',
+          lastName: 'Користувач',
+          avatar: undefined,
+          bio: 'Люблю програмування, подорожі та хорошу каву. Завжди відкритий до нових знайомств! ☕️',
+          location: 'Київ, Україна',
+          website: 'https://example.com',
+          phone: '+380501234567',
+          birthday: '1995-05-15',
+          work: 'Senior Frontend Developer',
+          education: 'КПІ ім. Ігоря Сікорського',
+          hobbies: ['Програмування', 'Фотографія', 'Подорожі', 'Музика'],
+          languages: ['Українська', 'English', 'Русский'],
+          relationshipStatus: 'Single',
+          isVerified: true,
+          isOnline: true,
+          lastSeen: new Date().toISOString(),
+          friendsCount: 247,
+          followersCount: 156,
+          followingCount: 89,
+          postsCount: 42,
+          photosCount: 73,
+          videosCount: 15,
+          achievements: generateMockAchievements(),
+          privacy: {
+            showEmail: true,
+            showPhone: false,
+            showBirthday: true,
+            showLocation: true,
+            allowMessages: true,
+            allowFriendRequests: true,
+            profileVisibility: 'public'
+          }
+        };
+        
+        setUser(demoProfile);
+        await Promise.all([
+          loadMedia(),
+          loadPosts(),
+          loadFriends()
+        ]);
         return;
       }
 

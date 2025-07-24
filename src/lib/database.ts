@@ -26,10 +26,14 @@ export class DatabaseService {
   // Get current user profile or create if doesn't exist
   static async getCurrentUserProfile(): Promise<DatabaseUser | null> {
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('Auth error:', authError);
+        return null;
+      }
       
       if (!authUser?.email) {
-        console.log('No authenticated user found');
         return null;
       }
 
