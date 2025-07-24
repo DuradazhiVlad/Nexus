@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist",
+    "deploy:force": "npm run build && gh-pages -d dist --force"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.4",
