@@ -109,53 +109,31 @@ export class DatabaseService {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
       if (authError) {
-        console.error('Auth error:', authError);
+        console.error('Auth error:', authError.message);
         return null;
       }
       
       if (!authUser?.id) {
+        console.log('No authenticated user found');
         return null;
       }
 
-      // Try different approaches to find the user
-      let existingUser = null;
-      let fetchError = null;
-
-      // First try with auth_user_id if column exists
-      const { data: authUserData, error: authUserError } = await supabase
+      // Look for user by ID (since users.id = auth.users.id in the new structure)
+      const { data: existingUser, error: fetchError } = await supabase
         .from('users')
         .select('*')
-        .eq('auth_user_id', authUser.id)
+        .eq('id', authUser.id)
         .single();
 
-      // Check if the error is about missing column
-      if (authUserError && authUserError.code === '42703') {
-        // Column doesn't exist, try with email
-        const { data: emailUserData, error: emailUserError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('email', authUser.email)
-          .single();
-        
-        if (!emailUserError) {
-          existingUser = emailUserData;
-        } else {
-          fetchError = emailUserError;
-        }
-      } else if (!authUserError) {
-        existingUser = authUserData;
-      } else {
-        fetchError = authUserError;
-      }
-
-      if (fetchError && fetchError.code === 'PGRST116') {
-        // User doesn't exist, create new profile
-        return await this.createUserProfile(authUser);
-      }
-
       if (fetchError) {
-        console.error('Error fetching user profile:', fetchError);
-        return null;
+        if (fetchError.code === 'PGRST116') {
+          // User doesn't exist, create new profile
+          console.log('Creating new user profile for:', authUser.email);
+          return await this.createUserProfile(authUser);
+        } else {
+          console.error('Error fetching user profile:', fetchError.message);
+          return null;
+        }
       }
 
       return existingUser;
@@ -168,21 +146,26 @@ export class DatabaseService {
   // Create new user profile
   private static async createUserProfile(authUser: any): Promise<DatabaseUser | null> {
     try {
-      // Start with basic data that should exist in any users table
-      const basicUserData = {
+      const newUserData = {
+        id: authUser.id, // Use auth user ID directly
         email: authUser.email,
         name: authUser.user_metadata?.name || 
               authUser.user_metadata?.full_name?.split(' ')[0] || 
               authUser.email?.split('@')[0] || 
               'User',
-      };
-
-      // Start with basic user data and add lastname
-      let newUserData = {
-        ...basicUserData,
         lastname: authUser.user_metadata?.lastname || 
                   authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || 
-                  'Дурадажи'
+                  '',
+        notifications: {
+          email: true,
+          messages: true,
+          friendRequests: true
+        },
+        privacy: {
+          profileVisibility: 'public' as const,
+          showBirthDate: true,
+          showEmail: false
+        }
       };
 
       const { data: newUser, error: insertError } = await supabase
@@ -192,10 +175,11 @@ export class DatabaseService {
         .single();
 
       if (insertError) {
-        console.error('Error creating user profile:', insertError);
+        console.error('Error creating user profile:', insertError.message);
         return null;
       }
 
+      console.log('Successfully created user profile:', newUser);
       return newUser;
     } catch (error) {
       console.error('Error creating user profile:', error);
@@ -217,7 +201,8 @@ export class DatabaseService {
         .limit(10);
 
       if (error) {
-        throw error;
+        console.error('Error searching users:', error.message);
+        return [];
       }
 
       return data || [];
@@ -227,19 +212,39 @@ export class DatabaseService {
     }
   }
 
-  // Get all users
+  // Get all users with proper error handling
   static async getAllUsers(): Promise<DatabaseUser[]> {
     try {
+      // First check if user is authenticated
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !authUser) {
+        console.error('User not authenticated for getAllUsers');
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
-        throw error;
+        console.error('Error fetching all users:', error.message);
+        return [];
       }
 
-      return data || [];
+      // Filter out invalid users and ensure required fields
+      const validUsers = (data || []).filter(user => 
+        user && 
+        user.id && 
+        user.name && 
+        user.email &&
+        user.name.trim() !== '' &&
+        user.email.trim() !== ''
+      );
+
+      console.log(`Fetched ${validUsers.length} valid users out of ${data?.length || 0} total`);
+      return validUsers;
     } catch (error) {
       console.error('Error fetching all users:', error);
       return [];
@@ -296,38 +301,18 @@ export class DatabaseService {
       }
 
       // Remove non-database fields
-      const { id, auth_user_id, ...safeUpdates } = updates;
+      const { id, ...safeUpdates } = updates;
 
-      // Try to update using auth_user_id first, then fall back to email
-      let data = null;
-      let error = null;
-
-      const authResult = await supabase
+      const { data, error } = await supabase
         .from('users')
         .update(safeUpdates)
-        .eq('auth_user_id', authUser.id)
+        .eq('id', authUser.id) // Use direct ID match
         .select()
         .single();
 
-      // Check if the error is about missing column
-      if (authResult.error && authResult.error.code === '42703') {
-        // Column doesn't exist, try with email
-        const emailResult = await supabase
-          .from('users')
-          .update(safeUpdates)
-          .eq('email', authUser.email)
-          .select()
-          .single();
-        
-        data = emailResult.data;
-        error = emailResult.error;
-      } else {
-        data = authResult.data;
-        error = authResult.error;
-      }
-
       if (error) {
-        throw error;
+        console.error('Error updating user profile:', error.message);
+        return null;
       }
 
       return data;

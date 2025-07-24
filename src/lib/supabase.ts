@@ -7,4 +7,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey); 
+// Create a single instance of the Supabase client with proper configuration
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    storage: window.localStorage,
+    storageKey: 'nexus-supabase-auth'
+  },
+  global: {
+    headers: { 'x-my-custom-header': 'nexus-app' },
+  },
+}); 

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import { Users as UsersIcon } from 'lucide-react';
-import { supabase } from './src/lib/supabase';
+import { AuthService } from './src/lib/auth';
 import { Login } from './src/pages/Login';
 import { Register } from './src/pages/Register';
 import { Profile } from './src/pages/profile/Profile';
@@ -13,51 +13,12 @@ import { Groups } from './src/pages/Groups';
 import { GroupDetail } from './src/pages/GroupDetail';
 import { People } from './src/pages/People';
 import { Games } from './src/pages/Games';
+import { TestDB } from './src/pages/TestDB';
 
-// Email confirmation handler component
-function EmailConfirmationHandler() {
+// Auth initialization component
+function AuthInitializer() {
   useEffect(() => {
-    const handleAuthStateChange = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        // Check if user profile exists, create if not
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', session.user.email)
-          .single();
-
-        if (!existingUser) {
-          // Create user profile
-          await supabase
-            .from('users')
-            .insert([
-              {
-                name: session.user.user_metadata?.name || 
-                      session.user.user_metadata?.full_name?.split(' ')[0] || 
-                      session.user.email?.split('@')[0] || 'User',
-                lastName: session.user.user_metadata?.lastName || 
-                          session.user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
-                email: session.user.email,
-                date: new Date().toISOString(),
-                notifications: {
-                  email: true,
-                  messages: true,
-                  friendRequests: true,
-                },
-                privacy: {
-                  profileVisibility: 'public',
-                  showBirthDate: true,
-                  showEmail: false,
-                },
-              }
-            ]);
-        }
-      }
-    };
-
-    handleAuthStateChange();
+    AuthService.initialize();
   }, []);
 
   return null;
@@ -131,13 +92,13 @@ function LandingPage() {
 function App() {
   return (
     <>
-      <EmailConfirmationHandler />
+      <AuthInitializer />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-                    <Route path="/profile" element={<Profile />} />
-            <Route path="/reels" element={<Reels />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/reels" element={<Reels />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/friends" element={<Friends />} />
         <Route path="/people" element={<People />} />
@@ -145,6 +106,7 @@ function App() {
         <Route path="/groups" element={<Groups />} />
         <Route path="/groups/:groupId" element={<GroupDetail />} />
         <Route path="/games" element={<Games />} />
+        <Route path="/test-db" element={<TestDB />} />
       </Routes>
     </>
   );
