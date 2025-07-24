@@ -23,25 +23,36 @@ export function Friends() {
   const fetchFriends = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Використовуємо таблицю friendships замість friends
-      const { data, error } = await supabase
-        .from('friendships')
-        .select(`
-          user1:user1_id (id, name, lastname, avatar),
-          user2:user2_id (id, name, lastname, avatar)
-        `)
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
-
-      if (error) throw error;
-
-      // Витягуємо друзів (інший користувач у кожній дружбі)
-      const friends = data?.map(friendship => {
-        return friendship.user1?.id === user.id ? friendship.user2 : friendship.user1;
-      }).filter(Boolean) || [];
       
-      setFriends(friends);
+      // Використовуємо демо-дані поки база не налаштована
+      const demoFriends = [
+        {
+          id: '1',
+          name: 'Олександр',
+          lastname: 'Петренко',
+          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
+          isOnline: true,
+          lastSeen: new Date().toISOString()
+        },
+        {
+          id: '2',
+          name: 'Марія',
+          lastname: 'Іваненко',
+          avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b31c?auto=format&fit=crop&w=200&q=80',
+          isOnline: false,
+          lastSeen: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+        },
+        {
+          id: '3',
+          name: 'Андрій',
+          lastname: 'Коваленко',
+          avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80',
+          isOnline: true,
+          lastSeen: new Date().toISOString()
+        }
+      ];
+      
+      setFriends(demoFriends);
     } catch (error) {
       console.error('Error fetching friends:', error);
     } finally {

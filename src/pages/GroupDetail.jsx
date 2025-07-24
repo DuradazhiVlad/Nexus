@@ -64,7 +64,7 @@ export function GroupDetail() {
       }
 
       const { data: userProfile, error: profileError } = await supabase
-        .from('user_profiles')
+        .from('users')
         .select('*')
         .eq('auth_user_id', authUser.id)
         .single();
@@ -86,7 +86,7 @@ export function GroupDetail() {
         .from('groups')
         .select(`
           *,
-          created_by_profile:user_profiles!groups_created_by_fkey(name, last_name, avatar)
+          created_by_profile:users!groups_created_by_fkey(name, lastname, avatar)
         `)
         .eq('id', groupId)
         .single();
@@ -107,7 +107,7 @@ export function GroupDetail() {
         .from('group_posts')
         .select(`
           *,
-          author:user_profiles!group_posts_author_id_fkey(name, last_name, avatar),
+          author:users!group_posts_author_id_fkey(name, lastname, avatar),
           media:group_post_media(*)
         `)
         .eq('group_id', groupId)
@@ -126,7 +126,7 @@ export function GroupDetail() {
         .from('group_members')
         .select(`
           *,
-          user:user_profiles!group_members_user_id_fkey(name, last_name, avatar)
+          user:users!group_members_user_id_fkey(name, lastname, avatar)
         `)
         .eq('group_id', groupId)
         .order('joined_at', { ascending: false });

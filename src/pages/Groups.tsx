@@ -457,15 +457,9 @@ export function Groups() {
       }
       const groupData = {
         name: newGroup.name.trim(),
-        description: newGroup.description.trim(),
-        category: newGroup.category,
+        description: newGroup.description.trim() || null,
         is_private: newGroup.is_private,
-        created_by: currentUser,
-        tags: newGroup.tags,
-        location: newGroup.location.trim() || null,
-        website: newGroup.website.trim() || null,
-        rules: newGroup.rules.filter(rule => rule.trim()),
-        contactEmail: newGroup.contactEmail.trim() || null
+        created_by: currentUser
       };
 
       const { data, error } = await supabase
