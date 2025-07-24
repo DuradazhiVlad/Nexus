@@ -103,20 +103,33 @@ export interface Conversation {
 }
 
 export class DatabaseService {
+  // Перевірка чи користувач аутентифікований
+  private static async ensureAuthenticated() {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        console.error('Auth check failed:', error.message);
+        throw new Error(`Authentication failed: ${error.message}`);
+      }
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      return user;
+    } catch (error) {
+      console.error('Authentication error:', error);
+      throw error;
+    }
+  }
+
   // Get current user profile or create if doesn't exist
   static async getCurrentUserProfile(): Promise<DatabaseUser | null> {
     try {
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      const authUser = await this.ensureAuthenticated();
       
-      if (authError) {
-        console.error('Auth error:', authError.message);
-        return null;
-      }
-      
-      if (!authUser?.id) {
-        console.log('No authenticated user found');
-        return null;
-      }
+      console.log('Getting profile for user:', authUser.email);
 
       // Look for user by ID (since users.id = auth.users.id in the new structure)
       const { data: existingUser, error: fetchError } = await supabase
@@ -131,14 +144,37 @@ export class DatabaseService {
           console.log('Creating new user profile for:', authUser.email);
           return await this.createUserProfile(authUser);
         } else {
-          console.error('Error fetching user profile:', fetchError.message);
-          return null;
+          console.error('Error fetching user profile:', fetchError);
+          // Спробуємо знайти за email як fallback
+          return await this.findUserByEmail(authUser.email);
         }
       }
 
+      console.log('Found existing user profile:', existingUser);
       return existingUser;
     } catch (error) {
       console.error('Error getting current user profile:', error);
+      return null;
+    }
+  }
+
+  // Fallback метод пошуку користувача за email
+  private static async findUserByEmail(email: string): Promise<DatabaseUser | null> {
+    try {
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+      if (error) {
+        console.error('Error finding user by email:', error);
+        return null;
+      }
+
+      return user;
+    } catch (error) {
+      console.error('Error in findUserByEmail:', error);
       return null;
     }
   }
@@ -168,6 +204,8 @@ export class DatabaseService {
         }
       };
 
+      console.log('Creating user with data:', newUserData);
+
       const { data: newUser, error: insertError } = await supabase
         .from('users')
         .insert([newUserData])
@@ -175,15 +213,15 @@ export class DatabaseService {
         .single();
 
       if (insertError) {
-        console.error('Error creating user profile:', insertError.message);
-        return null;
+        console.error('Error creating user profile:', insertError);
+        throw new Error(`Failed to create user profile: ${insertError.message}`);
       }
 
       console.log('Successfully created user profile:', newUser);
       return newUser;
     } catch (error) {
       console.error('Error creating user profile:', error);
-      return null;
+      throw error;
     }
   }
 
@@ -194,6 +232,9 @@ export class DatabaseService {
         return [];
       }
 
+      // Перевіряємо аутентифікацію перед пошуком
+      await this.ensureAuthenticated();
+
       const { data, error } = await supabase
         .from('users')
         .select('id, name, lastname, avatar, email')
@@ -201,8 +242,8 @@ export class DatabaseService {
         .limit(10);
 
       if (error) {
-        console.error('Error searching users:', error.message);
-        return [];
+        console.error('Error searching users:', error);
+        throw new Error(`Search failed: ${error.message}`);
       }
 
       return data || [];
@@ -215,13 +256,9 @@ export class DatabaseService {
   // Get all users with proper error handling
   static async getAllUsers(): Promise<DatabaseUser[]> {
     try {
-      // First check if user is authenticated
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !authUser) {
-        console.error('User not authenticated for getAllUsers');
-        return [];
-      }
+      // Перевіряємо аутентифікацію
+      const authUser = await this.ensureAuthenticated();
+      console.log('Fetching all users for authenticated user:', authUser.email);
 
       const { data, error } = await supabase
         .from('users')
@@ -229,8 +266,8 @@ export class DatabaseService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching all users:', error.message);
-        return [];
+        console.error('Error fetching all users:', error);
+        throw new Error(`Failed to fetch users: ${error.message}`);
       }
 
       // Filter out invalid users and ensure required fields
@@ -247,6 +284,7 @@ export class DatabaseService {
       return validUsers;
     } catch (error) {
       console.error('Error fetching all users:', error);
+      // Повертаємо порожній масив замість викидання помилки для UI
       return [];
     }
   }
@@ -294,11 +332,7 @@ export class DatabaseService {
   // Update user profile
   static async updateUserProfile(updates: Partial<DatabaseUser>): Promise<DatabaseUser | null> {
     try {
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !authUser?.id) {
-        throw new Error('User not authenticated');
-      }
+      const authUser = await this.ensureAuthenticated();
 
       // Remove non-database fields
       const { id, ...safeUpdates } = updates;
@@ -311,8 +345,8 @@ export class DatabaseService {
         .single();
 
       if (error) {
-        console.error('Error updating user profile:', error.message);
-        return null;
+        console.error('Error updating user profile:', error);
+        throw new Error(`Failed to update profile: ${error.message}`);
       }
 
       return data;

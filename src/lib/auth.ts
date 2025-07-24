@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, auth } from './supabase';
 import { DatabaseService } from './database';
 import type { User } from '@supabase/supabase-js';
 
@@ -21,8 +21,10 @@ export class AuthService {
   // Initialize auth service
   static async initialize() {
     try {
+      console.log('Initializing AuthService...');
+      
       // Get current session
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const { data: { session }, error } = await auth.getSession();
       
       if (error) {
         console.error('Error getting session:', error.message);
@@ -31,6 +33,7 @@ export class AuthService {
       }
 
       if (session?.user) {
+        console.log('Found existing session for:', session.user.email);
         // Get user profile
         const profile = await DatabaseService.getCurrentUserProfile();
         this.updateState({ 
@@ -40,12 +43,13 @@ export class AuthService {
           error: null 
         });
       } else {
+        console.log('No existing session found');
         this.updateState({ user: null, profile: null, loading: false, error: null });
       }
 
       // Listen for auth changes
       supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.email);
+        console.log('Auth state change:', event, session?.user?.email || 'no user');
         
         if (session?.user) {
           const profile = await DatabaseService.getCurrentUserProfile();
@@ -76,10 +80,7 @@ export class AuthService {
     try {
       this.updateState({ ...this.currentState, loading: true, error: null });
       
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error } = await auth.signIn(email, password);
 
       if (error) {
         this.updateState({ ...this.currentState, loading: false, error: error.message });
@@ -99,14 +100,10 @@ export class AuthService {
     try {
       this.updateState({ ...this.currentState, loading: true, error: null });
       
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name: userData.name,
-            lastname: userData.lastname || '',
-          }
+      const { data, error } = await auth.signUp(email, password, {
+        data: {
+          name: userData.name,
+          lastname: userData.lastname || '',
         }
       });
 
@@ -126,7 +123,7 @@ export class AuthService {
   // Sign out
   static async signOut() {
     try {
-      const { error } = await supabase.auth.signOut();
+      const { error } = await auth.signOut();
       
       if (error) {
         console.error('Error signing out:', error.message);
