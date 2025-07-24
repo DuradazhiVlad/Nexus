@@ -5,6 +5,7 @@ import { supabase } from './src/lib/supabase';
 import { Login } from './src/pages/Login';
 import { Register } from './src/pages/Register';
 import { Profile } from './src/pages/profile/Profile';
+import { Reels } from './src/pages/Reels';
 import { Messages } from './src/pages/Messages';
 import { Friends } from './src/pages/Friends';
 import { Settings } from './src/pages/Settings';
@@ -135,7 +136,8 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/profile" element={<Profile />} />
+                    <Route path="/profile" element={<Profile />} />
+            <Route path="/reels" element={<Reels />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/friends" element={<Friends />} />
         <Route path="/people" element={<People />} />

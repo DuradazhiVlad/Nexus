@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { supabase } from '../lib/supabase';
+import { VideoUploadModal } from '../components/VideoUploadModal';
 import { 
   Search, 
   Plus, 
@@ -37,7 +38,8 @@ import {
   Flag,
   AlertCircle,
   CheckCircle,
-  Activity
+  Activity,
+  Video
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -120,6 +122,8 @@ export function Groups() {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showVideoUpload, setShowVideoUpload] = useState(false);
+  const [selectedGroupForVideo, setSelectedGroupForVideo] = useState<string>('');
   const [creating, setCreating] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -562,6 +566,18 @@ export function Groups() {
     });
   };
 
+  const handleVideoUpload = (groupId: string) => {
+    setSelectedGroupForVideo(groupId);
+    setShowVideoUpload(true);
+  };
+
+  const handleVideoUploadComplete = (videoData: any) => {
+    console.log('Video uploaded to group:', selectedGroupForVideo, videoData);
+    // Тут буде логіка завантаження відео в групу
+    setShowVideoUpload(false);
+    setSelectedGroupForVideo('');
+  };
+
   const resetFilters = () => {
     setFilters({
       category: '',
@@ -720,12 +736,24 @@ export function Groups() {
 
             <div className="flex flex-col space-y-2">
               {isCreator ? (
-                <button
-                  onClick={() => navigate(`/groups/${group.id}`)}
-                  className="px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium"
-                >
-                  Управління
-                </button>
+                <>
+                  <button
+                    onClick={() => navigate(`/groups/${group.id}`)}
+                    className="px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium"
+                  >
+                    Управління
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleVideoUpload(group.id);
+                    }}
+                    className="flex items-center justify-center space-x-1 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200 transition-colors"
+                  >
+                    <Video size={14} />
+                    <span>Додати відео</span>
+                  </button>
+                </>
               ) : userRole ? (
                 <div className="flex space-x-2">
                   <button
@@ -1394,6 +1422,17 @@ export function Groups() {
           </div>
         </div>
       )}
+
+      {/* Video Upload Modal */}
+      <VideoUploadModal
+        isOpen={showVideoUpload}
+        onClose={() => {
+          setShowVideoUpload(false);
+          setSelectedGroupForVideo('');
+        }}
+        onUpload={handleVideoUploadComplete}
+        groupId={selectedGroupForVideo}
+      />
     </div>
   );
 }
