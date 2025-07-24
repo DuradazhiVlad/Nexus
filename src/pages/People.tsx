@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { supabase } from '../lib/supabase';
+import { DatabaseService } from '../lib/database';
 import { 
   Search, 
   UserPlus, 

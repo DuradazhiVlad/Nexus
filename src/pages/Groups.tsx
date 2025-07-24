@@ -49,9 +49,9 @@ interface Group {
   description: string;
   avatar?: string;
   cover?: string;
-  isPrivate: boolean;
-  createdAt: string;
-  creatorId: string;
+  is_private: boolean;
+  created_at: string;
+  created_by: string;
   memberCount: number;
   postCount: number;
   category: string;
@@ -147,7 +147,7 @@ export function Groups() {
     name: '',
     description: '',
     category: '',
-    isPrivate: false,
+    is_private: false,
     avatar: null as File | null,
     cover: null as File | null,
     tags: [] as string[],
@@ -206,11 +206,39 @@ export function Groups() {
 
   const fetchGroups = async () => {
     try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (!authUser) {
+        // Використовуємо демо-дані якщо користувач не авторизований
+        const demoGroups: Group[] = [
+          {
+            id: '1',
+            name: 'Програмісти України',
+            description: 'Спільнота українських розробників',
+            avatar: undefined,
+            cover: undefined,
+            is_private: false,
+            created_at: new Date().toISOString(),
+            created_by: 'demo-user',
+            memberCount: 1245,
+            postCount: 156,
+            category: 'technology',
+            tags: ['JavaScript', 'Python', 'React'],
+            location: 'Київ',
+            rules: ['Будьте поважні', 'Використовуйте теги'],
+            contactEmail: 'admin@example.com',
+            website: 'https://example.com'
+          }
+        ];
+        setAllGroups(demoGroups);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('groups')
         .select('*')
-        .eq('isPrivate', false)
-        .order('createdAt', { ascending: false });
+        .eq('is_private', false)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
@@ -242,8 +270,8 @@ export function Groups() {
       const { data, error } = await supabase
         .from('groups')
         .select('*')
-        .eq('creatorId', currentUser)
-        .order('createdAt', { ascending: false });
+        .eq('created_by', currentUser)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setMyGroups(data || []);
@@ -262,7 +290,7 @@ export function Groups() {
         .select(`
           groups (*)
         `)
-        .eq('userId', currentUser)
+        .eq('user_id', currentUser)
         .eq('role', 'member');
 
       if (error) throw error;
@@ -282,8 +310,8 @@ export function Groups() {
         .select(`
           groups (*)
         `)
-        .eq('userId', currentUser)
-        .in('role', ['owner', 'admin', 'moderator']);
+        .eq('user_id', currentUser)
+        .in('role', ['admin', 'moderator']);
 
       if (error) throw error;
       setManagedGroups(data?.map(item => item.groups).filter(Boolean) || []);
@@ -369,7 +397,7 @@ export function Groups() {
 
     if (filters.privacy !== 'all') {
       filtered = filtered.filter(group => 
-        filters.privacy === 'public' ? !group.isPrivate : group.isPrivate
+        filters.privacy === 'public' ? !group.is_private : group.is_private
       );
     }
 
@@ -404,7 +432,7 @@ export function Groups() {
           else comparison = new Date(b.lastActivity || 0).getTime() - new Date(a.lastActivity || 0).getTime();
           break;
         case 'created':
-          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
           break;
         case 'popularity':
           comparison = (a.memberCount || 0) + (a.postCount || 0) - ((b.memberCount || 0) + (b.postCount || 0));
@@ -426,9 +454,8 @@ export function Groups() {
         name: newGroup.name.trim(),
         description: newGroup.description.trim(),
         category: newGroup.category,
-        isPrivate: newGroup.isPrivate,
-        creatorId: currentUser,
-        createdAt: new Date().toISOString(),
+        is_private: newGroup.is_private,
+        created_by: currentUser,
         tags: newGroup.tags,
         location: newGroup.location.trim() || null,
         website: newGroup.website.trim() || null,
@@ -524,7 +551,7 @@ export function Groups() {
   };
 
   const isGroupCreator = (group: Group) => {
-    return group.creatorId === currentUser;
+    return group.created_by === currentUser;
   };
 
   const toggleGroupSelection = (groupId: string) => {
@@ -555,7 +582,7 @@ export function Groups() {
       name: '',
       description: '',
       category: '',
-      isPrivate: false,
+      is_private: false,
       avatar: null,
       cover: null,
       tags: [],
@@ -684,7 +711,7 @@ export function Groups() {
                 {group.isVerified && (
                   <CheckCircle size={20} className="text-blue-500" />
                 )}
-                {group.isPrivate ? (
+                {group.is_private ? (
                   <Lock size={16} className="text-gray-400" />
                 ) : (
                   <Globe size={16} className="text-green-500" />
@@ -820,7 +847,7 @@ export function Groups() {
               {group.isVerified && (
                 <CheckCircle size={16} className="text-white" />
               )}
-              {group.isPrivate ? (
+              {group.is_private ? (
                 <Lock size={16} className="text-white" />
               ) : (
                 <Globe size={16} className="text-white" />
@@ -1389,8 +1416,8 @@ export function Groups() {
                   <label className="flex items-center">
                     <input
                       type="checkbox"
-                      checked={newGroup.isPrivate}
-                      onChange={(e) => setNewGroup(prev => ({ ...prev, isPrivate: e.target.checked }))}
+                      checked={newGroup.is_private}
+                      onChange={(e) => setNewGroup(prev => ({ ...prev, is_private: e.target.checked }))}
                       className="rounded border-gray-300 text-blue-600 mr-3"
                     />
                     <div>

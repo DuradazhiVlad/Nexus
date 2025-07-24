@@ -25,22 +25,23 @@ export function Friends() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Використовуємо таблицю friendships замість friends
       const { data, error } = await supabase
-        .from('friends')
+        .from('friendships')
         .select(`
-          friend_id,
-          friend:users!friend_id (
-            id,
-            name,
-            lastName,
-            avatar
-          )
+          user1:user1_id (id, name, lastname, avatar),
+          user2:user2_id (id, name, lastname, avatar)
         `)
-        .eq('user_id', user.id);
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
 
       if (error) throw error;
 
-      setFriends(data?.map(f => f.friend) || []);
+      // Витягуємо друзів (інший користувач у кожній дружбі)
+      const friends = data?.map(friendship => {
+        return friendship.user1?.id === user.id ? friendship.user2 : friendship.user1;
+      }).filter(Boolean) || [];
+      
+      setFriends(friends);
     } catch (error) {
       console.error('Error fetching friends:', error);
     } finally {
