@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { supabase } from '../lib/supabase';
-import { Search, UserPlus, MessageCircle, Calendar, MapPin, Mail } from 'lucide-react';
+import { Search, UserPlus, MessageCircle, Calendar, MapPin, Mail, UserCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface User {
@@ -61,12 +61,12 @@ export function People() {
 
       if (error) throw error;
 
-      // Фільтруємо поточного користувача зі списку
-      let otherUsers = data?.filter(user => user.auth_user_id !== authUser.id) || [];
+      // Показуємо всіх користувачів включно з поточним
+      let allUsers = data || [];
       // Додаємо фільтрацію: не показувати користувачів з помилками (без id, name, lastName, email)
-      otherUsers = otherUsers.filter(user => user && user.id && user.name && user.lastName && user.email);
-      setUsers(otherUsers);
-      setFilteredUsers(otherUsers);
+      allUsers = allUsers.filter(user => user && user.id && user.name && user.lastName && user.email);
+      setUsers(allUsers);
+      setFilteredUsers(allUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
       setUsers([]);
@@ -80,10 +80,27 @@ export function People() {
     try {
       if (!currentUser) return;
 
+      // Перевіряємо чи це не сам користувач
+      if (friendId === currentUser) {
+        alert('Ви не можете додати себе в друзі!');
+        return;
+      }
+
+      // Перевіряємо чи вже є запит на дружбу
+      const { data: existingRequest } = await supabase
+        .from('friends')
+        .select('*')
+        .or(`and(user_id.eq.${currentUser},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${currentUser})`);
+
+      if (existingRequest && existingRequest.length > 0) {
+        alert('Запит на дружбу вже існує!');
+        return;
+      }
+
       const { error } = await supabase
         .from('friends')
         .insert([
-          { user_id: currentUser, friend_id: friendId }
+          { user_id: currentUser, friend_id: friendId, status: 'pending' }
         ]);
 
       if (error) throw error;
@@ -120,8 +137,8 @@ export function People() {
       <div className="flex-1 ml-64 p-8">
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Люди</h1>
-            <p className="text-gray-600">Знайдіть нових друзів та розширте свою мережу</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Всі користувачі</h1>
+            <p className="text-gray-600">Перегляньте всіх зареєстрованих користувачів нашої соціальної мережі</p>
           </div>
 
           <div className="mb-6">
@@ -129,7 +146,7 @@ export function People() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
               <input
                 type="text"
-                placeholder="Пошук за ім'ям, прізвищем, email або містом"
+                placeholder="Пошук серед всіх користувачів за ім'ям, прізвищем, email або містом"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -139,7 +156,10 @@ export function People() {
 
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-gray-600">
-              Знайдено {filteredUsers.length} {filteredUsers.length === 1 ? 'користувач' : 'користувачів'}
+              {searchQuery 
+                ? `Знайдено ${filteredUsers.length} ${filteredUsers.length === 1 ? 'користувач' : 'користувачів'} з ${users.length}`
+                : `Всього ${filteredUsers.length} ${filteredUsers.length === 1 ? 'користувач' : 'користувачів'}`
+              }
             </p>
           </div>
 
@@ -197,19 +217,31 @@ export function People() {
                     </div>
 
                     <div className="flex space-x-2">
-                      <button
-                        onClick={e => { e.stopPropagation(); addFriend(user.auth_user_id); }}
-                        className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                      >
-                        <UserPlus size={16} className="mr-1" />
-                        Додати в друзі
-                      </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); navigate(`/messages?user=${user.id}`); }}
-                        className="flex items-center justify-center px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        <MessageCircle size={16} />
-                      </button>
+                      {user.auth_user_id === currentUser ? (
+                        <button
+                          className="flex-1 flex items-center justify-center px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium cursor-default"
+                          disabled
+                        >
+                          <UserCircle size={16} className="mr-1" />
+                          Це ви
+                        </button>
+                      ) : (
+                        <button
+                          onClick={e => { e.stopPropagation(); addFriend(user.auth_user_id); }}
+                          className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                        >
+                          <UserPlus size={16} className="mr-1" />
+                          Додати в друзі
+                        </button>
+                      )}
+                      {user.auth_user_id !== currentUser && (
+                        <button
+                          onClick={e => { e.stopPropagation(); navigate(`/messages?user=${user.id}`); }}
+                          className="flex items-center justify-center px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          <MessageCircle size={16} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
