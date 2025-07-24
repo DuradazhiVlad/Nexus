@@ -241,7 +241,7 @@ export function People() {
     if (searchQuery.trim() !== '') {
       filtered = filtered.filter(user =>
         user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (user.lastname || user.lastName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (user.city && user.city.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (user.bio && user.bio.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -483,7 +483,7 @@ export function People() {
                   />
                 ) : (
                   <span>
-                    {user.name[0]?.toUpperCase()}{user.lastName[0]?.toUpperCase()}
+                    {user.name?.[0]?.toUpperCase()}{(user.lastname || user.lastName)?.[0]?.toUpperCase()}
                   </span>
                 )}
                 {user.isOnline && (
@@ -495,7 +495,7 @@ export function People() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2">
                 <h3 className="text-lg font-semibold text-gray-900 truncate">
-                  {user.name} {user.lastName}
+                  {user.name} {user.lastname || user.lastName}
                 </h3>
                 {user.privacy?.profileVisibility === 'private' && (
                   <Lock size={16} className="text-gray-400" />
@@ -644,7 +644,7 @@ export function People() {
                   />
                 ) : (
                   <span>
-                    {user.name[0]?.toUpperCase()}{user.lastName[0]?.toUpperCase()}
+                    {user.name?.[0]?.toUpperCase()}{(user.lastname || user.lastName)?.[0]?.toUpperCase()}
                   </span>
                 )}
                 {user.isOnline && (
@@ -655,7 +655,7 @@ export function People() {
               <div className="ml-4 flex-1 min-w-0">
                 <div className="flex items-center space-x-2">
                   <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
-                    {user.name} {user.lastName}
+                    {user.name} {user.lastname || user.lastName}
                   </h3>
                   {user.privacy?.profileVisibility === 'private' && (
                     <Lock size={16} className="text-gray-400" />

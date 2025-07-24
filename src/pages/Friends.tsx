@@ -123,7 +123,7 @@ export function Friends() {
                           />
                         ) : (
                           <span className="text-lg text-gray-600">
-                            {user.name[0]}
+                            {user.name?.[0]}
                           </span>
                         )}
                       </div>
@@ -163,7 +163,7 @@ export function Friends() {
                         />
                       ) : (
                         <span className="text-xl text-gray-600">
-                          {friend.name[0]}
+                          {friend.name?.[0]}
                         </span>
                       )}
                     </div>

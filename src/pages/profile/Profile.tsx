@@ -802,7 +802,7 @@ export function Profile() {
                     />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white text-4xl font-bold">
-                      {user.name[0]?.toUpperCase()}{user.lastName[0]?.toUpperCase()}
+                      {user.name?.[0]?.toUpperCase()}{(user.lastname || user.lastName)?.[0]?.toUpperCase()}
                     </div>
                   )}
                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-full">
@@ -1032,7 +1032,7 @@ export function Profile() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                    {user.name[0]?.toUpperCase()}{user.lastName[0]?.toUpperCase()}
+                    {user.name?.[0]?.toUpperCase()}{(user.lastname || user.lastName)?.[0]?.toUpperCase()}
                   </div>
                   <button
                     onClick={() => setShowCreatePost(true)}
@@ -1064,10 +1064,10 @@ export function Profile() {
                   <div className="p-6 pb-4">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                        {user.name[0]?.toUpperCase()}{user.lastName[0]?.toUpperCase()}
+                        {user.name?.[0]?.toUpperCase()}{(user.lastname || user.lastName)?.[0]?.toUpperCase()}
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900">{user.name} {user.lastName}</h4>
+                        <h4 className="font-semibold text-gray-900">{user.name} {user.lastname || user.lastName}</h4>
                         <p className="text-sm text-gray-500">{formatTime(post.created_at)}</p>
                       </div>
                       <button className="text-gray-400 hover:text-gray-600">
@@ -1283,7 +1283,7 @@ export function Profile() {
                           />
                         ) : (
                           <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white text-lg font-bold">
-                            {friend.name[0]?.toUpperCase()}{friend.lastName[0]?.toUpperCase()}
+                            {friend.name?.[0]?.toUpperCase()}{(friend.lastname || friend.lastName)?.[0]?.toUpperCase()}
                           </div>
                         )}
                       </div>
@@ -1540,7 +1540,7 @@ export function Profile() {
                   />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white text-6xl font-bold">
-                    {user.name[0]?.toUpperCase()}{user.lastName[0]?.toUpperCase()}
+                    {user.name?.[0]?.toUpperCase()}{(user.lastname || user.lastName)?.[0]?.toUpperCase()}
                   </div>
                 )}
               </div>
