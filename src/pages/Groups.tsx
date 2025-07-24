@@ -67,11 +67,10 @@ interface Group {
 
 interface GroupMember {
   id: string;
-  groupId: string;
-  userId: string;
-  role: 'owner' | 'admin' | 'moderator' | 'member';
-  joinedAt: string;
-  isActive: boolean;
+  group_id: string;
+  user_id: string;
+  role: 'admin' | 'moderator' | 'member';
+  joined_at?: string;
 }
 
 interface Filters {
@@ -446,10 +445,16 @@ export function Groups() {
   };
 
   const createGroup = async () => {
-    if (!currentUser || !newGroup.name.trim()) return;
+    if (!newGroup.name.trim()) return;
 
     setCreating(true);
     try {
+      // Якщо користувач не авторизований, показуємо повідомлення
+      if (!currentUser) {
+        alert('Для створення групи потрібно авторизуватися');
+        setCreating(false);
+        return;
+      }
       const groupData = {
         name: newGroup.name.trim(),
         description: newGroup.description.trim(),
@@ -471,15 +476,13 @@ export function Groups() {
 
       if (error) throw error;
 
-      // Додаємо створювача як власника
+      // Додаємо створювача як члена групи з роллю admin
       await supabase
         .from('group_members')
         .insert([{
-          groupId: data.id,
-          userId: currentUser,
-          role: 'owner',
-          joinedAt: new Date().toISOString(),
-          isActive: true
+          group_id: data.id,
+          user_id: currentUser,
+          role: 'admin'
         }]);
 
       alert('Групу успішно створено!');
@@ -499,7 +502,7 @@ export function Groups() {
 
     try {
       const existingMember = groupMembers.find(
-        member => member.groupId === groupId && member.userId === currentUser
+        member => member.group_id === groupId && member.user_id === currentUser
       );
 
       if (existingMember) {
@@ -510,11 +513,9 @@ export function Groups() {
       await supabase
         .from('group_members')
         .insert([{
-          groupId,
-          userId: currentUser,
-          role: 'member',
-          joinedAt: new Date().toISOString(),
-          isActive: true
+          group_id: groupId,
+          user_id: currentUser,
+          role: 'member'
         }]);
 
       alert('Ви успішно приєдналися до групи!');
@@ -532,8 +533,8 @@ export function Groups() {
       await supabase
         .from('group_members')
         .delete()
-        .eq('groupId', groupId)
-        .eq('userId', currentUser);
+        .eq('group_id', groupId)
+        .eq('user_id', currentUser);
 
       alert('Ви покинули групу!');
       fetchAllData();
