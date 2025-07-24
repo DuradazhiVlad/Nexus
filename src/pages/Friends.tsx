@@ -76,10 +76,11 @@ export function Friends() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Створюємо запит на дружбу
       const { error } = await supabase
-        .from('friends')
+        .from('friend_requests')
         .insert([
-          { user_id: user.id, friend_id: friendId }
+          { sender_id: user.id, receiver_id: friendId, status: 'pending' }
         ]);
 
       if (error) throw error;

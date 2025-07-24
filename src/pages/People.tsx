@@ -197,17 +197,23 @@ export function People() {
   const fetchFriendRequests = async () => {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
+      if (!authUser) {
+        setFriendRequests([]); // Демо користувач не має запитів
+        return;
+      }
 
+      // Використовуємо таблицю friend_requests замість friends
       const { data, error } = await supabase
-        .from('friends')
+        .from('friend_requests')
         .select('*')
-        .or(`user_id.eq.${authUser.id},friend_id.eq.${authUser.id}`);
+        .or(`sender_id.eq.${authUser.id},receiver_id.eq.${authUser.id}`)
+        .eq('status', 'pending');
 
       if (error) throw error;
       setFriendRequests(data || []);
     } catch (error) {
       console.error('Error fetching friend requests:', error);
+      setFriendRequests([]); // Встановлюємо порожній масив при помилці
     }
   };
 
@@ -327,9 +333,9 @@ export function People() {
       }
 
       const { error } = await supabase
-        .from('friends')
+        .from('friend_requests')
         .insert([
-          { user_id: currentUser, friend_id: friendId, status: 'pending' }
+          { sender_id: currentUser, receiver_id: friendId, status: 'pending' }
         ]);
 
       if (error) throw error;
@@ -345,7 +351,7 @@ export function People() {
   const handleFriendRequest = async (requestId: string, action: 'accept' | 'reject') => {
     try {
       const { error } = await supabase
-        .from('friends')
+        .from('friend_requests')
         .update({ status: action === 'accept' ? 'accepted' : 'rejected' })
         .eq('id', requestId);
 
@@ -363,10 +369,11 @@ export function People() {
     try {
       if (!currentUser) return;
 
+      // Видаляємо з таблиці friendships
       const { error } = await supabase
-        .from('friends')
+        .from('friendships')
         .delete()
-        .or(`and(user_id.eq.${currentUser},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${currentUser})`);
+        .or(`and(user1_id.eq.${currentUser},user2_id.eq.${friendId}),and(user1_id.eq.${friendId},user2_id.eq.${currentUser})`);
 
       if (error) throw error;
 
