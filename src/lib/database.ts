@@ -122,36 +122,30 @@ export class DatabaseService {
       let fetchError = null;
 
       // First try with auth_user_id if column exists
-      try {
-        const { data, error } = await supabase
+      const { data: authUserData, error: authUserError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_user_id', authUser.id)
+        .single();
+
+      // Check if the error is about missing column
+      if (authUserError && authUserError.code === '42703') {
+        // Column doesn't exist, try with email
+        const { data: emailUserData, error: emailUserError } = await supabase
           .from('users')
           .select('*')
-          .eq('auth_user_id', authUser.id)
+          .eq('email', authUser.email)
           .single();
         
-        if (!error) {
-          existingUser = data;
+        if (!emailUserError) {
+          existingUser = emailUserData;
         } else {
-          fetchError = error;
+          fetchError = emailUserError;
         }
-      } catch (err) {
-        // Column doesn't exist, try with email
-        try {
-          const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', authUser.email)
-            .single();
-          
-          if (!error) {
-            existingUser = data;
-          } else {
-            fetchError = error;
-          }
-        } catch (emailErr) {
-          // If both fail, create new user
-          fetchError = emailErr;
-        }
+      } else if (!authUserError) {
+        existingUser = authUserData;
+      } else {
+        fetchError = authUserError;
       }
 
       if (fetchError && fetchError.code === 'PGRST116') {
@@ -183,45 +177,13 @@ export class DatabaseService {
               'User',
       };
 
-      // Try to add auth_user_id if column exists
-      let newUserData = { ...basicUserData };
-      
-      try {
-        // Test if auth_user_id column exists by trying to insert with it
-        newUserData = {
-          ...basicUserData,
-          auth_user_id: authUser.id,
-          lastname: authUser.user_metadata?.lastname || 
-                    authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || 
-                    '',
-          bio: 'Люблю програмування, подорожі та хорошу каву. Завжди відкритий до нових знайомств! ☕️',
-          location: 'Київ, Україна',
-          website: 'https://example.com',
-          phone: '+380501234567',
-          birthday: '1995-05-15',
-          work: 'Senior Frontend Developer',
-          education: 'КПІ ім. Ігоря Сікорського',
-          relationshipStatus: 'Неодружений',
-          hobbies: ['Програмування', 'Фотографія', 'Подорожі', 'Музика'],
-          languages: ['Українська', 'English', 'Русский'],
-          isVerified: true,
-          isOnline: true,
-          lastSeen: new Date().toISOString(),
-          notifications: {
-            email: true,
-            messages: true,
-            friendRequests: true,
-          },
-          privacy: {
-            profileVisibility: 'public' as const,
-            showBirthDate: true,
-            showEmail: false,
-            showPhone: false,
-          },
-        };
-      } catch (err) {
-        console.log('Using basic user data only');
-      }
+      // Start with basic user data and add lastname
+      let newUserData = {
+        ...basicUserData,
+        lastname: authUser.user_metadata?.lastname || 
+                  authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || 
+                  'Дурадажи'
+      };
 
       const { data: newUser, error: insertError } = await supabase
         .from('users')
@@ -340,27 +302,28 @@ export class DatabaseService {
       let data = null;
       let error = null;
 
-      try {
-        const result = await supabase
-          .from('users')
-          .update(safeUpdates)
-          .eq('auth_user_id', authUser.id)
-          .select()
-          .single();
-        
-        data = result.data;
-        error = result.error;
-      } catch (err) {
-        // If auth_user_id doesn't exist, try with email
-        const result = await supabase
+      const authResult = await supabase
+        .from('users')
+        .update(safeUpdates)
+        .eq('auth_user_id', authUser.id)
+        .select()
+        .single();
+
+      // Check if the error is about missing column
+      if (authResult.error && authResult.error.code === '42703') {
+        // Column doesn't exist, try with email
+        const emailResult = await supabase
           .from('users')
           .update(safeUpdates)
           .eq('email', authUser.email)
           .select()
           .single();
         
-        data = result.data;
-        error = result.error;
+        data = emailResult.data;
+        error = emailResult.error;
+      } else {
+        data = authResult.data;
+        error = authResult.error;
       }
 
       if (error) {
