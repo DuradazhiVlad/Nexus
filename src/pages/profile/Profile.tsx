@@ -123,6 +123,7 @@ interface Privacy {
 }
 
 type ExtendedDatabaseUser = DatabaseUser & {
+  lastname?: string; // Alias for lastname field
   status?: string;
   phone?: string;
   website?: string;
@@ -252,7 +253,7 @@ export function Profile() {
           id: 'demo-user',
           email: 'demo@example.com',
           name: 'Демо',
-          lastName: 'Користувач',
+          lastname: 'Користувач',
           avatar: undefined,
           bio: 'Люблю програмування, подорожі та хорошу каву. Завжди відкритий до нових знайомств! ☕️',
           location: 'Київ, Україна',
@@ -297,11 +298,12 @@ export function Profile() {
       // Розширюємо профіль з додатковими даними
       const extendedProfile: ExtendedDatabaseUser = {
         ...userProfile,
-        bio: 'Люблю програмування, подорожі та хорошу каву. Завжди відкритий до нових знайомств! ☕️',
+        lastname: userProfile.lastname || '',
+        bio: userProfile.bio || 'Люблю програмування, подорожі та хорошу каву. Завжди відкритий до нових знайомств! ☕️',
         location: 'Київ, Україна',
         website: 'https://example.com',
         phone: '+380501234567',
-        birthday: '1995-05-15',
+        birthday: userProfile.birthdate || '1995-05-15',
         work: 'Senior Frontend Developer',
         education: 'КПІ ім. Ігоря Сікорського',
         hobbies: ['Програмування', 'Фотографія', 'Подорожі', 'Музика'],
@@ -318,13 +320,13 @@ export function Profile() {
         videosCount: Math.floor(Math.random() * 50) + 5,
         achievements: generateMockAchievements(),
         privacy: {
-          showEmail: true,
+          showEmail: userProfile.privacy?.showEmail ?? true,
           showPhone: false,
-          showBirthday: true,
+          showBirthday: userProfile.privacy?.showBirthDate ?? true,
           showLocation: true,
           allowMessages: true,
           allowFriendRequests: true,
-          profileVisibility: 'public'
+          profileVisibility: userProfile.privacy?.profileVisibility || 'public'
         }
       };
 

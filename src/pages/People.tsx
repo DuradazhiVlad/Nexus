@@ -35,24 +35,29 @@ import { useNavigate } from 'react-router-dom';
 
 interface User {
   id: string;
-  auth_user_id: string;
+  auth_user_id?: string;
   name: string;
-  lastName: string;
+  lastName?: string;
+  lastname?: string; // New field from database
   email: string;
   avatar?: string;
   bio?: string;
   city?: string;
   birthDate?: string;
-  date: string;
+  birthdate?: string; // New field from database
+  date?: string;
+  created_at?: string; // New field from database
   isOnline?: boolean;
   lastSeen?: string;
   friendsCount?: number;
   postsCount?: number;
+  mutualFriends?: number;
+  canAddToFriend?: boolean;
   privacy?: {
     profileVisibility: 'public' | 'friends' | 'private';
     showBirthDate: boolean;
     showEmail: boolean;
-    showOnlineStatus: boolean;
+    showOnlineStatus?: boolean;
   };
 }
 
@@ -113,39 +118,67 @@ export function People() {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !authUser) {
-        navigate('/login');
+        // Використовуємо демо дані якщо користувач не авторизований
+        const demoUsers: User[] = [
+          {
+            id: '1',
+            name: 'Анна',
+            lastName: 'Петренко',
+            avatar: undefined,
+            email: 'anna@example.com',
+            city: 'Київ',
+            isOnline: true,
+            lastSeen: new Date().toISOString(),
+            mutualFriends: 12,
+            canAddToFriend: true,
+          },
+          {
+            id: '2',
+            name: 'Максим',
+            lastName: 'Іваненко',
+            avatar: undefined,
+            email: 'maxim@example.com',
+            city: 'Львів',
+            isOnline: false,
+            lastSeen: new Date(Date.now() - 3600000).toISOString(),
+            mutualFriends: 8,
+            canAddToFriend: true,
+          }
+        ];
+        setUsers(demoUsers);
+        setFilteredUsers(demoUsers);
         return;
       }
 
       setCurrentUser(authUser.id);
 
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .order('date', { ascending: false });
-
-      if (error) throw error;
-
-      // Показуємо всіх користувачів включно з поточним
-      let allUsers = data || [];
+      // Використовуємо новий метод з DatabaseService
+      let allUsers = await DatabaseService.getAllUsers();
+      
       // Додаємо фільтрацію: не показувати користувачів з помилками
       allUsers = allUsers.filter(user => 
-        user && user.id && user.name && user.lastName && user.email
+        user && user.id && user.name && (user.lastname || user.lastName) && user.email
       );
 
       // Симулюємо онлайн статус та додаткові дані
-      allUsers = allUsers.map(user => ({
+      const mappedUsers: User[] = allUsers.map(user => ({
         ...user,
+        lastName: user.lastname || user.lastName,
+        lastname: user.lastname,
+        birthDate: user.birthdate,
+        date: user.created_at || user.date,
         isOnline: Math.random() > 0.7, // 30% онлайн
         lastSeen: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
         friendsCount: Math.floor(Math.random() * 100),
         postsCount: Math.floor(Math.random() * 50),
+        mutualFriends: Math.floor(Math.random() * 20),
+        canAddToFriend: user.id !== authUser.id, // Не можна додати себе в друзі
       }));
 
-      setUsers(allUsers);
+      setUsers(mappedUsers);
       
       // Створюємо список унікальних міст
-      const cities = [...new Set(allUsers
+      const cities = [...new Set(mappedUsers
         .filter(user => user.city)
         .map(user => user.city!)
       )].sort();
