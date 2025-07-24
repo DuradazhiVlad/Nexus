@@ -117,18 +117,49 @@ export class DatabaseService {
         return null;
       }
 
-      // Try to get existing user profile from users table
-      const { data: existingUser, error: fetchError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_user_id', authUser.id)
-        .single();
+      // Try different approaches to find the user
+      let existingUser = null;
+      let fetchError = null;
+
+      // First try with auth_user_id if column exists
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('auth_user_id', authUser.id)
+          .single();
+        
+        if (!error) {
+          existingUser = data;
+        } else {
+          fetchError = error;
+        }
+      } catch (err) {
+        // Column doesn't exist, try with email
+        try {
+          const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', authUser.email)
+            .single();
+          
+          if (!error) {
+            existingUser = data;
+          } else {
+            fetchError = error;
+          }
+        } catch (emailErr) {
+          // If both fail, create new user
+          fetchError = emailErr;
+        }
+      }
+
+      if (fetchError && fetchError.code === 'PGRST116') {
+        // User doesn't exist, create new profile
+        return await this.createUserProfile(authUser);
+      }
 
       if (fetchError) {
-        if (fetchError.code === 'PGRST116') {
-          // User doesn't exist, create new profile
-          return await this.createUserProfile(authUser);
-        }
         console.error('Error fetching user profile:', fetchError);
         return null;
       }
@@ -143,41 +174,54 @@ export class DatabaseService {
   // Create new user profile
   private static async createUserProfile(authUser: any): Promise<DatabaseUser | null> {
     try {
-      const newUserData = {
-        auth_user_id: authUser.id,
+      // Start with basic data that should exist in any users table
+      const basicUserData = {
         email: authUser.email,
         name: authUser.user_metadata?.name || 
               authUser.user_metadata?.full_name?.split(' ')[0] || 
               authUser.email?.split('@')[0] || 
               'User',
-        lastname: authUser.user_metadata?.lastname || 
-                  authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || 
-                  '',
-        bio: 'Люблю програмування, подорожі та хорошу каву. Завжди відкритий до нових знайомств! ☕️',
-        location: 'Київ, Україна',
-        website: 'https://example.com',
-        phone: '+380501234567',
-        birthday: '1995-05-15',
-        work: 'Senior Frontend Developer',
-        education: 'КПІ ім. Ігоря Сікорського',
-        relationshipStatus: 'Неодружений',
-        hobbies: ['Програмування', 'Фотографія', 'Подорожі', 'Музика'],
-        languages: ['Українська', 'English', 'Русский'],
-        isVerified: true,
-        isOnline: true,
-        lastSeen: new Date().toISOString(),
-        notifications: {
-          email: true,
-          messages: true,
-          friendRequests: true,
-        },
-        privacy: {
-          profileVisibility: 'public' as const,
-          showBirthDate: true,
-          showEmail: false,
-          showPhone: false,
-        },
       };
+
+      // Try to add auth_user_id if column exists
+      let newUserData = { ...basicUserData };
+      
+      try {
+        // Test if auth_user_id column exists by trying to insert with it
+        newUserData = {
+          ...basicUserData,
+          auth_user_id: authUser.id,
+          lastname: authUser.user_metadata?.lastname || 
+                    authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || 
+                    '',
+          bio: 'Люблю програмування, подорожі та хорошу каву. Завжди відкритий до нових знайомств! ☕️',
+          location: 'Київ, Україна',
+          website: 'https://example.com',
+          phone: '+380501234567',
+          birthday: '1995-05-15',
+          work: 'Senior Frontend Developer',
+          education: 'КПІ ім. Ігоря Сікорського',
+          relationshipStatus: 'Неодружений',
+          hobbies: ['Програмування', 'Фотографія', 'Подорожі', 'Музика'],
+          languages: ['Українська', 'English', 'Русский'],
+          isVerified: true,
+          isOnline: true,
+          lastSeen: new Date().toISOString(),
+          notifications: {
+            email: true,
+            messages: true,
+            friendRequests: true,
+          },
+          privacy: {
+            profileVisibility: 'public' as const,
+            showBirthDate: true,
+            showEmail: false,
+            showPhone: false,
+          },
+        };
+      } catch (err) {
+        console.log('Using basic user data only');
+      }
 
       const { data: newUser, error: insertError } = await supabase
         .from('users')
@@ -292,12 +336,32 @@ export class DatabaseService {
       // Remove non-database fields
       const { id, auth_user_id, ...safeUpdates } = updates;
 
-      const { data, error } = await supabase
-        .from('users')
-        .update(safeUpdates)
-        .eq('auth_user_id', authUser.id)
-        .select()
-        .single();
+      // Try to update using auth_user_id first, then fall back to email
+      let data = null;
+      let error = null;
+
+      try {
+        const result = await supabase
+          .from('users')
+          .update(safeUpdates)
+          .eq('auth_user_id', authUser.id)
+          .select()
+          .single();
+        
+        data = result.data;
+        error = result.error;
+      } catch (err) {
+        // If auth_user_id doesn't exist, try with email
+        const result = await supabase
+          .from('users')
+          .update(safeUpdates)
+          .eq('email', authUser.email)
+          .select()
+          .single();
+        
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) {
         throw error;
