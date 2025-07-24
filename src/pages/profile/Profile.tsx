@@ -621,6 +621,78 @@ export function Profile() {
     }
   };
 
+  const handleCreatePost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!postContent.trim() || !user) return;
+
+    setUploading(true);
+    try {
+      // Створюємо новий пост
+      const newPost: Post = {
+        id: Date.now().toString(),
+        author: {
+          id: user.id,
+          name: user.name,
+          lastName: user.lastname || user.lastName || '',
+          avatar: user.avatar || ''
+        },
+        content: postContent,
+        images: previewUrls, // Використовуємо завантажені зображення
+        created_at: new Date().toISOString(),
+        likes: 0,
+        comments: 0,
+        isLiked: false
+      };
+
+      // Додаємо пост на початок списку
+      setPosts(prev => [newPost, ...prev]);
+      
+      // Очищуємо форму
+      setPostContent('');
+      setSelectedFiles([]);
+      setPreviewUrls([]);
+      setShowCreatePost(false);
+      
+      alert('Пост успішно створено!');
+    } catch (error) {
+      console.error('Error creating post:', error);
+      alert('Помилка при створенні поста');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handlePostMediaSelect = () => {
+    if (multiFileInputRef.current) {
+      multiFileInputRef.current.click();
+    }
+  };
+
+  const handlePostFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setSelectedFiles(files);
+    
+    // Створюємо preview URL для зображень
+    const urls = files.map(file => {
+      if (file.type.startsWith('image/')) {
+        return URL.createObjectURL(file);
+      }
+      return '';
+    }).filter(url => url !== '');
+    
+    setPreviewUrls(urls);
+  };
+
+  const removePostImage = (index: number) => {
+    const newFiles = selectedFiles.filter((_, i) => i !== index);
+    const newUrls = previewUrls.filter((_, i) => i !== index);
+    
+    setSelectedFiles(newFiles);
+    setPreviewUrls(newUrls);
+  };
+
   const toggleLike = (postId: string) => {
     setPosts(prev => prev.map(post => 
       post.id === postId 
@@ -1042,11 +1114,17 @@ export function Profile() {
                   </button>
                 </div>
                 <div className="flex items-center space-x-4">
-                  <button className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors">
+                  <button 
+                    onClick={() => setShowCreatePost(true)}
+                    className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors"
+                  >
                     <Image size={20} />
                     <span>Фото/Відео</span>
                   </button>
-                  <button className="flex items-center space-x-2 text-gray-600 hover:text-green-600 transition-colors">
+                  <button 
+                    onClick={() => setShowCreatePost(true)}
+                    className="flex items-center space-x-2 text-gray-600 hover:text-green-600 transition-colors"
+                  >
                     <MapPin size={20} />
                     <span>Локація</span>
                   </button>
@@ -1674,6 +1752,136 @@ export function Profile() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Post Modal */}
+      {showCreatePost && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <form onSubmit={handleCreatePost} className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Створити пост</h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreatePost(false);
+                    setPostContent('');
+                    setSelectedFiles([]);
+                    setPreviewUrls([]);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* User Info */}
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+                    {user.name?.[0]?.toUpperCase()}{(user.lastname || user.lastName)?.[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">{user.name} {user.lastname || user.lastName}</p>
+                    <p className="text-sm text-gray-500">Публічний пост</p>
+                  </div>
+                </div>
+
+                {/* Content Input */}
+                <div>
+                  <textarea
+                    value={postContent}
+                    onChange={(e) => setPostContent(e.target.value)}
+                    placeholder={`Що у вас нового, ${user.name}?`}
+                    className="w-full border-none resize-none text-lg placeholder-gray-400 focus:outline-none min-h-[120px]"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Image Preview */}
+                {previewUrls.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-900">Завантажені зображення:</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {previewUrls.map((url, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={url}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-32 object-cover rounded-lg"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removePostImage(index)}
+                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Media Actions */}
+                <div className="border-t border-gray-200 pt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <button
+                        type="button"
+                        onClick={handlePostMediaSelect}
+                        className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors"
+                      >
+                        <Image size={20} />
+                        <span>Фото/Відео</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="flex items-center space-x-2 text-gray-600 hover:text-green-600 transition-colors"
+                      >
+                        <MapPin size={20} />
+                        <span>Місце</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreatePost(false);
+                      setPostContent('');
+                      setSelectedFiles([]);
+                      setPreviewUrls([]);
+                    }}
+                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Скасувати
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!postContent.trim() || uploading}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {uploading ? 'Публікація...' : 'Опублікувати'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Hidden File Input */}
+              <input
+                ref={multiFileInputRef}
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                onChange={handlePostFileChange}
+                className="hidden"
+              />
+            </form>
           </div>
         </div>
       )}
