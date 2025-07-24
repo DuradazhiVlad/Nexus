@@ -247,51 +247,7 @@ export function Profile() {
       const userProfile = await DatabaseService.getCurrentUserProfile();
       
       if (!userProfile) {
-        // Використовуємо демо-профіль якщо користувач не авторизований
-        // Створюємо демо-профіль для тестування
-        const demoProfile: ExtendedDatabaseUser = {
-          id: 'demo-user',
-          email: 'demo@example.com',
-          name: 'Влад',
-          lastname: 'Дурадажи',
-          avatar: undefined,
-          bio: 'Люблю програмування, подорожі та хорошу каву. Завжди відкритий до нових знайомств! ☕️',
-          location: 'Київ, Україна',
-          website: 'https://example.com',
-          phone: '+380501234567',
-          birthday: '1995-05-15',
-          work: 'Senior Frontend Developer',
-          education: 'КПІ ім. Ігоря Сікорського',
-          hobbies: ['Програмування', 'Фотографія', 'Подорожі', 'Музика'],
-          languages: ['Українська', 'English', 'Русский'],
-          relationshipStatus: 'Неодружений',
-          isVerified: true,
-          isOnline: true,
-          lastSeen: new Date().toISOString(),
-          friendsCount: 247,
-          followersCount: 156,
-          followingCount: 89,
-          postsCount: 42,
-          photosCount: 73,
-          videosCount: 15,
-          achievements: generateMockAchievements(),
-          privacy: {
-            showEmail: true,
-            showPhone: false,
-            showBirthday: true,
-            showLocation: true,
-            allowMessages: true,
-            allowFriendRequests: true,
-            profileVisibility: 'public'
-          }
-        };
-        
-        setUser(demoProfile);
-        await Promise.all([
-          loadMedia(),
-          loadPosts(),
-          loadFriends()
-        ]);
+        setError('Не вдалося завантажити профіль користувача');
         return;
       }
 
@@ -397,46 +353,34 @@ export function Profile() {
   };
 
   const loadPosts = async () => {
-    // Симуляція завантаження постів
-    const mockPosts: Post[] = [
-      {
-        id: '1',
-        author: user || { id: '', name: 'User', lastName: '', avatar: '' },
-        content: 'Прекрасний день для нових пригод! 🌟 Щойно повернувся з подорожі по Карпатах. Неймовірні краєвиди і свіже повітря зарядили енергією на тиждень вперед!',
-        images: [
-          'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
-          'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=800&q=80'
-        ],
-        created_at: '2024-01-20T10:00:00Z',
-        likes: 45,
-        comments: 12,
-        isLiked: false
-      },
-      {
-        id: '2',
-        author: user || { id: '', name: 'User', lastName: '', avatar: '' },
-        content: 'Сьогодні вивчаю нові технології React 18! Concurrent Features виглядають дуже перспективно 💻',
-        images: [],
-        created_at: '2024-01-18T15:30:00Z',
-        likes: 28,
-        comments: 8,
-        isLiked: true
-      },
-      {
-        id: '3',
-        author: user || { id: '', name: 'User', lastName: '', avatar: '' },
-        content: 'Ранкова пробіжка в парку! Хто ще любить активний спосіб життя? 🏃‍♂️',
-        images: [
-          'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=800&q=80'
-        ],
-        created_at: '2024-01-16T07:00:00Z',
-        likes: 33,
-        comments: 6,
-        isLiked: false
-      }
-    ];
+    if (!user) return;
     
-    setPosts(mockPosts);
+    try {
+      // Завантажуємо пости з бази даних
+      const dbPosts = await DatabaseService.getUserPosts(user.id);
+      
+      // Конвертуємо пости з бази в формат UI
+      const formattedPosts: Post[] = dbPosts.map(post => ({
+        id: post.id,
+        author: {
+          id: user.id,
+          name: user.name,
+          lastName: user.lastname || user.lastName || '',
+          avatar: user.avatar || ''
+        },
+        content: post.content,
+        images: post.media_url ? [post.media_url] : [],
+        created_at: post.created_at,
+        likes: post.likes_count,
+        comments: post.comments_count,
+        isLiked: false // TODO: реалізувати перевірку лайків
+      }));
+      
+      setPosts(formattedPosts);
+    } catch (error) {
+      console.error('Error loading posts:', error);
+      setPosts([]);
+    }
   };
 
   const loadFriends = async () => {
@@ -605,14 +549,22 @@ export function Profile() {
     
     setUploading(true);
     try {
-      const updatedUser: ExtendedDatabaseUser = {
-        ...user,
-        ...data
-      };
+      // Оновлюємо профіль в базі даних
+      const updatedProfile = await DatabaseService.updateUserProfile(data);
       
-      setUser(updatedUser);
-      setShowEditProfile(false);
-      alert('Профіль успішно оновлено!');
+      if (updatedProfile) {
+        // Об'єднуємо з існуючими даними
+        const updatedUser: ExtendedDatabaseUser = {
+          ...user,
+          ...updatedProfile
+        };
+        
+        setUser(updatedUser);
+        setShowEditProfile(false);
+        alert('Профіль успішно оновлено!');
+      } else {
+        throw new Error('Failed to update profile');
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
       alert('Помилка при оновленні профілю');
@@ -627,33 +579,40 @@ export function Profile() {
 
     setUploading(true);
     try {
-      // Створюємо новий пост
-      const newPost: Post = {
-        id: Date.now().toString(),
-        author: {
-          id: user.id,
-          name: user.name,
-          lastName: user.lastname || user.lastName || '',
-          avatar: user.avatar || ''
-        },
-        content: postContent,
-        images: previewUrls, // Використовуємо завантажені зображення
-        created_at: new Date().toISOString(),
-        likes: 0,
-        comments: 0,
-        isLiked: false
-      };
+      // Створюємо пост в базі даних
+      const createdPost = await DatabaseService.createPost(postContent);
+      
+      if (createdPost) {
+        // Створюємо пост для UI з автором
+        const newPost: Post = {
+          id: createdPost.id,
+          author: {
+            id: user.id,
+            name: user.name,
+            lastName: user.lastname || user.lastName || '',
+            avatar: user.avatar || ''
+          },
+          content: createdPost.content,
+          images: previewUrls, // Використовуємо завантажені зображення
+          created_at: createdPost.created_at,
+          likes: createdPost.likes_count,
+          comments: createdPost.comments_count,
+          isLiked: false
+        };
 
-      // Додаємо пост на початок списку
-      setPosts(prev => [newPost, ...prev]);
-      
-      // Очищуємо форму
-      setPostContent('');
-      setSelectedFiles([]);
-      setPreviewUrls([]);
-      setShowCreatePost(false);
-      
-      alert('Пост успішно створено!');
+        // Додаємо пост на початок списку
+        setPosts(prev => [newPost, ...prev]);
+        
+        // Очищуємо форму
+        setPostContent('');
+        setSelectedFiles([]);
+        setPreviewUrls([]);
+        setShowCreatePost(false);
+        
+        alert('Пост успішно створено!');
+      } else {
+        throw new Error('Failed to create post');
+      }
     } catch (error) {
       console.error('Error creating post:', error);
       alert('Помилка при створенні поста');
@@ -859,11 +818,11 @@ export function Profile() {
         {/* Profile Header */}
         <div className="relative bg-white border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-8 py-6">
-            <div className="flex items-end space-x-6 -mt-20">
+            <div className="flex flex-col sm:flex-row items-center sm:items-end space-y-4 sm:space-y-0 sm:space-x-6 -mt-16 sm:-mt-20">
               {/* Avatar */}
               <div className="relative">
                 <div 
-                  className="w-32 h-32 bg-white rounded-full border-4 border-white shadow-lg overflow-hidden cursor-pointer group"
+                  className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 bg-white rounded-full border-4 border-white shadow-lg overflow-hidden cursor-pointer group"
                   onClick={handleAvatarClick}
                 >
                   {user.avatar ? (

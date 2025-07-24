@@ -121,7 +121,7 @@ export class DatabaseService {
       const { data: existingUser, error: fetchError } = await supabase
         .from('users')
         .select('*')
-        .eq('id', authUser.id)
+        .eq('auth_user_id', authUser.id)
         .single();
 
       if (fetchError) {
@@ -144,7 +144,7 @@ export class DatabaseService {
   private static async createUserProfile(authUser: any): Promise<DatabaseUser | null> {
     try {
       const newUserData = {
-        id: authUser.id, // Use auth user ID
+        auth_user_id: authUser.id,
         email: authUser.email,
         name: authUser.user_metadata?.name || 
               authUser.user_metadata?.full_name?.split(' ')[0] || 
@@ -153,6 +153,19 @@ export class DatabaseService {
         lastname: authUser.user_metadata?.lastname || 
                   authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || 
                   '',
+        bio: 'Люблю програмування, подорожі та хорошу каву. Завжди відкритий до нових знайомств! ☕️',
+        location: 'Київ, Україна',
+        website: 'https://example.com',
+        phone: '+380501234567',
+        birthday: '1995-05-15',
+        work: 'Senior Frontend Developer',
+        education: 'КПІ ім. Ігоря Сікорського',
+        relationshipStatus: 'Неодружений',
+        hobbies: ['Програмування', 'Фотографія', 'Подорожі', 'Музика'],
+        languages: ['Українська', 'English', 'Русский'],
+        isVerified: true,
+        isOnline: true,
+        lastSeen: new Date().toISOString(),
         notifications: {
           email: true,
           messages: true,
@@ -162,6 +175,7 @@ export class DatabaseService {
           profileVisibility: 'public' as const,
           showBirthDate: true,
           showEmail: false,
+          showPhone: false,
         },
       };
 
@@ -263,6 +277,36 @@ export class DatabaseService {
     } catch (error) {
       console.error('Error fetching user media:', error);
       return [];
+    }
+  }
+
+  // Update user profile
+  static async updateUserProfile(updates: Partial<DatabaseUser>): Promise<DatabaseUser | null> {
+    try {
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !authUser?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      // Remove non-database fields
+      const { id, auth_user_id, ...safeUpdates } = updates;
+
+      const { data, error } = await supabase
+        .from('users')
+        .update(safeUpdates)
+        .eq('auth_user_id', authUser.id)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      return null;
     }
   }
 
@@ -409,30 +453,7 @@ export class DatabaseService {
     }
   }
 
-  // Update user profile
-  static async updateUserProfile(updates: Partial<DatabaseUser>): Promise<boolean> {
-    try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      
-      if (!authUser?.email) {
-        return false;
-      }
 
-      const { error } = await supabase
-        .from('users')
-        .update(updates)
-        .eq('email', authUser.email);
-
-      if (error) {
-        throw error;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error updating user profile:', error);
-      return false;
-    }
-  }
 
 
 
