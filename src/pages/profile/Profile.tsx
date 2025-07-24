@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Sidebar } from '../../components/Sidebar';
-import { DatabaseService, DatabaseUser } from '../../../lib/database';
+import { DatabaseService, DatabaseUser } from '../../lib/database';
 import { 
   Camera, 
   Settings, 

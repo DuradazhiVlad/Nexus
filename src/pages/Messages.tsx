@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { supabase } from '../lib/supabase';
-import { DatabaseService, DatabaseUser } from '../../lib/database';
+import { DatabaseService, DatabaseUser } from '../lib/database';
 import { useLocation } from 'react-router-dom';
 import { Send, UserCircle } from 'lucide-react';
 

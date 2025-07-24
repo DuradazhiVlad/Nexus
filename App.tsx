@@ -11,7 +11,7 @@ import { Settings } from './src/pages/Settings';
 import { Groups } from './src/pages/Groups';
 import { GroupDetail } from './src/pages/GroupDetail';
 import { People } from './src/pages/People';
-import { Games } from './Games';
+import { Games } from './src/pages/Games';
 
 // Email confirmation handler component
 function EmailConfirmationHandler() {

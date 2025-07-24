@@ -1,4 +1,4 @@
-import { supabase } from '../src/lib/supabase';
+import { supabase } from './supabase';
 import { DatabaseService } from './database';
 import { Group, GroupMember, GroupPost } from '../types/groups';
 
