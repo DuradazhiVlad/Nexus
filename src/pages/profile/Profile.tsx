@@ -252,8 +252,8 @@ export function Profile() {
         const demoProfile: ExtendedDatabaseUser = {
           id: 'demo-user',
           email: 'demo@example.com',
-          name: 'Демо',
-          lastname: 'Користувач',
+          name: 'Влад',
+          lastname: 'Дурадажи',
           avatar: undefined,
           bio: 'Люблю програмування, подорожі та хорошу каву. Завжди відкритий до нових знайомств! ☕️',
           location: 'Київ, Україна',
@@ -264,7 +264,7 @@ export function Profile() {
           education: 'КПІ ім. Ігоря Сікорського',
           hobbies: ['Програмування', 'Фотографія', 'Подорожі', 'Музика'],
           languages: ['Українська', 'English', 'Русский'],
-          relationshipStatus: 'Single',
+          relationshipStatus: 'Неодружений',
           isVerified: true,
           isOnline: true,
           lastSeen: new Date().toISOString(),
@@ -1314,51 +1314,31 @@ export function Profile() {
           )}
 
           {activeTab === 'about' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Basic Info */}
+            <div className="space-y-6">
+              {/* Personal Info */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Основна інформація</h3>
-                <div className="space-y-4">
-                  {user.location && (
-                    <div className="flex items-center space-x-3">
-                      <MapPin size={20} className="text-gray-400" />
-                      <div>
-                        <p className="font-medium text-gray-900">Живе в</p>
-                        <p className="text-gray-600">{user.location}</p>
-                      </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Особиста інформація</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-blue-600 text-xs font-semibold">І</span>
                     </div>
-                  )}
-                  
-                  {user.work && (
-                    <div className="flex items-center space-x-3">
-                      <Briefcase size={20} className="text-gray-400" />
-                      <div>
-                        <p className="font-medium text-gray-900">Працює</p>
-                        <p className="text-gray-600">{user.work}</p>
-                      </div>
+                    <div>
+                      <p className="font-medium text-gray-900">Ім'я</p>
+                      <p className="text-gray-600">{user.name}</p>
                     </div>
-                  )}
-                  
-                  {user.education && (
-                    <div className="flex items-center space-x-3">
-                      <GraduationCap size={20} className="text-gray-400" />
-                      <div>
-                        <p className="font-medium text-gray-900">Навчався</p>
-                        <p className="text-gray-600">{user.education}</p>
-                      </div>
+                  </div>
+
+                  <div className="flex items-center space-x-3">
+                    <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center">
+                      <span className="text-green-600 text-xs font-semibold">П</span>
                     </div>
-                  )}
-                  
-                  {user.relationshipStatus && (
-                    <div className="flex items-center space-x-3">
-                      <Heart size={20} className="text-gray-400" />
-                      <div>
-                        <p className="font-medium text-gray-900">Стосунки</p>
-                        <p className="text-gray-600">{user.relationshipStatus}</p>
-                      </div>
+                    <div>
+                      <p className="font-medium text-gray-900">Прізвище</p>
+                      <p className="text-gray-600">{user.lastname || user.lastName || 'Дурадажи'}</p>
                     </div>
-                  )}
-                  
+                  </div>
+
                   {user.birthday && (
                     <div className="flex items-center space-x-3">
                       <Calendar size={20} className="text-gray-400" />
@@ -1368,8 +1348,74 @@ export function Profile() {
                       </div>
                     </div>
                   )}
+
+                  {user.location && (
+                    <div className="flex items-center space-x-3">
+                      <MapPin size={20} className="text-gray-400" />
+                      <div>
+                        <p className="font-medium text-gray-900">Місцезнаходження</p>
+                        <p className="text-gray-600">{user.location}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {user.bio && (
+                  <div className="mt-6 pt-4 border-t border-gray-100">
+                    <div className="flex items-start space-x-3">
+                      <div className="w-5 h-5 bg-purple-100 rounded-full flex items-center justify-center mt-0.5">
+                        <span className="text-purple-600 text-xs font-semibold">О</span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">Про себе</p>
+                        <p className="text-gray-600 mt-1">{user.bio}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Professional Info */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Професійна інформація</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {user.work && (
+                    <div className="flex items-center space-x-3">
+                      <Briefcase size={20} className="text-gray-400" />
+                      <div>
+                        <p className="font-medium text-gray-900">Робота</p>
+                        <p className="text-gray-600">{user.work}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {user.education && (
+                    <div className="flex items-center space-x-3">
+                      <GraduationCap size={20} className="text-gray-400" />
+                      <div>
+                        <p className="font-medium text-gray-900">Освіта</p>
+                        <p className="text-gray-600">{user.education}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Relationship Status */}
+              {user.relationshipStatus && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Сімейний стан</h3>
+                  <div className="flex items-center space-x-3">
+                    <Heart size={20} className="text-pink-400" />
+                    <div>
+                      <p className="font-medium text-gray-900">Стосунки</p>
+                      <p className="text-gray-600">{user.relationshipStatus}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
               {/* Contact Info */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -1424,22 +1470,23 @@ export function Profile() {
                 </div>
               )}
 
-              {/* Languages */}
-              {user.languages && user.languages.length > 0 && (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Мови</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {user.languages.map((language, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm"
-                      >
-                        {language}
-                      </span>
-                    ))}
+                {/* Languages */}
+                {user.languages && user.languages.length > 0 && (
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Мови</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {user.languages.map((language, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm"
+                        >
+                          {language}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
 
