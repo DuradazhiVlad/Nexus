@@ -62,7 +62,7 @@ export function People() {
       if (error) throw error;
 
       // Фільтруємо поточного користувача зі списку
-      let otherUsers = data?.filter(user => user.auth_user_id !== authUser.id) || [];
+      let otherUsers = data?.filter(user => user.id !== authUser.id) || [];
       // Додаємо фільтрацію: не показувати користувачів з помилками (без id, name, lastName, email)
       otherUsers = otherUsers.filter(user => user && user.id && user.name && user.lastName && user.email);
       setUsers(otherUsers);
@@ -116,7 +116,9 @@ export function People() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
+      <div style={{zIndex: 50, background: '#fff', borderRight: '1px solid #e5e7eb', minHeight: '100vh', width: '16rem', position: 'fixed', left: 0, top: 0}}>
+        <Sidebar />
+      </div>
       <div className="flex-1 ml-64 p-8">
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
@@ -198,7 +200,7 @@ export function People() {
 
                     <div className="flex space-x-2">
                       <button
-                        onClick={e => { e.stopPropagation(); addFriend(user.auth_user_id); }}
+                        onClick={e => { e.stopPropagation(); addFriend(user.id); }}
                         className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                       >
                         <UserPlus size={16} className="mr-1" />

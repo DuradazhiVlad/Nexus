@@ -30,7 +30,6 @@ export function Register() {
           .from('users')
           .insert([
             {
-              auth_user_id: authData.user.id,
               name,
               lastName,
               email,

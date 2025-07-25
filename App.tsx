@@ -4,13 +4,13 @@ import { Users } from 'lucide-react';
 import { supabase } from './src/lib/supabase';
 import { Login } from './src/pages/Login';
 import { Register } from './src/pages/Register';
-import { Profile } from './src/pages/profile/Profile';
 import { Messages } from './src/pages/Messages';
 import { Friends } from './src/pages/Friends';
 import { Settings } from './src/pages/Settings';
 import { Groups } from './src/pages/Groups';
 import { GroupDetail } from './src/pages/GroupDetail';
 import { Games } from './Games';
+import Wall from './src/pages/Wall';
 
 // Email confirmation handler component
 function EmailConfirmationHandler() {
@@ -134,13 +134,13 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/profile" element={<Profile />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/friends" element={<Friends />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/groups" element={<Groups />} />
         <Route path="/groups/:groupId" element={<GroupDetail />} />
         <Route path="/games" element={<Games />} />
+        <Route path="/wall" element={<Wall />} />
       </Routes>
     </>
   );

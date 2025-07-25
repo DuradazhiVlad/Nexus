@@ -70,7 +70,7 @@ export function Settings() {
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('auth_user_id', authUser.id)
+        .eq('id', authUser.id)
         .single();
 
       if (error) {
@@ -81,6 +81,8 @@ export function Settings() {
       setSettings({
         ...settings,
         ...data,
+        name: data.name || '',
+        lastName: data.lastname || '',
         notifications: data.notifications || settings.notifications,
         privacy: data.privacy || settings.privacy,
       });
@@ -105,7 +107,7 @@ export function Settings() {
         .from('users')
         .update({
           name: settings.name,
-          lastName: settings.lastName,
+          lastname: settings.lastName,
           bio: settings.bio,
           city: settings.city,
           birthDate: settings.birthDate,
@@ -116,7 +118,7 @@ export function Settings() {
           phone: settings.phone,
           website: settings.website,
         })
-        .eq('auth_user_id', authUser.id);
+        .eq('id', authUser.id);
 
       if (error) throw error;
 
