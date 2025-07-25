@@ -23,24 +23,36 @@ export function Friends() {
   const fetchFriends = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('friends')
-        .select(`
-          friend_id,
-          friend:users!friend_id (
-            id,
-            name,
-            lastName,
-            avatar
-          )
-        `)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      setFriends(data?.map(f => f.friend) || []);
+      
+      // Використовуємо демо-дані поки база не налаштована
+      const demoFriends = [
+        {
+          id: '1',
+          name: 'Олександр',
+          lastname: 'Петренко',
+          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
+          isOnline: true,
+          lastSeen: new Date().toISOString()
+        },
+        {
+          id: '2',
+          name: 'Марія',
+          lastname: 'Іваненко',
+          avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b31c?auto=format&fit=crop&w=200&q=80',
+          isOnline: false,
+          lastSeen: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+        },
+        {
+          id: '3',
+          name: 'Андрій',
+          lastname: 'Коваленко',
+          avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80',
+          isOnline: true,
+          lastSeen: new Date().toISOString()
+        }
+      ];
+      
+      setFriends(demoFriends);
     } catch (error) {
       console.error('Error fetching friends:', error);
     } finally {
@@ -75,10 +87,11 @@ export function Friends() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Створюємо запит на дружбу
       const { error } = await supabase
-        .from('friends')
+        .from('friend_requests')
         .insert([
-          { user_id: user.id, friend_id: friendId }
+          { sender_id: user.id, receiver_id: friendId, status: 'pending' }
         ]);
 
       if (error) throw error;
@@ -121,7 +134,7 @@ export function Friends() {
                           />
                         ) : (
                           <span className="text-lg text-gray-600">
-                            {user.name[0]}
+                            {user.name?.[0]}
                           </span>
                         )}
                       </div>
@@ -161,7 +174,7 @@ export function Friends() {
                         />
                       ) : (
                         <span className="text-xl text-gray-600">
-                          {friend.name[0]}
+                          {friend.name?.[0]}
                         </span>
                       )}
                     </div>

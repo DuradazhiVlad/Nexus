@@ -72,7 +72,7 @@ BEGIN
     WHERE constraint_name = 'posts_user_id_fkey'
   ) THEN
     ALTER TABLE posts ADD CONSTRAINT posts_user_id_fkey 
-    FOREIGN KEY (user_id) REFERENCES user_profiles(id) ON DELETE CASCADE;
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
   END IF;
 
   IF NOT EXISTS (
@@ -88,7 +88,7 @@ BEGIN
     WHERE constraint_name = 'post_likes_user_id_fkey'
   ) THEN
     ALTER TABLE post_likes ADD CONSTRAINT post_likes_user_id_fkey 
-    FOREIGN KEY (user_id) REFERENCES user_profiles(id) ON DELETE CASCADE;
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
   END IF;
 
   IF NOT EXISTS (
@@ -104,7 +104,7 @@ BEGIN
     WHERE constraint_name = 'post_comments_user_id_fkey'
   ) THEN
     ALTER TABLE post_comments ADD CONSTRAINT post_comments_user_id_fkey 
-    FOREIGN KEY (user_id) REFERENCES user_profiles(id) ON DELETE CASCADE;
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
   END IF;
 END $$;
 

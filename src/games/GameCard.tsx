@@ -1,5 +1,5 @@
 import React from 'react';
-import { Game } from '../../types/games';
+import { Game } from '../types/games';
 import { Play, Star, Users, Eye } from 'lucide-react';
 
 interface GameCardProps {

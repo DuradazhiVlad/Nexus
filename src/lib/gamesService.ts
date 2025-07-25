@@ -1,6 +1,6 @@
-import { supabase } from '../src/lib/supabase';
+import { supabase } from './supabase';
 import { DatabaseService } from './database';
-import { Game, GameRating, GamePlay, GameCategory } from '../types/games';
+import { Game, GameRating, GameCategory } from '../types/games';
 
 export class GamesService {
   // Get all active games

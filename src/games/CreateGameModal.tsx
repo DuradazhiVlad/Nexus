@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Upload, Link as LinkIcon } from 'lucide-react';
-import { GameCategory } from '../../types/games';
+import { GameCategory } from '../types/games';
 
 interface CreateGameModalProps {
   onClose: () => void;

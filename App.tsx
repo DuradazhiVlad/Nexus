@@ -1,61 +1,32 @@
 import React, { useEffect } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
-import { Users } from 'lucide-react';
-import { supabase } from './src/lib/supabase';
+import { Users as UsersIcon } from 'lucide-react';
+import { AuthService } from './src/lib/auth';
 import { Login } from './src/pages/Login';
 import { Register } from './src/pages/Register';
+<<<<<<< HEAD
+=======
+import { Profile } from './src/pages/profile/Profile';
+import { Reels } from './src/pages/Reels';
+>>>>>>> 83dc61f003b1abd728baca7e02c949d739926236
 import { Messages } from './src/pages/Messages';
 import { Friends } from './src/pages/Friends';
 import { Settings } from './src/pages/Settings';
 import { Groups } from './src/pages/Groups';
 import { GroupDetail } from './src/pages/GroupDetail';
+<<<<<<< HEAD
 import { Games } from './Games';
 import Wall from './src/pages/Wall';
+=======
+import { People } from './src/pages/People';
+import { Games } from './src/pages/Games';
+import { TestDB } from './src/pages/TestDB';
+>>>>>>> 83dc61f003b1abd728baca7e02c949d739926236
 
-// Email confirmation handler component
-function EmailConfirmationHandler() {
+// Auth initialization component
+function AuthInitializer() {
   useEffect(() => {
-    const handleAuthStateChange = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        // Check if user profile exists, create if not
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', session.user.email)
-          .single();
-
-        if (!existingUser) {
-          // Create user profile
-          await supabase
-            .from('users')
-            .insert([
-              {
-                name: session.user.user_metadata?.name || 
-                      session.user.user_metadata?.full_name?.split(' ')[0] || 
-                      session.user.email?.split('@')[0] || 'User',
-                lastName: session.user.user_metadata?.lastName || 
-                          session.user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
-                email: session.user.email,
-                date: new Date().toISOString(),
-                notifications: {
-                  email: true,
-                  messages: true,
-                  friendRequests: true,
-                },
-                privacy: {
-                  profileVisibility: 'public',
-                  showBirthDate: true,
-                  showEmail: false,
-                },
-              }
-            ]);
-        }
-      }
-    };
-
-    handleAuthStateChange();
+    AuthService.initialize();
   }, []);
 
   return null;
@@ -68,7 +39,7 @@ function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-3">
-              <Users className="h-8 w-8 text-blue-600" />
+              <UsersIcon className="h-8 w-8 text-blue-600" />
               <h1 className="text-2xl font-bold text-gray-900">
                 Соціальна мережа
               </h1>
@@ -129,18 +100,28 @@ function LandingPage() {
 function App() {
   return (
     <>
-      <EmailConfirmationHandler />
+      <AuthInitializer />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+<<<<<<< HEAD
+=======
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/reels" element={<Reels />} />
+>>>>>>> 83dc61f003b1abd728baca7e02c949d739926236
         <Route path="/messages" element={<Messages />} />
         <Route path="/friends" element={<Friends />} />
+        <Route path="/people" element={<People />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/groups" element={<Groups />} />
         <Route path="/groups/:groupId" element={<GroupDetail />} />
         <Route path="/games" element={<Games />} />
+<<<<<<< HEAD
         <Route path="/wall" element={<Wall />} />
+=======
+        <Route path="/test-db" element={<TestDB />} />
+>>>>>>> 83dc61f003b1abd728baca7e02c949d739926236
       </Routes>
     </>
   );
