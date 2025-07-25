@@ -14,7 +14,7 @@ import { GroupDetail } from './src/pages/GroupDetail';
 import { People } from './src/pages/People';
 import { Games } from './src/pages/Games';
 import { TestDB } from './src/pages/TestDB';
-import Wall from './src/pages/Wall';
+import { Wall } from './src/pages/Wall';
 
 // Auth initialization component
 function AuthInitializer() {

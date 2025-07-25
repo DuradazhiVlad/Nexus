@@ -35,14 +35,14 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 interface User {
-  id: string;
-  email: string;
+  auth_user_id: string;
   name: string;
-  lastname?: string;
+  last_name: string;
+  email: string;
   avatar?: string;
   bio?: string;
   city?: string;
-  birthdate?: string;
+  birth_date?: string;
   created_at?: string;
   notifications?: {
     email: boolean;
@@ -54,6 +54,11 @@ interface User {
     showBirthDate: boolean;
     showEmail: boolean;
   };
+  // ...додаткові поля для People
+  isOnline?: boolean;
+  lastSeen?: string;
+  friendsCount?: number;
+  postsCount?: number;
 }
 
 interface FriendRequest {
@@ -127,35 +132,29 @@ export function People() {
       setLoading(pageNum === 0);
       setLoadingMore(pageNum > 0);
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      
       if (authError || !authUser) {
         setUsers([]);
         setFilteredUsers([]);
         setHasMore(false);
         return;
       }
-
       setCurrentUser(authUser.id);
-
       const PAGE_SIZE = 20;
       let allUsers = await DatabaseService.getAllUsers({ limit: PAGE_SIZE, offset: pageNum * PAGE_SIZE });
-      
       // Фільтруємо лише валідних користувачів
-      allUsers = allUsers.filter(user => user && user.id && user.name && user.email);
-
+      allUsers = allUsers.filter(user => user && user.auth_user_id && user.name && user.email);
+      // Фільтруємо поточного користувача зі списку
+      let otherUsers = allUsers.filter(user => user.auth_user_id !== authUser.id);
       if (reset) {
-        setUsers(allUsers);
+        setUsers(otherUsers);
       } else {
-        setUsers(prev => [...prev, ...allUsers]);
+        setUsers(prev => [...prev, ...otherUsers]);
       }
-      
-      setHasMore(allUsers.length === PAGE_SIZE);
+      setHasMore(otherUsers.length === PAGE_SIZE);
       setPage(pageNum);
-      
       // Список унікальних міст
-      const cities = [...new Set((reset ? allUsers : [...users, ...allUsers]).filter(user => user.city).map(user => user.city!))].sort();
+      const cities = [...new Set((reset ? otherUsers : [...users, ...otherUsers]).filter(user => user.city).map(user => user.city!))].sort();
       setAvailableCities(cities);
-      
     } catch (error) {
       console.error('Error fetching users:', error);
       setUsers([]);
@@ -214,7 +213,7 @@ export function People() {
     if (searchQuery.trim() !== '') {
       filtered = filtered.filter(user =>
         user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (user.lastname || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (user.last_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (user.city && user.city.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (user.bio && user.bio.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -262,7 +261,7 @@ export function People() {
       
       switch (filters.sortBy) {
         case 'name':
-          comparison = `${a.name} ${a.lastname}`.localeCompare(`${b.name} ${b.lastname}`);
+          comparison = `${a.name} ${a.last_name}`.localeCompare(`${b.name} ${b.last_name}`);
           break;
         case 'date':
           comparison = new Date(a.created_at || a.date).getTime() - new Date(b.created_at || b.date).getTime();
@@ -429,12 +428,12 @@ export function People() {
 
   const renderUserCard = (user: User) => {
     const friendStatus = getFriendStatus(user.auth_user_id);
-    const isSelected = selectedUsers.has(user.id);
+    const isSelected = selectedUsers.has(user.auth_user_id);
 
     if (viewMode === 'list') {
       return (
         <div
-          key={user.id}
+          key={user.auth_user_id}
           className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-all duration-200 ${
             isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
           }`}
@@ -444,7 +443,7 @@ export function People() {
               <input
                 type="checkbox"
                 checked={isSelected}
-                onChange={() => toggleUserSelection(user.id)}
+                onChange={() => toggleUserSelection(user.auth_user_id)}
                 className="absolute top-0 left-0 w-4 h-4 rounded border-gray-300 text-blue-600"
               />
               <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xl font-bold overflow-hidden ml-6">
@@ -456,7 +455,7 @@ export function People() {
                   />
                 ) : (
                   <span>
-                    {user.name?.[0]?.toUpperCase()}{(user.lastname || '').toUpperCase()}
+                    {user.name?.[0]?.toUpperCase()}{(user.last_name || '').toUpperCase()}
                   </span>
                 )}
                 {user.isOnline && (
@@ -468,7 +467,7 @@ export function People() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2">
                 <h3 className="text-lg font-semibold text-gray-900 truncate">
-                  {user.name} {user.lastname}
+                  {user.name} {user.last_name}
                 </h3>
                 {user.privacy?.profileVisibility === 'private' && (
                   <Lock size={16} className="text-gray-400" />
@@ -524,7 +523,7 @@ export function People() {
                     Видалити з друзів
                   </button>
                   <button
-                    onClick={() => navigate(`/messages?user=${user.id}`)}
+                    onClick={() => navigate(`/messages?user=${user.auth_user_id}`)}
                     className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     <MessageCircle size={16} />
@@ -567,7 +566,7 @@ export function People() {
                     Додати в друзі
                   </button>
                   <button
-                    onClick={() => navigate(`/messages?user=${user.id}`)}
+                    onClick={() => navigate(`/messages?user=${user.auth_user_id}`)}
                     className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     <MessageCircle size={16} />
@@ -589,11 +588,11 @@ export function People() {
     // Grid view
     return (
       <div
-        key={user.id}
+        key={user.auth_user_id}
         className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200 cursor-pointer group hover:scale-105 ${
           isSelected ? 'ring-2 ring-blue-500' : ''
         }`}
-        onClick={() => navigate(`/profile/${user.id}`)}
+        onClick={() => navigate(`/profile/${user.auth_user_id}`)}
       >
         <div className="relative">
           <input
@@ -601,7 +600,7 @@ export function People() {
             checked={isSelected}
             onChange={(e) => {
               e.stopPropagation();
-              toggleUserSelection(user.id);
+              toggleUserSelection(user.auth_user_id);
             }}
             className="absolute top-3 left-3 w-4 h-4 rounded border-gray-300 text-blue-600 z-10"
           />
@@ -617,7 +616,7 @@ export function People() {
                   />
                 ) : (
                   <span>
-                    {user.name?.[0]?.toUpperCase()}{(user.lastname || '').toUpperCase()}
+                    {user.name?.[0]?.toUpperCase()}{(user.last_name || '').toUpperCase()}
                   </span>
                 )}
                 {user.isOnline && (
@@ -628,7 +627,7 @@ export function People() {
               <div className="ml-4 flex-1 min-w-0">
                 <div className="flex items-center space-x-2">
                   <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
-                    {user.name} {user.lastname}
+                    {user.name} {user.last_name}
                   </h3>
                   {user.privacy?.profileVisibility === 'private' && (
                     <Lock size={16} className="text-gray-400" />
@@ -716,7 +715,7 @@ export function People() {
               
               {friendStatus !== 'self' && (
                 <button
-                  onClick={() => navigate(`/messages?user=${user.id}`)}
+                  onClick={() => navigate(`/messages?user=${user.auth_user_id}`)}
                   className="flex items-center justify-center px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   title="Написати повідомлення"
                 >
@@ -957,7 +956,7 @@ export function People() {
                   if (selectedUsers.size === filteredUsers.length) {
                     clearSelection();
                   } else {
-                    setSelectedUsers(new Set(filteredUsers.map(u => u.id)));
+                    setSelectedUsers(new Set(filteredUsers.map(u => u.auth_user_id)));
                     setShowBulkActions(true);
                   }
                 }}
