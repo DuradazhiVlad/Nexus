@@ -4,24 +4,17 @@ import { Users as UsersIcon } from 'lucide-react';
 import { AuthService } from './src/lib/auth';
 import { Login } from './src/pages/Login';
 import { Register } from './src/pages/Register';
-<<<<<<< HEAD
-=======
 import { Profile } from './src/pages/profile/Profile';
 import { Reels } from './src/pages/Reels';
->>>>>>> 83dc61f003b1abd728baca7e02c949d739926236
 import { Messages } from './src/pages/Messages';
 import { Friends } from './src/pages/Friends';
 import { Settings } from './src/pages/Settings';
 import { Groups } from './src/pages/Groups';
 import { GroupDetail } from './src/pages/GroupDetail';
-<<<<<<< HEAD
-import { Games } from './Games';
-import Wall from './src/pages/Wall';
-=======
 import { People } from './src/pages/People';
 import { Games } from './src/pages/Games';
 import { TestDB } from './src/pages/TestDB';
->>>>>>> 83dc61f003b1abd728baca7e02c949d739926236
+import Wall from './src/pages/Wall';
 
 // Auth initialization component
 function AuthInitializer() {
@@ -105,11 +98,8 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-<<<<<<< HEAD
-=======
         <Route path="/profile" element={<Profile />} />
         <Route path="/reels" element={<Reels />} />
->>>>>>> 83dc61f003b1abd728baca7e02c949d739926236
         <Route path="/messages" element={<Messages />} />
         <Route path="/friends" element={<Friends />} />
         <Route path="/people" element={<People />} />
@@ -117,11 +107,8 @@ function App() {
         <Route path="/groups" element={<Groups />} />
         <Route path="/groups/:groupId" element={<GroupDetail />} />
         <Route path="/games" element={<Games />} />
-<<<<<<< HEAD
-        <Route path="/wall" element={<Wall />} />
-=======
         <Route path="/test-db" element={<TestDB />} />
->>>>>>> 83dc61f003b1abd728baca7e02c949d739926236
+        <Route path="/wall" element={<Wall />} />
       </Routes>
     </>
   );

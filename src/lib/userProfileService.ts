@@ -19,4 +19,11 @@ export async function updateUserProfile(authUserId: string, updates: any) {
     .single();
   if (error) throw error;
   return data;
+}
+
+export async function insertUserProfile(profile: { auth_user_id: string, name: string, last_name: string, email: string }) {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .insert([profile]);
+  return { data, error };
 } 

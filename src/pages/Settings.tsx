@@ -3,14 +3,16 @@ import { Sidebar } from '../components/Sidebar';
 import { supabase } from '../lib/supabase';
 import { User, Shield, Bell, Globe, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getUserProfile, updateUserProfile } from '../lib/userProfileService';
 
 interface UserSettings {
   name: string;
-  lastName: string;
+  last_name: string;
   email: string;
-  bio: string;
-  city: string;
-  birthDate: string;
+  avatar?: string;
+  bio?: string;
+  city?: string;
+  birth_date?: string;
   notifications: {
     email: boolean;
     messages: boolean;
@@ -21,10 +23,6 @@ interface UserSettings {
     showBirthDate: boolean;
     showEmail: boolean;
   };
-  familyStatus: string;
-  status: string;
-  phone: string;
-  website: string;
 }
 
 export function Settings() {
@@ -33,11 +31,12 @@ export function Settings() {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<UserSettings>({
     name: '',
-    lastName: '',
+    last_name: '',
     email: '',
+    avatar: '',
     bio: '',
     city: '',
-    birthDate: '',
+    birth_date: '',
     notifications: {
       email: true,
       messages: true,
@@ -48,10 +47,6 @@ export function Settings() {
       showBirthDate: true,
       showEmail: false,
     },
-    familyStatus: '',
-    status: '',
-    phone: '',
-    website: '',
   });
 
   useEffect(() => {
@@ -61,30 +56,22 @@ export function Settings() {
   const loadUserSettings = async () => {
     try {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      
       if (authError || !authUser) {
         navigate('/login');
         return;
       }
-
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authUser.id)
-        .single();
-
-      if (error) {
-        console.error('Error fetching user settings:', error);
-        return;
-      }
-
+      const data = await getUserProfile(authUser.id);
+      if (!data) return;
       setSettings({
-        ...settings,
-        ...data,
         name: data.name || '',
-        lastName: data.lastname || '',
-        notifications: data.notifications || settings.notifications,
-        privacy: data.privacy || settings.privacy,
+        last_name: data.last_name || '',
+        email: data.email || '',
+        avatar: data.avatar || '',
+        bio: data.bio || '',
+        city: data.city || '',
+        birth_date: data.birth_date || '',
+        notifications: data.notifications || { email: true, messages: true, friendRequests: true },
+        privacy: data.privacy || { profileVisibility: 'public', showBirthDate: true, showEmail: false },
       });
     } catch (error) {
       console.error('Error loading user settings:', error);
@@ -97,31 +84,11 @@ export function Settings() {
     e.preventDefault();
     try {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      
       if (authError || !authUser) {
         navigate('/login');
         return;
       }
-
-      const { error } = await supabase
-        .from('users')
-        .update({
-          name: settings.name,
-          lastname: settings.lastName,
-          bio: settings.bio,
-          city: settings.city,
-          birthDate: settings.birthDate,
-          notifications: settings.notifications,
-          privacy: settings.privacy,
-          familyStatus: settings.familyStatus,
-          status: settings.status,
-          phone: settings.phone,
-          website: settings.website,
-        })
-        .eq('id', authUser.id);
-
-      if (error) throw error;
-
+      await updateUserProfile(authUser.id, settings);
       alert('Налаштування збережено успішно');
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -176,283 +143,175 @@ export function Settings() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Ім'я
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700">Ім'я</label>
                       <input
                         type="text"
                         value={settings.name}
-                        onChange={(e) => setSettings({ ...settings, name: e.target.value })}
+                        onChange={e => setSettings({ ...settings, name: e.target.value })}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Прізвище
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700">Прізвище</label>
                       <input
                         type="text"
-                        value={settings.lastName}
-                        onChange={(e) => setSettings({ ...settings, lastName: e.target.value })}
+                        value={settings.last_name}
+                        onChange={e => setSettings({ ...settings, last_name: e.target.value })}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       />
                     </div>
                   </div>
-
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Місто
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700">Email</label>
                       <input
-                        type="text"
-                        value={settings.city || ''}
-                        onChange={(e) => setSettings({ ...settings, city: e.target.value })}
+                        type="email"
+                        value={settings.email}
+                        onChange={e => setSettings({ ...settings, email: e.target.value })}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Сімейний стан
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700">Аватар (URL)</label>
                       <input
-                        type="text"
-                        value={settings.familyStatus || ''}
-                        onChange={(e) => setSettings({ ...settings, familyStatus: e.target.value })}
+                        type="url"
+                        value={settings.avatar || ''}
+                        onChange={e => setSettings({ ...settings, avatar: e.target.value })}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       />
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Статус
-                      </label>
-                      <input
-                        type="text"
-                        value={settings.status || ''}
-                        onChange={(e) => setSettings({ ...settings, status: e.target.value })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Телефон
-                      </label>
-                      <input
-                        type="text"
-                        value={settings.phone || ''}
-                        onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Веб-сайт
-                      </label>
-                      <input
-                        type="text"
-                        value={settings.website || ''}
-                        onChange={(e) => setSettings({ ...settings, website: e.target.value })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Дата народження
-                      </label>
-                      <input
-                        type="date"
-                        value={settings.birthDate || ''}
-                        onChange={(e) => setSettings({ ...settings, birthDate: e.target.value })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Про мене
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700">Про себе</label>
                     <textarea
-                      value={settings.bio}
-                      onChange={(e) => setSettings({ ...settings, bio: e.target.value })}
+                      value={settings.bio || ''}
+                      onChange={e => setSettings({ ...settings, bio: e.target.value })}
                       rows={4}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     />
                   </div>
-
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Зберегти зміни
-                    </button>
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Місто</label>
+                      <input
+                        type="text"
+                        value={settings.city || ''}
+                        onChange={e => setSettings({ ...settings, city: e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">День народження</label>
+                      <input
+                        type="date"
+                        value={settings.birth_date || ''}
+                        onChange={e => setSettings({ ...settings, birth_date: e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      />
+                    </div>
                   </div>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  >
+                    Зберегти
+                  </button>
                 </form>
               )}
 
               {activeTab === 'privacy' && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">
-                      Налаштування приватності
-                    </h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Видимість профілю
-                        </label>
-                        <select
-                          value={settings.privacy.profileVisibility}
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              privacy: {
-                                ...settings.privacy,
-                                profileVisibility: e.target.value as 'public' | 'friends' | 'private',
-                              },
-                            })
-                          }
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        >
-                          <option value="public">Публічний</option>
-                          <option value="friends">Тільки друзі</option>
-                          <option value="private">Приватний</option>
-                        </select>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">
-                          Показувати дату народження
-                        </span>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={settings.privacy.showBirthDate}
-                            onChange={(e) =>
-                              setSettings({
-                                ...settings,
-                                privacy: {
-                                  ...settings.privacy,
-                                  showBirthDate: e.target.checked,
-                                },
-                              })
-                            }
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">
-                          Показувати email
-                        </span>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={settings.privacy.showEmail}
-                            onChange={(e) =>
-                              setSettings({
-                                ...settings,
-                                privacy: {
-                                  ...settings.privacy,
-                                  showEmail: e.target.checked,
-                                },
-                              })
-                            }
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                      </div>
+                    <label className="block text-sm font-medium text-gray-700">Видимість профілю</label>
+                    <div className="flex space-x-4 mt-2">
+                      <label className="inline-flex items-center">
+                        <input
+                          type="radio"
+                          name="profileVisibility"
+                          value="public"
+                          checked={settings.privacy.profileVisibility === 'public'}
+                          onChange={() => setSettings({ ...settings, privacy: { ...settings.privacy, profileVisibility: 'public' } })}
+                          className="form-radio h-5 w-5 text-blue-600"
+                        />
+                        <span className="ml-2">Публічно</span>
+                      </label>
+                      <label className="inline-flex items-center">
+                        <input
+                          type="radio"
+                          name="profileVisibility"
+                          value="friends"
+                          checked={settings.privacy.profileVisibility === 'friends'}
+                          onChange={() => setSettings({ ...settings, privacy: { ...settings.privacy, profileVisibility: 'friends' } })}
+                          className="form-radio h-5 w-5 text-blue-600"
+                        />
+                        <span className="ml-2">Тільки друзі</span>
+                      </label>
+                      <label className="inline-flex items-center">
+                        <input
+                          type="radio"
+                          name="profileVisibility"
+                          value="private"
+                          checked={settings.privacy.profileVisibility === 'private'}
+                          onChange={() => setSettings({ ...settings, privacy: { ...settings.privacy, profileVisibility: 'private' } })}
+                          className="form-radio h-5 w-5 text-blue-600"
+                        />
+                        <span className="ml-2">Приватно</span>
+                      </label>
                     </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <label className="inline-flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={settings.privacy.showEmail}
+                        onChange={e => setSettings({ ...settings, privacy: { ...settings.privacy, showEmail: e.target.checked } })}
+                        className="form-checkbox h-5 w-5 text-blue-600"
+                      />
+                      <span className="ml-2">Показувати email</span>
+                    </label>
+                    <label className="inline-flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={settings.privacy.showBirthDate}
+                        onChange={e => setSettings({ ...settings, privacy: { ...settings.privacy, showBirthDate: e.target.checked } })}
+                        className="form-checkbox h-5 w-5 text-blue-600"
+                      />
+                      <span className="ml-2">Показувати дату народження</span>
+                    </label>
                   </div>
                 </div>
               )}
 
               {activeTab === 'notifications' && (
                 <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">
-                      Налаштування сповіщень
-                    </h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">
-                          Email сповіщення
-                        </span>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={settings.notifications.email}
-                            onChange={(e) =>
-                              setSettings({
-                                ...settings,
-                                notifications: {
-                                  ...settings.notifications,
-                                  email: e.target.checked,
-                                },
-                              })
-                            }
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">
-                          Сповіщення про повідомлення
-                        </span>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={settings.notifications.messages}
-                            onChange={(e) =>
-                              setSettings({
-                                ...settings,
-                                notifications: {
-                                  ...settings.notifications,
-                                  messages: e.target.checked,
-                                },
-                              })
-                            }
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">
-                          Сповіщення про запити в друзі
-                        </span>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={settings.notifications.friendRequests}
-                            onChange={(e) =>
-                              setSettings({
-                                ...settings,
-                                notifications: {
-                                  ...settings.notifications,
-                                  friendRequests: e.target.checked,
-                                },
-                              })
-                            }
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                      </div>
-                    </div>
+                  <div className="flex items-center space-x-4">
+                    <label className="inline-flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={settings.notifications.email}
+                        onChange={e => setSettings({ ...settings, notifications: { ...settings.notifications, email: e.target.checked } })}
+                        className="form-checkbox h-5 w-5 text-blue-600"
+                      />
+                      <span className="ml-2">Email</span>
+                    </label>
+                    <label className="inline-flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={settings.notifications.messages}
+                        onChange={e => setSettings({ ...settings, notifications: { ...settings.notifications, messages: e.target.checked } })}
+                        className="form-checkbox h-5 w-5 text-blue-600"
+                      />
+                      <span className="ml-2">Повідомлення</span>
+                    </label>
+                    <label className="inline-flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={settings.notifications.friendRequests}
+                        onChange={e => setSettings({ ...settings, notifications: { ...settings.notifications, friendRequests: e.target.checked } })}
+                        className="form-checkbox h-5 w-5 text-blue-600"
+                      />
+                      <span className="ml-2">Запити в друзі</span>
+                    </label>
                   </div>
                 </div>
               )}

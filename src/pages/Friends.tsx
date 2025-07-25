@@ -6,7 +6,7 @@ import { Search, UserPlus, UserCheck } from 'lucide-react';
 interface Friend {
   id: string;
   name: string;
-  lastName: string;
+  last_name: string;
   avatar?: string;
 }
 
@@ -15,49 +15,71 @@ export function Friends() {
   const [searchResults, setSearchResults] = useState<Friend[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [requests, setRequests] = useState<any[]>([]); // friend_requests
 
   useEffect(() => {
     fetchFriends();
+    fetchRequests();
   }, []);
 
   const fetchFriends = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
-      // Використовуємо демо-дані поки база не налаштована
-      const demoFriends = [
-        {
-          id: '1',
-          name: 'Олександр',
-          lastname: 'Петренко',
-          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
-          isOnline: true,
-          lastSeen: new Date().toISOString()
-        },
-        {
-          id: '2',
-          name: 'Марія',
-          lastname: 'Іваненко',
-          avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b31c?auto=format&fit=crop&w=200&q=80',
-          isOnline: false,
-          lastSeen: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-        },
-        {
-          id: '3',
-          name: 'Андрій',
-          lastname: 'Коваленко',
-          avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80',
-          isOnline: true,
-          lastSeen: new Date().toISOString()
-        }
-      ];
-      
-      setFriends(demoFriends);
+      if (!user) return;
+      // Отримуємо друзів через friendships
+      const { data, error } = await supabase
+        .from('friendships')
+        .select(`
+          user1:user_profiles!friendships_user1_id_fkey (id, name, last_name, avatar),
+          user2:user_profiles!friendships_user2_id_fkey (id, name, last_name, avatar)
+        `)
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+      if (error) throw error;
+      // Витягуємо друзів (не поточний користувач)
+      const friendsList = (data || []).map(f => {
+        const friend = f.user1.id === user.id ? f.user2 : f.user1;
+        return friend;
+      }).filter(Boolean);
+      setFriends(friendsList);
     } catch (error) {
       console.error('Error fetching friends:', error);
+      setFriends([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchRequests = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('friend_requests')
+        .select('*, sender:user_profiles!friend_requests_sender_id_fkey (id, name, last_name, avatar)')
+        .eq('receiver_id', user.id)
+        .eq('status', 'pending');
+      if (error) throw error;
+      setRequests(data || []);
+    } catch (error) {
+      setRequests([]);
+    }
+  };
+
+  const acceptRequest = async (requestId: string) => {
+    await supabase
+      .from('friend_requests')
+      .update({ status: 'accepted' })
+      .eq('id', requestId);
+    fetchFriends();
+    fetchRequests();
+  };
+
+  const rejectRequest = async (requestId: string) => {
+    await supabase
+      .from('friend_requests')
+      .update({ status: 'rejected' })
+      .eq('id', requestId);
+    fetchRequests();
   };
 
   const handleSearch = async (query: string) => {
@@ -66,16 +88,13 @@ export function Friends() {
       setSearchResults([]);
       return;
     }
-
     try {
       const { data, error } = await supabase
-        .from('users')
-        .select('id, name, lastName, avatar')
-        .or(`name.ilike.%${query}%, lastName.ilike.%${query}%`)
+        .from('user_profiles')
+        .select('id, name, last_name, avatar')
+        .or(`name.ilike.%${query}%,last_name.ilike.%${query}%`)
         .limit(10);
-
       if (error) throw error;
-
       setSearchResults(data || []);
     } catch (error) {
       console.error('Error searching users:', error);
@@ -140,7 +159,7 @@ export function Friends() {
                       </div>
                       <div className="ml-3">
                         <p className="font-medium text-gray-900">
-                          {user.name} {user.lastName}
+                          {user.name} {user.last_name}
                         </p>
                       </div>
                     </div>
@@ -158,6 +177,33 @@ export function Friends() {
           </div>
 
           <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Запити у друзі</h2>
+            {requests.length > 0 ? (
+              <div className="space-y-4 mb-8">
+                {requests.map((req) => (
+                  <div key={req.id} className="bg-white p-4 rounded-lg shadow-sm flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                        {req.sender?.avatar ? (
+                          <img src={req.sender.avatar} alt={req.sender.name} className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          <span className="text-lg text-gray-600">{req.sender?.name?.[0]}</span>
+                        )}
+                      </div>
+                      <div className="ml-3">
+                        <p className="font-medium text-gray-900">{req.sender?.name} {req.sender?.last_name}</p>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button onClick={() => acceptRequest(req.id)} className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700">Прийняти</button>
+                      <button onClick={() => rejectRequest(req.id)} className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700">Відхилити</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-gray-600 mb-8">Немає нових запитів</div>
+            )}
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Мої друзі</h2>
             {loading ? (
               <div className="text-center py-8">Завантаження...</div>
@@ -180,7 +226,7 @@ export function Friends() {
                     </div>
                     <div className="ml-4">
                       <p className="font-medium text-gray-900">
-                        {friend.name} {friend.lastName}
+                        {friend.name} {friend.last_name}
                       </p>
                       <button className="flex items-center text-sm text-blue-600 hover:text-blue-700 mt-1">
                         <UserCheck size={16} className="mr-1" />

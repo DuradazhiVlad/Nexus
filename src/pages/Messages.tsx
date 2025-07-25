@@ -58,8 +58,8 @@ export function Messages() {
       .from('conversations')
       .select(`
         *,
-        participant1:users!conversations_participant1_id_fkey (id, name, lastname, avatar),
-        participant2:users!conversations_participant2_id_fkey (id, name, lastname, avatar)
+        participant1:user_profiles!conversations_participant1_id_fkey (id, name, last_name, avatar),
+        participant2:user_profiles!conversations_participant2_id_fkey (id, name, last_name, avatar)
       `)
       .or(`participant1_id.eq.${currentUser.id},participant2_id.eq.${currentUser.id}`)
       .order('updated_at', { ascending: false });
@@ -98,8 +98,8 @@ export function Messages() {
         ])
         .select(`
           *,
-          participant1:users!conversations_participant1_id_fkey (id, name, lastname, avatar),
-          participant2:users!conversations_participant2_id_fkey (id, name, lastname, avatar)
+          participant1:user_profiles!conversations_participant1_id_fkey (id, name, last_name, avatar),
+          participant2:user_profiles!conversations_participant2_id_fkey (id, name, last_name, avatar)
         `)
         .single();
       if (error) return;
@@ -178,7 +178,7 @@ export function Messages() {
                     )}
                   </div>
                   <div className="ml-4 flex-1">
-                    <div className="font-semibold text-gray-900">{conv.participant?.name} {conv.participant?.lastName}</div>
+                    <div className="font-semibold text-gray-900">{conv.participant?.name} {conv.participant?.last_name}</div>
                     <div className="text-xs text-gray-500">Останнє оновлення: {new Date(conv.updated_at).toLocaleString('uk-UA')}</div>
                   </div>
                 </div>
@@ -199,7 +199,7 @@ export function Messages() {
                   )}
                 </div>
                 <div className="ml-4">
-                  <div className="font-semibold text-gray-900">{selectedConversation.participant?.name} {selectedConversation.participant?.lastName}</div>
+                  <div className="font-semibold text-gray-900">{selectedConversation.participant?.name} {selectedConversation.participant?.last_name}</div>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto px-6 py-4 bg-gray-50">

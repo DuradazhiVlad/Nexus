@@ -6,16 +6,12 @@
   "homepage": "https://DuradazhiVlad.github.io/Nexus",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && cp public/404.html dist/404.html",
+    "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
-<<<<<<< HEAD
-    "postbuild": "copy dist\\index.html dist\\404.html"
-=======
     "deploy:force": "npm run build && gh-pages -d dist --force"
->>>>>>> 83dc61f003b1abd728baca7e02c949d739926236
   },
   "dependencies": {
     "@headlessui/react": "^2.2.4",

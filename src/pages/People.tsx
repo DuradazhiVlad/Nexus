@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { supabase } from '../lib/supabase';
 import { DatabaseService } from '../lib/database';
@@ -36,29 +36,23 @@ import { useNavigate } from 'react-router-dom';
 
 interface User {
   id: string;
-  auth_user_id?: string;
-  name: string;
-  lastName?: string;
-  lastname?: string; // New field from database
   email: string;
+  name: string;
+  lastname?: string;
   avatar?: string;
   bio?: string;
   city?: string;
-  birthDate?: string;
-  birthdate?: string; // New field from database
-  date?: string;
-  created_at?: string; // New field from database
-  isOnline?: boolean;
-  lastSeen?: string;
-  friendsCount?: number;
-  postsCount?: number;
-  mutualFriends?: number;
-  canAddToFriend?: boolean;
+  birthdate?: string;
+  created_at?: string;
+  notifications?: {
+    email: boolean;
+    messages: boolean;
+    friendRequests: boolean;
+  };
   privacy?: {
     profileVisibility: 'public' | 'friends' | 'private';
     showBirthDate: boolean;
     showEmail: boolean;
-    showOnlineStatus?: boolean;
   };
 }
 
@@ -104,102 +98,72 @@ export function People() {
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
   const navigate = useNavigate();
+  const [page, setPage] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const observer = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    fetchUsers();
+    fetchUsers(0, true);
     fetchFriendRequests();
   }, []);
 
   useEffect(() => {
-    applyFiltersAndSearch();
-  }, [searchQuery, users, filters, friendRequests]);
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore && !loadingMore) {
+        fetchUsers(page + 1);
+      }
+    });
+    if (loadMoreRef.current) {
+      observer.current.observe(loadMoreRef.current);
+    }
+    return () => observer.current?.disconnect();
+  }, [hasMore, loadingMore, page, filteredUsers]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (pageNum = 0, reset = false) => {
     try {
+      setLoading(pageNum === 0);
+      setLoadingMore(pageNum > 0);
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !authUser) {
-        // Використовуємо демо дані якщо користувач не авторизований
-        const demoUsers: User[] = [
-          {
-            id: '1',
-            name: 'Анна',
-            lastName: 'Петренко',
-            avatar: undefined,
-            email: 'anna@example.com',
-            city: 'Київ',
-            isOnline: true,
-            lastSeen: new Date().toISOString(),
-            mutualFriends: 12,
-            canAddToFriend: true,
-          },
-          {
-            id: '2',
-            name: 'Максим',
-            lastName: 'Іваненко',
-            avatar: undefined,
-            email: 'maxim@example.com',
-            city: 'Львів',
-            isOnline: false,
-            lastSeen: new Date(Date.now() - 3600000).toISOString(),
-            mutualFriends: 8,
-            canAddToFriend: true,
-          }
-        ];
-        setUsers(demoUsers);
-        setFilteredUsers(demoUsers);
+        setUsers([]);
+        setFilteredUsers([]);
+        setHasMore(false);
         return;
       }
 
       setCurrentUser(authUser.id);
 
-      // Використовуємо новий метод з DatabaseService
-      let allUsers = await DatabaseService.getAllUsers();
+      const PAGE_SIZE = 20;
+      let allUsers = await DatabaseService.getAllUsers({ limit: PAGE_SIZE, offset: pageNum * PAGE_SIZE });
       
-      // Додаємо фільтрацію: не показувати користувачів з помилками
-      allUsers = allUsers.filter(user => 
-        user && user.id && user.name && (user.lastname || user.lastName) && user.email
-      );
+      // Фільтруємо лише валідних користувачів
+      allUsers = allUsers.filter(user => user && user.id && user.name && user.email);
 
-      // Симулюємо онлайн статус та додаткові дані
-      const mappedUsers: User[] = allUsers.map(user => ({
-        ...user,
-        lastName: user.lastname || user.lastName,
-        lastname: user.lastname,
-        birthDate: user.birthdate,
-        date: user.created_at || user.date,
-        isOnline: Math.random() > 0.7, // 30% онлайн
-        lastSeen: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-        friendsCount: Math.floor(Math.random() * 100),
-        postsCount: Math.floor(Math.random() * 50),
-        mutualFriends: Math.floor(Math.random() * 20),
-        canAddToFriend: user.id !== authUser.id, // Не можна додати себе в друзі
-      }));
-
-<<<<<<< HEAD
-      // Фільтруємо поточного користувача зі списку
-      let otherUsers = data?.filter(user => user.id !== authUser.id) || [];
-      // Додаємо фільтрацію: не показувати користувачів з помилками (без id, name, lastName, email)
-      otherUsers = otherUsers.filter(user => user && user.id && user.name && user.lastName && user.email);
-      setUsers(otherUsers);
-      setFilteredUsers(otherUsers);
-=======
-      setUsers(mappedUsers);
+      if (reset) {
+        setUsers(allUsers);
+      } else {
+        setUsers(prev => [...prev, ...allUsers]);
+      }
       
-      // Створюємо список унікальних міст
-      const cities = [...new Set(mappedUsers
-        .filter(user => user.city)
-        .map(user => user.city!)
-      )].sort();
+      setHasMore(allUsers.length === PAGE_SIZE);
+      setPage(pageNum);
+      
+      // Список унікальних міст
+      const cities = [...new Set((reset ? allUsers : [...users, ...allUsers]).filter(user => user.city).map(user => user.city!))].sort();
       setAvailableCities(cities);
       
->>>>>>> 83dc61f003b1abd728baca7e02c949d739926236
     } catch (error) {
       console.error('Error fetching users:', error);
       setUsers([]);
       setFilteredUsers([]);
+      setHasMore(false);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -250,7 +214,7 @@ export function People() {
     if (searchQuery.trim() !== '') {
       filtered = filtered.filter(user =>
         user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (user.lastname || user.lastName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (user.lastname || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (user.city && user.city.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (user.bio && user.bio.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -298,10 +262,10 @@ export function People() {
       
       switch (filters.sortBy) {
         case 'name':
-          comparison = `${a.name} ${a.lastName}`.localeCompare(`${b.name} ${b.lastName}`);
+          comparison = `${a.name} ${a.lastname}`.localeCompare(`${b.name} ${b.lastname}`);
           break;
         case 'date':
-          comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+          comparison = new Date(a.created_at || a.date).getTime() - new Date(b.created_at || b.date).getTime();
           break;
         case 'city':
           comparison = (a.city || '').localeCompare(b.city || '');
@@ -492,7 +456,7 @@ export function People() {
                   />
                 ) : (
                   <span>
-                    {user.name?.[0]?.toUpperCase()}{(user.lastname || user.lastName)?.[0]?.toUpperCase()}
+                    {user.name?.[0]?.toUpperCase()}{(user.lastname || '').toUpperCase()}
                   </span>
                 )}
                 {user.isOnline && (
@@ -504,7 +468,7 @@ export function People() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2">
                 <h3 className="text-lg font-semibold text-gray-900 truncate">
-                  {user.name} {user.lastname || user.lastName}
+                  {user.name} {user.lastname}
                 </h3>
                 {user.privacy?.profileVisibility === 'private' && (
                   <Lock size={16} className="text-gray-400" />
@@ -517,7 +481,7 @@ export function People() {
               <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
                 <div className="flex items-center">
                   <Calendar size={14} className="mr-1" />
-                  {formatDate(user.date)}
+                  {formatDate(user.created_at || user.date)}
                 </div>
                 {user.city && (
                   <div className="flex items-center">
@@ -653,7 +617,7 @@ export function People() {
                   />
                 ) : (
                   <span>
-                    {user.name?.[0]?.toUpperCase()}{(user.lastname || user.lastName)?.[0]?.toUpperCase()}
+                    {user.name?.[0]?.toUpperCase()}{(user.lastname || '').toUpperCase()}
                   </span>
                 )}
                 {user.isOnline && (
@@ -664,7 +628,7 @@ export function People() {
               <div className="ml-4 flex-1 min-w-0">
                 <div className="flex items-center space-x-2">
                   <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
-                    {user.name} {user.lastname || user.lastName}
+                    {user.name} {user.lastname}
                   </h3>
                   {user.privacy?.profileVisibility === 'private' && (
                     <Lock size={16} className="text-gray-400" />
@@ -696,7 +660,7 @@ export function People() {
               )}
               <div className="flex items-center text-sm text-gray-600">
                 <Calendar size={14} className="mr-2 text-gray-400 flex-shrink-0" />
-                <span className="truncate">Приєднався {formatDate(user.date)}</span>
+                <span className="truncate">Приєднався {formatDate(user.created_at || user.date)}</span>
               </div>
               <div className="flex items-center space-x-4 text-sm text-gray-500">
                 <span>{user.friendsCount} друзів</span>
@@ -1005,84 +969,12 @@ export function People() {
           </div>
 
           {filteredUsers.length > 0 ? (
-<<<<<<< HEAD
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredUsers.map((user) => (
-                <div
-                  key={user.id}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200 cursor-pointer group"
-                  onClick={() => navigate(`/profile/${user.id}`)}
-                >
-                  <div className="p-6">
-                    <div className="flex items-center mb-4">
-                      <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xl font-bold overflow-hidden">
-                        {user.avatar ? (
-                          <img
-                            src={user.avatar}
-                            alt={user.name}
-                            className="w-full h-full rounded-full object-cover"
-                          />
-                        ) : (
-                          <span>
-                            {user.name[0]?.toUpperCase()}{user.lastName[0]?.toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                      <div className="ml-4 flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900 group-hover:underline">
-                          {user.name} {user.lastName}
-                        </h3>
-                        <div className="flex items-center text-sm text-gray-500 mt-1">
-                          <Calendar size={14} className="mr-1" />
-                          Приєднався {formatDate(user.date)}
-                        </div>
-                      </div>
-                    </div>
-
-                    {user.bio && (
-                      <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                        {user.bio}
-                      </p>
-                    )}
-
-                    <div className="space-y-2 mb-4">
-                      {user.city && (
-                        <div className="flex items-center text-sm text-gray-600">
-                          <MapPin size={14} className="mr-2 text-gray-400" />
-                          {user.city}
-                        </div>
-                      )}
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Mail size={14} className="mr-2 text-gray-400" />
-                        {user.email}
-                      </div>
-                    </div>
-
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={e => { e.stopPropagation(); addFriend(user.id); }}
-                        className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                      >
-                        <UserPlus size={16} className="mr-1" />
-                        Додати в друзі
-                      </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); navigate(`/messages?user=${user.id}`); }}
-                        className="flex items-center justify-center px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        <MessageCircle size={16} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-=======
             <div className={viewMode === 'grid' 
               ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
               : "space-y-4"
             }>
               {filteredUsers.map(renderUserCard)}
->>>>>>> 83dc61f003b1abd728baca7e02c949d739926236
+              <div ref={loadMoreRef} />
             </div>
           ) : (
             <div className="text-center py-12">
@@ -1107,6 +999,12 @@ export function People() {
                 </button>
               )}
             </div>
+          )}
+          {loadingMore && (
+            <div className="text-center py-4 text-gray-500">Завантаження...</div>
+          )}
+          {!hasMore && filteredUsers.length > 0 && (
+            <div className="text-center py-4 text-gray-400">Більше користувачів немає</div>
           )}
         </div>
       </div>

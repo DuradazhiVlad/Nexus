@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Mail, Lock, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { insertUserProfile } from '../lib/userProfileService';
 
 export function Register() {
   const [name, setName] = useState('');
@@ -26,19 +27,14 @@ export function Register() {
       if (signUpError) throw signUpError;
 
       if (authData.user) {
-        const { error: profileError } = await supabase
-          .from('users')
-          .insert([
-            {
-              name,
-              lastName,
-              email,
-              date: new Date().toISOString(),
-            }
-          ]);
-
+        // Додаємо профіль у user_profiles
+        const { error: profileError } = await insertUserProfile({
+          auth_user_id: authData.user.id,
+          name,
+          last_name: lastName,
+          email,
+        });
         if (profileError) throw profileError;
-
         navigate('/profile/confirm');
       }
     } catch (err: any) {

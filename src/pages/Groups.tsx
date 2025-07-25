@@ -63,6 +63,12 @@ interface Group {
   lastActivity?: string;
   website?: string;
   contactEmail?: string;
+  creator?: {
+    id: string;
+    name: string;
+    last_name: string;
+    avatar: string;
+  };
 }
 
 interface GroupMember {
@@ -71,6 +77,12 @@ interface GroupMember {
   user_id: string;
   role: 'admin' | 'moderator' | 'member';
   joined_at?: string;
+  user?: {
+    id: string;
+    name: string;
+    last_name: string;
+    avatar: string;
+  };
 }
 
 interface Filters {
@@ -226,16 +238,22 @@ export function Groups() {
             location: 'Київ',
             rules: ['Будьте поважні', 'Використовуйте теги'],
             contactEmail: 'admin@example.com',
-            website: 'https://example.com'
+            website: 'https://example.com',
+            creator: {
+              id: 'demo-user',
+              name: 'Демонстрація',
+              last_name: 'Користувач',
+              avatar: 'https://via.placeholder.com/50'
+            }
           }
         ];
-        setAllGroups(demoGroups);
+        setGroups(demoGroups);
         return;
       }
 
       const { data, error } = await supabase
         .from('groups')
-        .select('*')
+        .select(`*, creator:user_profiles!groups_created_by_fkey (id, name, last_name, avatar)`)
         .eq('is_private', false)
         .order('created_at', { ascending: false });
 
@@ -252,7 +270,8 @@ export function Groups() {
         isActive: Math.random() > 0.3,
         lastActivity: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
         location: Math.random() > 0.5 ? 'Київ, Україна' : undefined,
-        website: Math.random() > 0.7 ? 'https://example.com' : undefined
+        website: Math.random() > 0.7 ? 'https://example.com' : undefined,
+        creator: group.creator
       }));
 
       setGroups(enrichedGroups);
@@ -287,13 +306,18 @@ export function Groups() {
       const { data, error } = await supabase
         .from('group_members')
         .select(`
-          groups (*)
+          groups (*, creator:user_profiles!groups_created_by_fkey (id, name, last_name, avatar)),
+          user:user_profiles!group_members_user_id_fkey (id, name, last_name, avatar)
         `)
         .eq('user_id', currentUser)
         .eq('role', 'member');
 
       if (error) throw error;
-      setJoinedGroups(data?.map(item => item.groups).filter(Boolean) || []);
+      setJoinedGroups(data?.map(item => ({
+        ...item.groups,
+        creator: item.creator,
+        user: item.user
+      })).filter(Boolean) || []);
     } catch (error) {
       console.error('Error fetching joined groups:', error);
       setJoinedGroups([]);
@@ -307,13 +331,18 @@ export function Groups() {
       const { data, error } = await supabase
         .from('group_members')
         .select(`
-          groups (*)
+          groups (*, creator:user_profiles!groups_created_by_fkey (id, name, last_name, avatar)),
+          user:user_profiles!group_members_user_id_fkey (id, name, last_name, avatar)
         `)
         .eq('user_id', currentUser)
         .in('role', ['admin', 'moderator']);
 
       if (error) throw error;
-      setManagedGroups(data?.map(item => item.groups).filter(Boolean) || []);
+      setManagedGroups(data?.map(item => ({
+        ...item.groups,
+        creator: item.creator,
+        user: item.user
+      })).filter(Boolean) || []);
     } catch (error) {
       console.error('Error fetching managed groups:', error);
       setManagedGroups([]);
@@ -336,7 +365,7 @@ export function Groups() {
     try {
       const { data, error } = await supabase
         .from('group_members')
-        .select('*');
+        .select(`*, user:user_profiles!group_members_user_id_fkey (id, name, last_name, avatar)`);
 
       if (error) throw error;
       setGroupMembers(data || []);
@@ -540,7 +569,7 @@ export function Groups() {
 
   const getUserRole = (groupId: string) => {
     const member = groupMembers.find(
-      member => member.groupId === groupId && member.userId === currentUser
+      member => member.group_id === groupId && member.user_id === currentUser
     );
     return member?.role || null;
   };

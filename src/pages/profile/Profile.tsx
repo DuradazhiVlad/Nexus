@@ -1,50 +1,3 @@
-<<<<<<< HEAD
-import React, { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
-import { getUserProfile, updateUserProfile } from '../../lib/userProfileService';
-
-export default function Profile() {
-  const [profile, setProfile] = useState<any>(null);
-  const [form, setForm] = useState<any>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      setLoading(true);
-      const user = await supabase.auth.getUser();
-      if (!user.data.user) {
-        setError('Не авторизовано');
-        setLoading(false);
-        return;
-      }
-      try {
-        const data = await getUserProfile(user.data.user.id);
-        setProfile(data);
-        setForm(data);
-      } catch (err: any) {
-        setError(err.message);
-      }
-      setLoading(false);
-    };
-    fetchProfile();
-  }, []);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    const user = await supabase.auth.getUser();
-    try {
-      const updated = await updateUserProfile(user.data.user.id, form);
-      setProfile(updated);
-    } catch (err: any) {
-      setError(err.message);
-=======
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { DatabaseService, DatabaseUser } from '../../lib/database';
@@ -98,26 +51,12 @@ import {
   Info,
   Gift,
   Cake,
-  School,
-  Building,
-  Home,
-  Car,
-  Music,
-  BookOpen,
-  Film,
-  Gamepad2,
-  Dumbbell,
-  Coffee,
-  Headphones,
-  Scissors,
-  Zap,
-  Sun,
-  Moon
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PhotoFilters } from './PhotoFilters';
 import { useForm } from 'react-hook-form';
 import { supabase } from '../../lib/supabase';
+import { getUserProfile, updateUserProfile } from '../../lib/userProfileService';
 
 interface Media {
   id: string;
@@ -200,7 +139,7 @@ type TabType = 'posts' | 'photos' | 'videos' | 'friends' | 'about' | 'achievemen
 type ViewMode = 'grid' | 'list';
 
 export function Profile() {
-  const [user, setUser] = useState<ExtendedDatabaseUser | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [media, setMedia] = useState<Media[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -251,17 +190,14 @@ export function Profile() {
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     defaultValues: {
       name: '',
-      lastName: '',
+      last_name: '',
+      email: '',
+      avatar: '',
       bio: '',
-      location: '',
-      website: '',
-      phone: '',
-      birthday: '',
-      work: '',
-      education: '',
-      relationshipStatus: '',
-      hobbies: [],
-      languages: []
+      city: '',
+      birth_date: '',
+      notifications: { email: true, messages: true, friendRequests: true },
+      privacy: { showEmail: false, showBirthDate: true, profileVisibility: 'public' }
     }
   });
 
@@ -272,130 +208,46 @@ export function Profile() {
   useEffect(() => {
     if (user) {
       setValue('name', user.name || '');
-      setValue('lastName', user.lastName || '');
+      setValue('last_name', user.last_name || '');
+      setValue('email', user.email || '');
+      setValue('avatar', user.avatar || '');
       setValue('bio', user.bio || '');
-      setValue('location', user.location || '');
-      setValue('website', user.website || '');
-      setValue('phone', user.phone || '');
-      setValue('birthday', user.birthday || '');
-      setValue('work', user.work || '');
-      setValue('education', user.education || '');
-      setValue('relationshipStatus', user.relationshipStatus || '');
-      setValue('hobbies', user.hobbies || []);
-      setValue('languages', user.languages || []);
+      setValue('city', user.city || '');
+      setValue('birth_date', user.birth_date || '');
+      setValue('notifications', user.notifications || { email: true, messages: true, friendRequests: true });
+      setValue('privacy', user.privacy || { showEmail: false, showBirthDate: true, profileVisibility: 'public' });
     }
   }, [user, setValue]);
 
   const loadProfile = async () => {
+    setLoading(true);
+    setError('');
     try {
-      setLoading(true);
-      setError('');
-
-      const userProfile = await DatabaseService.getCurrentUserProfile();
-      
-      if (!userProfile) {
-        // Якщо не вдалося завантажити з БД, створюємо демо-профіль
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        
-        if (!authUser) {
-          setError('Потрібно авторизуватися для перегляду профілю');
-          return;
-        }
-
-        const fallbackProfile: ExtendedDatabaseUser = {
-          id: authUser.id,
-          email: authUser.email || '',
-          name: authUser.user_metadata?.name || 
-                authUser.user_metadata?.full_name?.split(' ')[0] || 
-                authUser.email?.split('@')[0] || 'Користувач',
-          lastname: authUser.user_metadata?.lastname || 
-                    authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || 
-                    'Дурадажи',
-          avatar: authUser.user_metadata?.avatar_url,
-          bio: 'Люблю програмування, подорожі та хорошу каву. Завжди відкритий до нових знайомств! ☕️',
-          location: 'Київ, Україна',
-          website: 'https://example.com',
-          phone: '+380501234567',
-          birthday: '1995-05-15',
-          work: 'Senior Frontend Developer',
-          education: 'КПІ ім. Ігоря Сікорського',
-          hobbies: ['Програмування', 'Фотографія', 'Подорожі', 'Музика'],
-          languages: ['Українська', 'English', 'Русский'],
-          relationshipStatus: 'Неодружений',
-          isVerified: true,
-          isOnline: true,
-          lastSeen: new Date().toISOString(),
-          friendsCount: 247,
-          followersCount: 156,
-          followingCount: 89,
-          postsCount: 42,
-          photosCount: 73,
-          videosCount: 15,
-          achievements: generateMockAchievements(),
-          privacy: {
-            showEmail: true,
-            showPhone: false,
-            showBirthday: true,
-            showLocation: true,
-            allowMessages: true,
-            allowFriendRequests: true,
-            profileVisibility: 'public'
-          }
-        };
-        
-        setUser(fallbackProfile);
-        await Promise.all([
-          loadMedia(),
-          loadPosts(),
-          loadFriends()
-        ]);
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !authUser) {
+        setError('Потрібно авторизуватися для перегляду профілю');
+        setLoading(false);
         return;
       }
+      const profile = await getUserProfile(authUser.id);
+      setUser(profile);
+    } catch (e: any) {
+      setError('Помилка при завантаженні профілю: ' + (e.message || e));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // Розширюємо профіль з додатковими даними
-      const extendedProfile: ExtendedDatabaseUser = {
-        ...userProfile,
-        lastname: userProfile.lastname || '',
-        bio: userProfile.bio || 'Люблю програмування, подорожі та хорошу каву. Завжди відкритий до нових знайомств! ☕️',
-        location: 'Київ, Україна',
-        website: 'https://example.com',
-        phone: '+380501234567',
-        birthday: userProfile.birthdate || '1995-05-15',
-        work: 'Senior Frontend Developer',
-        education: 'КПІ ім. Ігоря Сікорського',
-        hobbies: ['Програмування', 'Фотографія', 'Подорожі', 'Музика'],
-        languages: ['Українська', 'English', 'Русский'],
-        relationshipStatus: 'Single',
-        isVerified: Math.random() > 0.5,
-        isOnline: true,
-        lastSeen: new Date().toISOString(),
-        friendsCount: Math.floor(Math.random() * 500) + 50,
-        followersCount: Math.floor(Math.random() * 1000) + 100,
-        followingCount: Math.floor(Math.random() * 300) + 50,
-        postsCount: Math.floor(Math.random() * 100) + 10,
-        photosCount: Math.floor(Math.random() * 200) + 20,
-        videosCount: Math.floor(Math.random() * 50) + 5,
-        achievements: generateMockAchievements(),
-        privacy: {
-          showEmail: userProfile.privacy?.showEmail ?? true,
-          showPhone: false,
-          showBirthday: userProfile.privacy?.showBirthDate ?? true,
-          showLocation: true,
-          allowMessages: true,
-          allowFriendRequests: true,
-          profileVisibility: userProfile.privacy?.profileVisibility || 'public'
-        }
-      };
-
-      setUser(extendedProfile);
-      await Promise.all([
-        loadMedia(),
-        loadPosts(),
-        loadFriends()
-      ]);
-    } catch (error) {
-      console.error('Error loading profile:', error);
-      setError('Помилка при завантаженні профілю');
+  const onSubmit = async (data: any) => {
+    setLoading(true);
+    setError('');
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw new Error('Не авторизовано');
+      const updated = await updateUserProfile(authUser.id, data);
+      setUser(updated);
+    } catch (e: any) {
+      setError('Помилка при оновленні профілю: ' + (e.message || e));
     } finally {
       setLoading(false);
     }
@@ -604,42 +456,9 @@ export function Profile() {
       alert('Помилка при завантаженні аватара');
     } finally {
       setUploading(false);
->>>>>>> 83dc61f003b1abd728baca7e02c949d739926236
     }
-    setLoading(false);
   };
 
-<<<<<<< HEAD
-  if (loading) return <div>Завантаження...</div>;
-  if (error) return <div>Помилка: {error}</div>;
-  if (!profile) return <div>Профіль не знайдено</div>;
-
-  return (
-    <form onSubmit={handleSubmit} style={{ maxWidth: 400, margin: '0 auto' }}>
-      <label>
-        Ім'я:
-        <input name="name" value={form.name || ''} onChange={handleChange} />
-      </label>
-      <br />
-      <label>
-        Прізвище:
-        <input name="last_name" value={form.last_name || ''} onChange={handleChange} />
-      </label>
-      <br />
-      <label>
-        Місто:
-        <input name="city" value={form.city || ''} onChange={handleChange} />
-      </label>
-      <br />
-      <label>
-        Біо:
-        <textarea name="bio" value={form.bio || ''} onChange={handleChange} />
-      </label>
-      <br />
-      {/* Додайте інші поля за потреби */}
-      <button type="submit">Зберегти</button>
-    </form>
-=======
   const handleCoverUpload = () => {
     coverInputRef.current?.click();
   };
@@ -673,35 +492,6 @@ export function Profile() {
     } catch (error) {
       console.error('Error uploading cover:', error);
       alert('Помилка при завантаженні обкладинки');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleProfileSubmit = async (data: any) => {
-    if (!user) return;
-    
-    setUploading(true);
-    try {
-      // Оновлюємо профіль в базі даних
-      const updatedProfile = await DatabaseService.updateUserProfile(data);
-      
-      if (updatedProfile) {
-        // Об'єднуємо з існуючими даними
-        const updatedUser: ExtendedDatabaseUser = {
-          ...user,
-          ...updatedProfile
-        };
-        
-        setUser(updatedUser);
-        setShowEditProfile(false);
-        alert('Профіль успішно оновлено!');
-      } else {
-        throw new Error('Failed to update profile');
-      }
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      alert('Помилка при оновленні профілю');
     } finally {
       setUploading(false);
     }
@@ -1059,30 +849,30 @@ export function Profile() {
             </div>
 
             {/* Stats */}
-            <div className="flex items-center space-x-8 mt-6 pt-6 border-t border-gray-200">
+            <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900">{user.postsCount}</div>
-                <div className="text-sm text-gray-500">Постів</div>
+                <div className="text-4xl font-extrabold text-gray-900">{user.postsCount}</div>
+                <div className="text-base text-gray-500 mt-1">Постів</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900">{user.friendsCount}</div>
-                <div className="text-sm text-gray-500">Друзів</div>
+                <div className="text-4xl font-extrabold text-gray-900">{user.friendsCount}</div>
+                <div className="text-base text-gray-500 mt-1">Друзів</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900">{user.followersCount}</div>
-                <div className="text-sm text-gray-500">Підписників</div>
+                <div className="text-4xl font-extrabold text-gray-900">{user.followersCount}</div>
+                <div className="text-base text-gray-500 mt-1">Підписників</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900">{user.photosCount}</div>
-                <div className="text-sm text-gray-500">Фото</div>
+                <div className="text-4xl font-extrabold text-gray-900">{user.photosCount}</div>
+                <div className="text-base text-gray-500 mt-1">Фото</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900">{user.videosCount}</div>
-                <div className="text-sm text-gray-500">Відео</div>
+                <div className="text-4xl font-extrabold text-gray-900">{user.videosCount}</div>
+                <div className="text-base text-gray-500 mt-1">Відео</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900">{user.achievements?.length || 0}</div>
-                <div className="text-sm text-gray-500">Досягнень</div>
+                <div className="text-4xl font-extrabold text-gray-900">{user.achievements?.length || 0}</div>
+                <div className="text-base text-gray-500 mt-1">Досягнень</div>
               </div>
             </div>
           </div>
@@ -1091,7 +881,7 @@ export function Profile() {
         {/* Navigation Tabs */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
           <div className="max-w-7xl mx-auto px-8">
-            <div className="flex space-x-8">
+            <div className="flex space-x-2">
               {[
                 { id: 'posts', label: 'Пости', icon: MessageSquare, count: user.postsCount },
                 { id: 'photos', label: 'Фото', icon: Image, count: user.photosCount },
@@ -1103,16 +893,13 @@ export function Profile() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as TabType)}
-                  className={`flex items-center space-x-2 py-4 px-2 border-b-2 transition-colors ${
-                    activeTab === tab.id
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-700 hover:text-gray-900 hover:border-gray-300'
-                  }`}
+                  className={`flex items-center space-x-2 py-3 px-4 rounded-lg font-medium transition-colors relative
+                    ${activeTab === tab.id ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-gray-100'}`}
                 >
-                  <tab.icon size={20} />
-                  <span className="font-medium">{tab.label}</span>
+                  <tab.icon size={22} />
+                  <span>{tab.label}</span>
                   {tab.count !== undefined && (
-                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">
+                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${activeTab === tab.id ? 'bg-white text-blue-600' : 'bg-gray-100 text-gray-600'}`}>
                       {tab.count}
                     </span>
                   )}
@@ -1983,7 +1770,7 @@ export function Profile() {
       {showEditProfile && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <form onSubmit={handleSubmit(handleProfileSubmit)} className="p-6">
+            <form onSubmit={handleSubmit(onSubmit)} className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Редагувати профіль</h2>
                 <button
@@ -2009,11 +1796,31 @@ export function Profile() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Прізвище</label>
                     <input
-                      {...register('lastName', { required: 'Прізвище обов\'язкове' })}
+                      {...register('last_name', { required: 'Прізвище обов\'язкове' })}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
-                    {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName.message}</p>}
+                    {errors.last_name && <p className="text-red-500 text-sm mt-1">{errors.last_name.message}</p>}
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <input
+                    {...register('email', { required: 'Email обов\'язкове' })}
+                    type="email"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Аватар</label>
+                  <input
+                    {...register('avatar')}
+                    type="url"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  {errors.avatar && <p className="text-red-500 text-sm mt-1">{errors.avatar.message}</p>}
                 </div>
 
                 <div>
@@ -2028,40 +1835,18 @@ export function Profile() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Місцезнаходження</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Місто</label>
                     <input
-                      {...register('location')}
+                      {...register('city')}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder="Місто, країна"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Веб-сайт</label>
-                    <input
-                      {...register('website')}
-                      type="url"
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="https://example.com"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Телефон</label>
-                    <input
-                      {...register('phone')}
-                      type="tel"
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="+380501234567"
-                    />
-                  </div>
-                  
-                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">День народження</label>
                     <input
-                      {...register('birthday')}
+                      {...register('birth_date')}
                       type="date"
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -2102,6 +1887,111 @@ export function Profile() {
                     <option value="Complicated">Все складно</option>
                   </select>
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Телефон</label>
+                    <input
+                      {...register('phone')}
+                      type="tel"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="+380501234567"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Повідомлення</label>
+                    <input
+                      {...register('notifications.messages')}
+                      type="checkbox"
+                      className="form-checkbox h-5 w-5 text-blue-600"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Друзі</label>
+                    <input
+                      {...register('notifications.friendRequests')}
+                      type="checkbox"
+                      className="form-checkbox h-5 w-5 text-blue-600"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input
+                      {...register('notifications.email')}
+                      type="checkbox"
+                      className="form-checkbox h-5 w-5 text-blue-600"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Показувати електронну пошту</label>
+                    <input
+                      {...register('privacy.showEmail')}
+                      type="checkbox"
+                      className="form-checkbox h-5 w-5 text-blue-600"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Показувати дату народження</label>
+                    <input
+                      {...register('privacy.showBirthDate')}
+                      type="checkbox"
+                      className="form-checkbox h-5 w-5 text-blue-600"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Показувати місцезнаходження</label>
+                    <input
+                      {...register('privacy.showLocation')}
+                      type="checkbox"
+                      className="form-checkbox h-5 w-5 text-blue-600"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Дозволяти повідомлення</label>
+                    <input
+                      {...register('privacy.allowMessages')}
+                      type="checkbox"
+                      className="form-checkbox h-5 w-5 text-blue-600"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Показувати друзів</label>
+                    <input
+                      {...register('privacy.profileVisibility')}
+                      type="radio"
+                      value="public"
+                      className="form-radio h-5 w-5 text-blue-600"
+                    />
+                    <span className="ml-2">Публічно</span>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Тільки друзі</label>
+                    <input
+                      {...register('privacy.profileVisibility')}
+                      type="radio"
+                      value="friends"
+                      className="form-radio h-5 w-5 text-blue-600"
+                    />
+                    <span className="ml-2">Тільки друзі</span>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end space-x-4 mt-8 pt-6 border-t">
@@ -2125,6 +2015,5 @@ export function Profile() {
         </div>
       )}
     </div>
->>>>>>> 83dc61f003b1abd728baca7e02c949d739926236
   );
 } 
