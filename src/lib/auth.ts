@@ -35,13 +35,23 @@ export class AuthService {
       if (session?.user) {
         console.log('Found existing session for:', session.user.email);
         // Get user profile
-        const profile = await DatabaseService.getCurrentUserProfile();
-        this.updateState({ 
-          user: session.user, 
-          profile, 
-          loading: false, 
-          error: null 
-        });
+        try {
+          const profile = await DatabaseService.getCurrentUserProfile();
+          this.updateState({ 
+            user: session.user, 
+            profile, 
+            loading: false, 
+            error: null 
+          });
+        } catch (profileError) {
+          console.error('Error loading profile:', profileError);
+          this.updateState({ 
+            user: session.user, 
+            profile: null, 
+            loading: false, 
+            error: profileError instanceof Error ? profileError.message : 'Profile load error'
+          });
+        }
       } else {
         console.log('No existing session found');
         this.updateState({ user: null, profile: null, loading: false, error: null });
@@ -52,13 +62,23 @@ export class AuthService {
         console.log('Auth state change:', event, session?.user?.email || 'no user');
         
         if (session?.user) {
-          const profile = await DatabaseService.getCurrentUserProfile();
-          this.updateState({ 
-            user: session.user, 
-            profile, 
-            loading: false, 
-            error: null 
-          });
+          try {
+            const profile = await DatabaseService.getCurrentUserProfile();
+            this.updateState({ 
+              user: session.user, 
+              profile, 
+              loading: false, 
+              error: null 
+            });
+          } catch (profileError) {
+            console.error('Error loading profile on auth change:', profileError);
+            this.updateState({ 
+              user: session.user, 
+              profile: null, 
+              loading: false, 
+              error: profileError instanceof Error ? profileError.message : 'Profile load error'
+            });
+          }
         } else {
           this.updateState({ user: null, profile: null, loading: false, error: null });
         }

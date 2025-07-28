@@ -145,8 +145,7 @@ export class DatabaseService {
           return await this.createUserProfile(authUser);
         } else {
           console.error('Error fetching user profile:', fetchError);
-          // Спробуємо знайти за email як fallback
-          return await this.findUserByEmail(authUser.email);
+          throw new Error(`Failed to fetch user profile: ${fetchError.message}`);
         }
       }
 
@@ -154,30 +153,10 @@ export class DatabaseService {
       return existingUser;
     } catch (error) {
       console.error('Error getting current user profile:', error);
-      return null;
+      throw error;
     }
   }
 
-  // Fallback метод пошуку користувача за email
-  private static async findUserByEmail(email: string): Promise<DatabaseUser | null> {
-    try {
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .single();
-
-      if (error) {
-        console.error('Error finding user by email:', error);
-        return null;
-      }
-
-      return user;
-    } catch (error) {
-      console.error('Error in findUserByEmail:', error);
-      return null;
-    }
-  }
 
   // Create new user profile
   private static async createUserProfile(authUser: any): Promise<DatabaseUser | null> {
@@ -337,6 +316,7 @@ export class DatabaseService {
       // Remove non-database fields
       const { id, ...safeUpdates } = updates;
 
+      console.log('Updating user profile with:', safeUpdates);
       const { data, error } = await supabase
         .from('users')
         .update(safeUpdates)
@@ -349,10 +329,11 @@ export class DatabaseService {
         throw new Error(`Failed to update profile: ${error.message}`);
       }
 
+      console.log('Successfully updated user profile:', data);
       return data;
     } catch (error) {
       console.error('Error updating user profile:', error);
-      return null;
+      throw error;
     }
   }
 
