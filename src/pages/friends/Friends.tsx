@@ -3,6 +3,7 @@ import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
 import { Search, UserPlus, UserCheck } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import { ErrorNotification, useErrorNotifications } from '../../components/ErrorNotification';
 
 interface Friend {
   id: string;
@@ -18,6 +19,9 @@ export function Friends() {
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<any[]>([]); // friend_requests
   const location = useLocation();
+  
+  // Modern error handling
+  const { notifications, addNotification, removeNotification } = useErrorNotifications();
 
   useEffect(() => {
     fetchFriends();
@@ -27,7 +31,14 @@ export function Friends() {
   const fetchFriends = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        addNotification({
+          type: 'warning',
+          title: 'Не авторизовано',
+          message: 'Для перегляду друзів потрібно авторизуватися'
+        });
+        return;
+      }
       
       // Отримуємо друзів через friendships
       const { data, error } = await supabase
@@ -49,6 +60,14 @@ export function Friends() {
       setFriends(friendsList);
     } catch (error) {
       console.error('Error fetching friends:', error);
+      addNotification({
+        type: 'error',
+        title: 'Помилка завантаження',
+        message: 'Не вдалося завантажити список друзів',
+        details: error instanceof Error ? error.message : 'Невідома помилка',
+        showRetry: true,
+        onRetry: fetchFriends
+      });
       setFriends([]);
     } finally {
       setLoading(false);
@@ -58,7 +77,10 @@ export function Friends() {
   const fetchRequests = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setRequests([]);
+        return;
+      }
       
       const { data, error } = await supabase
         .from('friend_requests')
@@ -69,6 +91,13 @@ export function Friends() {
       if (error) throw error;
       setRequests(data || []);
     } catch (error) {
+      console.error('Error fetching requests:', error);
+      addNotification({
+        type: 'error',
+        title: 'Помилка завантаження',
+        message: 'Не вдалося завантажити запити на дружбу',
+        details: error instanceof Error ? error.message : 'Невідома помилка'
+      });
       setRequests([]);
     }
   };
@@ -82,10 +111,26 @@ export function Friends() {
         
       if (error) throw error;
       
+      addNotification({
+        type: 'success',
+        title: 'Успішно!',
+        message: 'Запит на дружбу прийнято!',
+        autoClose: true,
+        duration: 3000
+      });
+      
       fetchFriends();
       fetchRequests();
     } catch (error) {
       console.error('Error accepting request:', error);
+      addNotification({
+        type: 'error',
+        title: 'Помилка',
+        message: 'Не вдалося прийняти запит на дружбу',
+        details: error instanceof Error ? error.message : 'Невідома помилка',
+        showRetry: true,
+        onRetry: () => acceptRequest(requestId)
+      });
     }
   };
 
@@ -98,9 +143,25 @@ export function Friends() {
         
       if (error) throw error;
       
+      addNotification({
+        type: 'success',
+        title: 'Успішно!',
+        message: 'Запит на дружбу відхилено!',
+        autoClose: true,
+        duration: 3000
+      });
+      
       fetchRequests();
     } catch (error) {
       console.error('Error rejecting request:', error);
+      addNotification({
+        type: 'error',
+        title: 'Помилка',
+        message: 'Не вдалося відхилити запит на дружбу',
+        details: error instanceof Error ? error.message : 'Невідома помилка',
+        showRetry: true,
+        onRetry: () => rejectRequest(requestId)
+      });
     }
   };
 
@@ -120,13 +181,26 @@ export function Friends() {
       setSearchResults(data || []);
     } catch (error) {
       console.error('Error searching users:', error);
+      addNotification({
+        type: 'error',
+        title: 'Помилка пошуку',
+        message: 'Не вдалося виконати пошук користувачів',
+        details: error instanceof Error ? error.message : 'Невідома помилка'
+      });
     }
   };
 
   const addFriend = async (friendId: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        addNotification({
+          type: 'warning',
+          title: 'Не авторизовано',
+          message: 'Для додавання в друзі потрібно авторизуватися'
+        });
+        return;
+      }
 
       // Створюємо запит на дружбу
       const { error } = await supabase
@@ -137,9 +211,25 @@ export function Friends() {
 
       if (error) throw error;
 
+      addNotification({
+        type: 'success',
+        title: 'Успішно!',
+        message: 'Запит на дружбу надіслано!',
+        autoClose: true,
+        duration: 3000
+      });
+
       await fetchFriends();
     } catch (error) {
       console.error('Error adding friend:', error);
+      addNotification({
+        type: 'error',
+        title: 'Помилка',
+        message: 'Не вдалося надіслати запит на дружбу',
+        details: error instanceof Error ? error.message : 'Невідома помилка',
+        showRetry: true,
+        onRetry: () => addFriend(friendId)
+      });
     }
   };
 
@@ -147,6 +237,15 @@ export function Friends() {
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       <div className="flex-1 ml-64 p-8">
+        {/* Error Notifications */}
+        {notifications.map((notification) => (
+          <ErrorNotification
+            key={notification.id}
+            {...notification}
+            onClose={() => removeNotification(notification.id)}
+          />
+        ))}
+        
         <div className="max-w-3xl mx-auto">
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-gray-900 mb-6">Пошук друзів</h1>

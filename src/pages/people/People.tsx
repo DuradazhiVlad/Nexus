@@ -3,6 +3,7 @@ import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
 import { DatabaseService } from '../../lib/database';
 import { useLocation } from 'react-router-dom';
+import { ErrorNotification, useErrorNotifications } from '../../components/ErrorNotification';
 import { 
   Search, 
   UserPlus, 
@@ -112,6 +113,9 @@ export function People() {
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const location = useLocation();
 
+  // Modern error handling
+  const { notifications, addNotification, removeNotification } = useErrorNotifications();
+
   useEffect(() => {
     fetchUsers(0, true);
     fetchFriendRequests();
@@ -144,6 +148,14 @@ export function People() {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       if (authError || !authUser) {
         console.log('❌ Auth error or no user:', authError);
+        addNotification({
+          type: 'error',
+          title: 'Помилка авторизації',
+          message: 'Не вдалося отримати дані користувача',
+          details: authError?.message || 'Користувач не авторизований',
+          showRetry: true,
+          onRetry: () => fetchUsers(pageNum, reset)
+        });
         setUsers([]);
         setFilteredUsers([]);
         setHasMore(false);
@@ -188,6 +200,14 @@ export function People() {
       
     } catch (error) {
       console.error('❌ Error fetching users:', error);
+      addNotification({
+        type: 'error',
+        title: 'Помилка завантаження',
+        message: 'Не вдалося завантажити користувачів',
+        details: error instanceof Error ? error.message : 'Невідома помилка',
+        showRetry: true,
+        onRetry: () => fetchUsers(pageNum, reset)
+      });
       setUsers([]);
       setFilteredUsers([]);
       setHasMore(false);
@@ -216,6 +236,12 @@ export function People() {
       setFriendRequests(data || []);
     } catch (error) {
       console.error('Error fetching friend requests:', error);
+      addNotification({
+        type: 'error',
+        title: 'Помилка завантаження',
+        message: 'Не вдалося завантажити запити на дружбу',
+        details: error instanceof Error ? error.message : 'Невідома помилка'
+      });
       setFriendRequests([]);
     }
   };
@@ -318,10 +344,21 @@ export function People() {
 
   const addFriend = async (friendId: string) => {
     try {
-      if (!currentUser) return;
+      if (!currentUser) {
+        addNotification({
+          type: 'warning',
+          title: 'Не авторизовано',
+          message: 'Для додавання в друзі потрібно авторизуватися'
+        });
+        return;
+      }
 
       if (friendId === currentUser) {
-        alert('Ви не можете додати себе в друзі!');
+        addNotification({
+          type: 'warning',
+          title: 'Неможливо додати себе',
+          message: 'Ви не можете додати себе в друзі!'
+        });
         return;
       }
 
@@ -331,7 +368,11 @@ export function People() {
       );
 
       if (existingRequest) {
-        alert('Запит на дружбу вже існує!');
+        addNotification({
+          type: 'warning',
+          title: 'Запит вже існує',
+          message: 'Запит на дружбу вже надіслано!'
+        });
         return;
       }
 
@@ -343,11 +384,25 @@ export function People() {
 
       if (error) throw error;
 
-      alert('Запит на дружбу надіслано!');
+      addNotification({
+        type: 'success',
+        title: 'Успішно!',
+        message: 'Запит на дружбу надіслано!',
+        autoClose: true,
+        duration: 3000
+      });
+      
       fetchFriendRequests();
     } catch (error) {
       console.error('Error adding friend:', error);
-      alert('Помилка при додаванні в друзі');
+      addNotification({
+        type: 'error',
+        title: 'Помилка',
+        message: 'Не вдалося надіслати запит на дружбу',
+        details: error instanceof Error ? error.message : 'Невідома помилка',
+        showRetry: true,
+        onRetry: () => addFriend(friendId)
+      });
     }
   };
 
@@ -360,17 +415,38 @@ export function People() {
 
       if (error) throw error;
 
-      alert(action === 'accept' ? 'Запит прийнято!' : 'Запит відхилено!');
+      addNotification({
+        type: 'success',
+        title: 'Успішно!',
+        message: action === 'accept' ? 'Запит прийнято!' : 'Запит відхилено!',
+        autoClose: true,
+        duration: 3000
+      });
+      
       fetchFriendRequests();
     } catch (error) {
       console.error('Error handling friend request:', error);
-      alert('Помилка при обробці запиту');
+      addNotification({
+        type: 'error',
+        title: 'Помилка',
+        message: 'Не вдалося обробити запит на дружбу',
+        details: error instanceof Error ? error.message : 'Невідома помилка',
+        showRetry: true,
+        onRetry: () => handleFriendRequest(requestId, action)
+      });
     }
   };
 
   const removeFriend = async (friendId: string) => {
     try {
-      if (!currentUser) return;
+      if (!currentUser) {
+        addNotification({
+          type: 'warning',
+          title: 'Не авторизовано',
+          message: 'Для видалення з друзів потрібно авторизуватися'
+        });
+        return;
+      }
 
       // Видаляємо з таблиці friendships
       const { error } = await supabase
@@ -380,11 +456,25 @@ export function People() {
 
       if (error) throw error;
 
-      alert('Користувача видалено з друзів!');
+      addNotification({
+        type: 'success',
+        title: 'Успішно!',
+        message: 'Користувача видалено з друзів!',
+        autoClose: true,
+        duration: 3000
+      });
+      
       fetchFriendRequests();
     } catch (error) {
       console.error('Error removing friend:', error);
-      alert('Помилка при видаленні з друзів');
+      addNotification({
+        type: 'error',
+        title: 'Помилка',
+        message: 'Не вдалося видалити з друзів',
+        details: error instanceof Error ? error.message : 'Невідома помилка',
+        showRetry: true,
+        onRetry: () => removeFriend(friendId)
+      });
     }
   };
 
@@ -780,6 +870,15 @@ export function People() {
         <Sidebar />
       </div>
       <div className="flex-1 ml-64 p-8">
+        {/* Error Notifications */}
+        {notifications.map((notification) => (
+          <ErrorNotification
+            key={notification.id}
+            {...notification}
+            onClose={() => removeNotification(notification.id)}
+          />
+        ))}
+        
         <div className="max-w-7xl mx-auto">
           {/* Заголовок */}
           <div className="mb-8">
