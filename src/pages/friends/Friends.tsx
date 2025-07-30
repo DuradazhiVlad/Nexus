@@ -14,24 +14,53 @@ interface Friend {
 
 export function Friends() {
   const [friends, setFriends] = useState<Friend[]>([]);
-  const [searchResults, setSearchResults] = useState<Friend[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<any[]>([]); // friend_requests
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [authUser, setAuthUser] = useState(null); // auth user
   const location = useLocation();
   
   // Modern error handling
   const { notifications, addNotification, removeNotification } = useErrorNotifications();
 
   useEffect(() => {
-    fetchFriends();
-    fetchRequests();
+    loadAuthUser();
   }, [location.key]);
+
+  useEffect(() => {
+    if (authUser) {
+      fetchFriends();
+      fetchRequests();
+    }
+  }, [authUser]);
+
+  async function loadAuthUser() {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        addNotification({
+          type: 'error',
+          title: 'Помилка авторизації',
+          message: 'Не вдалося отримати дані користувача'
+        });
+        return;
+      }
+      setAuthUser(user);
+    } catch (error) {
+      console.error('Error loading auth user:', error);
+      addNotification({
+        type: 'error',
+        title: 'Помилка завантаження',
+        message: 'Не вдалося завантажити дані користувача',
+        details: error instanceof Error ? error.message : 'Невідома помилка'
+      });
+    }
+  }
 
   const fetchFriends = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      if (!authUser) {
         addNotification({
           type: 'warning',
           title: 'Не авторизовано',
@@ -44,13 +73,13 @@ export function Friends() {
       const { data, error } = await supabase
         .from('friendships')
         .select('*')
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+        .or(`user1_id.eq.${authUser.id},user2_id.eq.${authUser.id}`);
         
       if (error) throw error;
       
       // Отримуємо ID друзів
       const friendIds = (data || []).map(f => 
-        f.user1_id === user.id ? f.user2_id : f.user1_id
+        f.user1_id === authUser.id ? f.user2_id : f.user1_id
       );
       
       // Отримуємо профілі друзів
@@ -80,8 +109,7 @@ export function Friends() {
 
   const fetchRequests = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      if (!authUser) {
         setRequests([]);
         return;
       }
@@ -89,7 +117,7 @@ export function Friends() {
       const { data, error } = await supabase
         .from('friend_requests')
         .select('*')
-        .eq('receiver_id', user.id)
+        .eq('receiver_id', authUser.id)
         .eq('status', 'pending');
         
       if (error) throw error;
@@ -217,8 +245,7 @@ export function Friends() {
 
   const addFriend = async (friendId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      if (!authUser) {
         addNotification({
           type: 'warning',
           title: 'Не авторизовано',
@@ -231,7 +258,7 @@ export function Friends() {
       const { error } = await supabase
         .from('friend_requests')
         .insert([
-          { sender_id: user.id, receiver_id: friendId, status: 'pending' }
+          { sender_id: authUser.id, receiver_id: friendId, status: 'pending' }
         ]);
 
       if (error) throw error;

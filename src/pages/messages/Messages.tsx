@@ -15,6 +15,7 @@ export function Messages() {
   const [selectedConversation, setSelectedConversation] = useState(null); // {id, participant}
   const [messages, setMessages] = useState([]); // [{id, sender_id, content, created_at}]
   const [currentUser, setCurrentUser] = useState(null); // {id, name, ...}
+  const [authUser, setAuthUser] = useState(null); // auth user
   const [messageText, setMessageText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -37,19 +38,19 @@ export function Messages() {
   }, [location.key]);
 
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && authUser) {
       loadConversations();
     }
-  }, [currentUser]);
+  }, [currentUser, authUser]);
 
   useEffect(() => {
     // Якщо є ?user=ID в url, відкриваємо діалог з цим користувачем
     const userId = query.get('user');
-    if (userId && currentUser) {
+    if (userId && currentUser && authUser) {
       openOrCreateConversationWith(userId);
     }
     // eslint-disable-next-line
-  }, [currentUser]);
+  }, [currentUser, authUser]);
 
   async function loadCurrentUser() {
     try {
@@ -63,6 +64,18 @@ export function Messages() {
         return;
       }
       setCurrentUser(user);
+      
+      // Отримуємо auth user
+      const { data: { user: authUserData }, error: authError } = await supabase.auth.getUser();
+      if (authError || !authUserData) {
+        addNotification({
+          type: 'error',
+          title: 'Помилка авторизації',
+          message: 'Не вдалося отримати дані авторизації'
+        });
+        return;
+      }
+      setAuthUser(authUserData);
     } catch (error) {
       console.error('Error loading current user:', error);
       addNotification({
@@ -76,10 +89,6 @@ export function Messages() {
 
   async function loadConversations() {
     try {
-      setLoading(true);
-      
-      // Отримуємо поточного користувача з auth
-      const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) {
         addNotification({
           type: 'error',
@@ -88,6 +97,8 @@ export function Messages() {
         });
         return;
       }
+      
+      setLoading(true);
       
       // Отримати всі розмови, де поточний користувач учасник
       const { data, error } = await supabase
@@ -146,8 +157,6 @@ export function Messages() {
 
   async function openOrCreateConversationWith(userId) {
     try {
-      // Отримуємо поточного користувача з auth
-      const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) {
         addNotification({
           type: 'error',
@@ -240,20 +249,9 @@ export function Messages() {
 
   async function handleSendMessage(e) {
     e.preventDefault();
-    if (!messageText.trim() || !selectedConversation) return;
+    if (!messageText.trim() || !selectedConversation || !authUser) return;
     
     try {
-      // Отримуємо поточного користувача з auth
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        addNotification({
-          type: 'error',
-          title: 'Помилка авторизації',
-          message: 'Не вдалося отримати дані користувача'
-        });
-        return;
-      }
-      
       setSending(true);
       const { error } = await supabase
         .from('messages')
@@ -353,8 +351,6 @@ export function Messages() {
                   ) : (
                     <div className="space-y-4">
                       {messages.map(msg => {
-                        // Отримуємо поточного користувача для порівняння
-                        const { data: { user: authUser } } = supabase.auth.getUser();
                         const isOwnMessage = authUser && msg.sender_id === authUser.id;
                         
                         return (
