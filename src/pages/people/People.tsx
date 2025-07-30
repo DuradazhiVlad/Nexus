@@ -201,11 +201,11 @@ export function People() {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) {
-        setFriendRequests([]); // Демо користувач не має запитів
+        setFriendRequests([]);
         return;
       }
 
-      // Використовуємо таблицю friend_requests замість friends
+      // Використовуємо правильні поля sender_id та receiver_id
       const { data, error } = await supabase
         .from('friend_requests')
         .select('*')
@@ -216,7 +216,7 @@ export function People() {
       setFriendRequests(data || []);
     } catch (error) {
       console.error('Error fetching friend requests:', error);
-      setFriendRequests([]); // Встановлюємо порожній масив при помилці
+      setFriendRequests([]);
     }
   };
 
@@ -225,14 +225,14 @@ export function People() {
     if (userId === currentUser) return 'self';
 
     const request = friendRequests.find(req => 
-      (req.user_id === currentUser && req.friend_id === userId) ||
-      (req.user_id === userId && req.friend_id === currentUser)
+      (req.sender_id === currentUser && req.receiver_id === userId) ||
+      (req.sender_id === userId && req.receiver_id === currentUser)
     );
 
     if (!request) return 'not_friends';
     if (request.status === 'accepted') return 'friends';
     if (request.status === 'pending') {
-      return request.user_id === currentUser ? 'sent' : 'received';
+      return request.sender_id === currentUser ? 'sent' : 'received';
     }
     return 'not_friends';
   };
@@ -326,8 +326,8 @@ export function People() {
       }
 
       const existingRequest = friendRequests.find(req => 
-        (req.user_id === currentUser && req.friend_id === friendId) ||
-        (req.user_id === friendId && req.friend_id === currentUser)
+        (req.sender_id === currentUser && req.receiver_id === friendId) ||
+        (req.sender_id === friendId && req.receiver_id === currentUser)
       );
 
       if (existingRequest) {
@@ -571,7 +571,7 @@ export function People() {
                 <div className="flex space-x-2">
                   <button
                     onClick={() => {
-                      const request = friendRequests.find(req => req.user_id === user.auth_user_id);
+                      const request = friendRequests.find(req => req.sender_id === user.auth_user_id);
                       if (request) handleFriendRequest(request.id, 'accept');
                     }}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
@@ -580,7 +580,7 @@ export function People() {
                   </button>
                   <button
                     onClick={() => {
-                      const request = friendRequests.find(req => req.user_id === user.auth_user_id);
+                      const request = friendRequests.find(req => req.sender_id === user.auth_user_id);
                       if (request) handleFriendRequest(request.id, 'reject');
                     }}
                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
@@ -726,7 +726,7 @@ export function People() {
               ) : friendStatus === 'received' ? (
                 <button
                   onClick={() => {
-                    const request = friendRequests.find(req => req.user_id === user.auth_user_id);
+                    const request = friendRequests.find(req => req.sender_id === user.auth_user_id);
                     if (request) handleFriendRequest(request.id, 'accept');
                   }}
                   className="flex-1 flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"

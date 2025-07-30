@@ -372,8 +372,8 @@ export class DatabaseService {
       const { data, error } = await supabase
         .from('friendships')
         .select(`
-          user1:user1_id (id, name, lastname, avatar, email),
-          user2:user2_id (id, name, lastname, avatar, email)
+          user1:user_profiles!friendships_user1_id_fkey (id, name, lastname, avatar, email),
+          user2:user_profiles!friendships_user2_id_fkey (id, name, lastname, avatar, email)
         `)
         .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
 

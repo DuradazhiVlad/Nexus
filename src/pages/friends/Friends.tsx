@@ -28,6 +28,7 @@ export function Friends() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      
       // Отримуємо друзів через friendships
       const { data, error } = await supabase
         .from('friendships')
@@ -36,12 +37,15 @@ export function Friends() {
           user2:user_profiles!friendships_user2_id_fkey (id, name, last_name, avatar)
         `)
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+        
       if (error) throw error;
+      
       // Витягуємо друзів (не поточний користувач)
       const friendsList = (data || []).map(f => {
         const friend = f.user1.id === user.id ? f.user2 : f.user1;
         return friend;
       }).filter(Boolean);
+      
       setFriends(friendsList);
     } catch (error) {
       console.error('Error fetching friends:', error);
@@ -55,11 +59,13 @@ export function Friends() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      
       const { data, error } = await supabase
         .from('friend_requests')
         .select('*, sender:user_profiles!friend_requests_sender_id_fkey (id, name, last_name, avatar)')
         .eq('receiver_id', user.id)
         .eq('status', 'pending');
+        
       if (error) throw error;
       setRequests(data || []);
     } catch (error) {
@@ -68,20 +74,34 @@ export function Friends() {
   };
 
   const acceptRequest = async (requestId: string) => {
-    await supabase
-      .from('friend_requests')
-      .update({ status: 'accepted' })
-      .eq('id', requestId);
-    fetchFriends();
-    fetchRequests();
+    try {
+      const { error } = await supabase
+        .from('friend_requests')
+        .update({ status: 'accepted' })
+        .eq('id', requestId);
+        
+      if (error) throw error;
+      
+      fetchFriends();
+      fetchRequests();
+    } catch (error) {
+      console.error('Error accepting request:', error);
+    }
   };
 
   const rejectRequest = async (requestId: string) => {
-    await supabase
-      .from('friend_requests')
-      .update({ status: 'rejected' })
-      .eq('id', requestId);
-    fetchRequests();
+    try {
+      const { error } = await supabase
+        .from('friend_requests')
+        .update({ status: 'rejected' })
+        .eq('id', requestId);
+        
+      if (error) throw error;
+      
+      fetchRequests();
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+    }
   };
 
   const handleSearch = async (query: string) => {

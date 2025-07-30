@@ -73,7 +73,7 @@ INSERT INTO user_profiles (
 )
 ON CONFLICT (email) DO NOTHING;
 
--- 5. Перевіряємо RLS політики
+-- 5. Перевіряємо RLS політики для user_profiles
 SELECT 
     schemaname,
     tablename,
@@ -86,7 +86,7 @@ SELECT
 FROM pg_policies 
 WHERE tablename = 'user_profiles';
 
--- 6. Якщо RLS політики відсутні, створюємо їх
+-- 6. Якщо RLS політики відсутні, створюємо їх для user_profiles
 DO $$
 BEGIN
     -- Дозволити всім авторизованим користувачам переглядати профілі
@@ -127,7 +127,114 @@ BEGIN
     END IF;
 END $$;
 
--- 7. Фінальна перевірка
+-- 7. Перевіряємо RLS політики для friend_requests
+SELECT 
+    schemaname,
+    tablename,
+    policyname,
+    permissive,
+    roles,
+    cmd,
+    qual,
+    with_check
+FROM pg_policies 
+WHERE tablename = 'friend_requests';
+
+-- 8. Створюємо RLS політики для friend_requests
+DO $$
+BEGIN
+    -- Дозволити користувачам переглядати свої запити (як sender або receiver)
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'friend_requests' 
+        AND policyname = 'Allow users to view their friend requests'
+    ) THEN
+        CREATE POLICY "Allow users to view their friend requests"
+        ON friend_requests FOR SELECT
+        TO authenticated
+        USING (sender_id = auth.uid() OR receiver_id = auth.uid());
+    END IF;
+
+    -- Дозволити користувачам створювати запити на дружбу
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'friend_requests' 
+        AND policyname = 'Allow users to create friend requests'
+    ) THEN
+        CREATE POLICY "Allow users to create friend requests"
+        ON friend_requests FOR INSERT
+        TO authenticated
+        WITH CHECK (sender_id = auth.uid());
+    END IF;
+
+    -- Дозволити receiver оновлювати статус запиту
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'friend_requests' 
+        AND policyname = 'Allow receiver to update friend request status'
+    ) THEN
+        CREATE POLICY "Allow receiver to update friend request status"
+        ON friend_requests FOR UPDATE
+        TO authenticated
+        USING (receiver_id = auth.uid())
+        WITH CHECK (receiver_id = auth.uid());
+    END IF;
+END $$;
+
+-- 9. Перевіряємо RLS політики для friendships
+SELECT 
+    schemaname,
+    tablename,
+    policyname,
+    permissive,
+    roles,
+    cmd,
+    qual,
+    with_check
+FROM pg_policies 
+WHERE tablename = 'friendships';
+
+-- 10. Створюємо RLS політики для friendships
+DO $$
+BEGIN
+    -- Дозволити користувачам переглядати свої дружби
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'friendships' 
+        AND policyname = 'Allow users to view their friendships'
+    ) THEN
+        CREATE POLICY "Allow users to view their friendships"
+        ON friendships FOR SELECT
+        TO authenticated
+        USING (user1_id = auth.uid() OR user2_id = auth.uid());
+    END IF;
+
+    -- Дозволити користувачам створювати дружби (через тригер)
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'friendships' 
+        AND policyname = 'Allow system to create friendships'
+    ) THEN
+        CREATE POLICY "Allow system to create friendships"
+        ON friendships FOR INSERT
+        TO authenticated
+        WITH CHECK (true);
+    END IF;
+
+    -- Дозволити користувачам видаляти свої дружби
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'friendships' 
+        AND policyname = 'Allow users to delete their friendships'
+    ) THEN
+        CREATE POLICY "Allow users to delete their friendships"
+        ON friendships FOR DELETE
+        TO authenticated
+        USING (user1_id = auth.uid() OR user2_id = auth.uid());
+    END IF;
+END $$;
+
+-- 11. Фінальна перевірка
 SELECT 
     'Total users in user_profiles:' as info,
     COUNT(*) as count
@@ -143,4 +250,15 @@ SELECT
     'Users with names:' as info,
     COUNT(*) as count
 FROM user_profiles 
-WHERE name IS NOT NULL AND name != ''; 
+WHERE name IS NOT NULL AND name != ''
+UNION ALL
+SELECT 
+    'Pending friend requests:' as info,
+    COUNT(*) as count
+FROM friend_requests 
+WHERE status = 'pending'
+UNION ALL
+SELECT 
+    'Total friendships:' as info,
+    COUNT(*) as count
+FROM friendships; 
