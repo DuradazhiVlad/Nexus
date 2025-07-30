@@ -2,19 +2,19 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import { Users as UsersIcon } from 'lucide-react';
 import { AuthService } from './src/lib/auth';
-import { Login } from './src/pages/Login';
-import { Register } from './src/pages/Register';
+import { Login } from './src/pages/login';
+import { Register } from './src/pages/register';
 import { Profile } from './src/pages/profile/Profile';
-import { Reels } from './src/pages/Reels';
-import { Messages } from './src/pages/Messages';
-import { Friends } from './src/pages/Friends';
-import { Settings } from './src/pages/Settings';
-import { Groups } from './src/pages/Groups';
-import { GroupDetail } from './src/pages/GroupDetail';
-import { People } from './src/pages/People';
-import { Games } from './src/pages/Games';
-import { TestDB } from './src/pages/TestDB';
-import { Wall } from './src/pages/Wall';
+import { Reels } from './src/pages/reels';
+import { Messages } from './src/pages/messages';
+import { Friends } from './src/pages/friends';
+import { Settings } from './src/pages/settings';
+import { Groups } from './src/pages/groups';
+import { GroupDetail } from './src/pages/group-detail';
+import { People } from './src/pages/people';
+import { Games } from './src/pages/games';
+import { TestDB } from './src/pages/test-db';
+import { Wall } from './src/pages/wall';
 
 // Auth initialization component
 function AuthInitializer() {

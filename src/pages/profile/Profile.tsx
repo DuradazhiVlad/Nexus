@@ -51,12 +51,16 @@ import {
   Info,
   Gift,
   Cake,
+  User,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PhotoFilters } from './PhotoFilters';
 import { useForm } from 'react-hook-form';
 import { supabase } from '../../lib/supabase';
-import { getUserProfile, updateUserProfile } from '../../lib/userProfileService';
+import { getUserProfile, updateUserProfile, upsertUserProfile } from '../../lib/userProfileService';
+import { uploadMediaFile, getUserMedia, deleteMedia, updateMediaDescription } from '../../lib/mediaService';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 interface Media {
   id: string;
@@ -142,6 +146,10 @@ export function Profile() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [media, setMedia] = useState<Media[]>([]);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [mediaTypeToUpload, setMediaTypeToUpload] = useState<'photo' | 'video' | null>(null);
+  const [mediaDescription, setMediaDescription] = useState('');
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [error, setError] = useState('');
@@ -150,8 +158,6 @@ export function Profile() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showCoverModal, setShowCoverModal] = useState(false);
-  const [showEditProfile, setShowEditProfile] = useState(false);
-  const [showCreatePost, setShowCreatePost] = useState(false);
   const [showPhotoEditor, setShowPhotoEditor] = useState(false);
   const [showPrivacySettings, setShowPrivacySettings] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
@@ -186,6 +192,7 @@ export function Profile() {
   const multiFileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
+
   // Form for profile editing
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
     defaultValues: {
@@ -201,9 +208,24 @@ export function Profile() {
     }
   });
 
+  // --- useEffect для завантаження профілю ---
   useEffect(() => {
     loadProfile();
+    // eslint-disable-next-line
   }, []);
+
+  // --- useEffect для завантаження вкладок ---
+  useEffect(() => {
+    if (!user) return;
+    if (activeTab === 'posts') {
+      loadPosts();
+    } else if (activeTab === 'friends') {
+      loadFriends();
+    } else if (activeTab === 'photos' || activeTab === 'videos') {
+      loadMediaFromDB(activeTab === 'photos' ? 'photo' : 'video');
+    }
+    // eslint-disable-next-line
+  }, [user, activeTab]);
 
   useEffect(() => {
     if (user) {
@@ -242,73 +264,63 @@ export function Profile() {
     setLoading(true);
     setError('');
     try {
+      // Виправлення: порожній рядок дати -> null
+      if (data.birth_date === "") data.birth_date = null;
+      if (data.birthday === "") data.birthday = null;
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) throw new Error('Не авторизовано');
-      const updated = await updateUserProfile(authUser.id, data);
+      // Використовуємо upsertUserProfile
+      const { data: updated, error: upsertError } = await upsertUserProfile({
+        auth_user_id: authUser.id,
+        name: data.name,
+        last_name: data.last_name,
+        email: data.email,
+        avatar: data.avatar,
+        bio: data.bio,
+        city: data.city,
+        birth_date: data.birth_date,
+        notifications: data.notifications,
+        privacy: data.privacy,
+        education: data.education,
+        work: data.work,
+        relationshipStatus: data.relationshipStatus,
+        phone: data.phone,
+        hobbies: data.hobbies,
+        languages: data.languages,
+        website: data.website,
+        isVerified: data.isVerified,
+        familyStatus: data.familyStatus,
+        location: data.location,
+        birthday: data.birthday,
+      });
+      if (upsertError) throw upsertError;
       setUser(updated);
     } catch (e: any) {
-      setError('Помилка при оновленні профілю: ' + (e.message || e));
+      setError('Помилка при оновленні профілю: ' + (e.message || e.details || e));
     } finally {
       setLoading(false);
     }
   };
 
-  const loadMedia = async () => {
-    // Симуляція завантаження медіа
-    const mockMedia: Media[] = [
-      {
-        id: '1',
-        type: 'photo',
-        url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
-        created_at: '2024-01-15T10:00:00Z',
-        description: 'Захід сонця в горах',
-        tags: ['природа', 'гори', 'захід'],
-        likes: 24,
-        comments: 5
-      },
-      {
-        id: '2',
-        type: 'photo',
-        url: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=800&q=80',
-        created_at: '2024-01-14T15:30:00Z',
-        description: 'Відпочинок на природі',
-        tags: ['відпочинок', 'природа'],
-        likes: 18,
-        comments: 3
-      },
-      {
-        id: '3',
-        type: 'video',
-        url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-        created_at: '2024-01-13T20:00:00Z',
-        description: 'Мій перший відеоблог',
-        tags: ['влог', 'подорожі'],
-        likes: 42,
-        comments: 8
-      }
-    ];
-    
-    // Генеруємо більше медіа
-    for (let i = 4; i <= 20; i++) {
-      mockMedia.push({
-        id: i.toString(),
-        type: Math.random() > 0.8 ? 'video' : 'photo',
-        url: `https://images.unsplash.com/photo-${1500000000000 + i * 100000}?auto=format&fit=crop&w=800&q=80`,
-        created_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
-        description: `Медіа ${i}`,
-        tags: ['тег1', 'тег2'],
-        likes: Math.floor(Math.random() * 50),
-        comments: Math.floor(Math.random() * 10)
-      });
+  // Завантаження медіа з БД
+  const loadMediaFromDB = async (type?: 'photo' | 'video') => {
+    setMediaLoading(true);
+    try {
+      if (!user) return;
+      const data = await getUserMedia(user.id, type);
+      setMedia(data || []);
+    } catch (e) {
+      setMedia([]);
+    } finally {
+      setMediaLoading(false);
     }
-    
-    setMedia(mockMedia);
   };
 
   const loadPosts = async () => {
-    if (!user) return;
-    
+    setLoading(true);
     try {
+      if (!user) return;
+      
       // Завантажуємо пости з бази даних
       const dbPosts = await DatabaseService.getUserPosts(user.id);
       
@@ -318,8 +330,9 @@ export function Profile() {
         author: {
           id: user.id,
           name: user.name,
-          lastName: user.lastname || user.lastName || '',
-          avatar: user.avatar || ''
+          lastname: user.lastname || user.lastName || '',
+          avatar: user.avatar || '',
+          email: user.email || '',
         },
         content: post.content,
         images: post.media_url ? [post.media_url] : [],
@@ -333,51 +346,60 @@ export function Profile() {
     } catch (error) {
       console.error('Error loading posts:', error);
       setPosts([]);
+    } finally {
+      setLoading(false);
     }
   };
 
   const loadFriends = async () => {
-    // Симуляція завантаження друзів
-    const mockFriends: Friend[] = [
-      {
-        id: '1',
-        name: 'Олександр',
-        lastName: 'Петренко',
-        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
-        status: 'online',
-        mutualFriends: 15
-      },
-      {
-        id: '2',
-        name: 'Марія',
-        lastName: 'Іваненко',
-        avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b31c?auto=format&fit=crop&w=200&q=80',
-        status: 'away',
-        mutualFriends: 8
-      },
-      {
-        id: '3',
-        name: 'Андрій',
-        lastName: 'Коваленко',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80',
-        status: 'offline',
-        mutualFriends: 22
+    setLoading(true);
+    try {
+      // Симуляція завантаження друзів
+      const mockFriends: Friend[] = [
+        {
+          id: '1',
+          name: 'Олександр',
+          lastName: 'Петренко',
+          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
+          status: 'online',
+          mutualFriends: 15
+        },
+        {
+          id: '2',
+          name: 'Марія',
+          lastName: 'Іваненко',
+          avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b31c?auto=format&fit=crop&w=200&q=80',
+          status: 'away',
+          mutualFriends: 8
+        },
+        {
+          id: '3',
+          name: 'Андрій',
+          lastName: 'Коваленко',
+          avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80',
+          status: 'offline',
+          mutualFriends: 22
+        }
+      ];
+      
+      // Генеруємо більше друзів
+      for (let i = 4; i <= 20; i++) {
+        mockFriends.push({
+          id: i.toString(),
+          name: `Користувач${i}`,
+          lastName: 'Тестовий',
+          avatar: `https://images.unsplash.com/photo-${1500000000000 + i * 100000}?auto=format&fit=crop&w=200&q=80`,
+          status: ['online', 'offline', 'away'][Math.floor(Math.random() * 3)] as 'online' | 'offline' | 'away',
+          mutualFriends: Math.floor(Math.random() * 30)
+        });
       }
-    ];
-    
-    // Генеруємо більше друзів
-    for (let i = 4; i <= 20; i++) {
-      mockFriends.push({
-        id: i.toString(),
-        name: `Користувач${i}`,
-        lastName: 'Тестовий',
-        avatar: `https://images.unsplash.com/photo-${1500000000000 + i * 100000}?auto=format&fit=crop&w=200&q=80`,
-        status: ['online', 'offline', 'away'][Math.floor(Math.random() * 3)] as 'online' | 'offline' | 'away',
-        mutualFriends: Math.floor(Math.random() * 30)
-      });
+      
+      setFriends(mockFriends);
+    } catch (error) {
+      setFriends([]);
+    } finally {
+      setLoading(false);
     }
-    
-    setFriends(mockFriends);
   };
 
   const generateMockAchievements = (): Achievement[] => {
@@ -427,33 +449,42 @@ export function Profile() {
 
   const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setAvatarFile(file);
+    if (file && file instanceof Blob) {
+      setAvatarFile(file as File);
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setAvatarPreview(e.target?.result as string);
+      reader.onload = (ev) => {
+        setAvatarPreview(ev.target?.result as string);
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(file as File);
     }
   };
 
   const saveAvatar = async () => {
     if (!avatarFile || !user) return;
-    
     setUploading(true);
     try {
-      // Тут буде логіка завантаження на сервер
-      const mockUrl = URL.createObjectURL(avatarFile);
-      
-      setUser(prev => prev ? { ...prev, avatar: mockUrl } : null);
+      // Завантаження у Supabase Storage
+      const fileExt = avatarFile.name.split('.').pop();
+      const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage.from('avatars').upload(fileName, avatarFile, {
+        cacheControl: '3600',
+        upsert: true,
+      });
+      if (uploadError) throw uploadError;
+      // Отримати публічний URL
+      const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+      const avatarUrl = publicUrlData?.publicUrl;
+      if (!avatarUrl) throw new Error('Не вдалося отримати URL аватара');
+      // Оновити профіль користувача
+      const updated = await updateUserProfile(user.id, { avatar: avatarUrl });
+      setUser(updated);
       setShowAvatarModal(false);
       setAvatarFile(null);
       setAvatarPreview('');
-      
-      alert('Аватар успішно оновлено!');
-    } catch (error) {
+      toast.success('Аватар успішно оновлено!');
+    } catch (error: any) {
       console.error('Error uploading avatar:', error);
-      alert('Помилка при завантаженні аватара');
+      toast.error('Помилка при завантаженні аватара: ' + (error.message || error));
     } finally {
       setUploading(false);
     }
@@ -507,32 +538,12 @@ export function Profile() {
       const createdPost = await DatabaseService.createPost(postContent);
       
       if (createdPost) {
-        // Створюємо пост для UI з автором
-        const newPost: Post = {
-          id: createdPost.id,
-          author: {
-            id: user.id,
-            name: user.name,
-            lastName: user.lastname || user.lastName || '',
-            avatar: user.avatar || ''
-          },
-          content: createdPost.content,
-          images: previewUrls, // Використовуємо завантажені зображення
-          created_at: createdPost.created_at,
-          likes: createdPost.likes_count,
-          comments: createdPost.comments_count,
-          isLiked: false
-        };
-
-        // Додаємо пост на початок списку
-        setPosts(prev => [newPost, ...prev]);
-        
+        // Оновити список постів з БД після створення поста
+        await loadPosts();
         // Очищуємо форму
         setPostContent('');
         setSelectedFiles([]);
         setPreviewUrls([]);
-        setShowCreatePost(false);
-        
         alert('Пост успішно створено!');
       } else {
         throw new Error('Failed to create post');
@@ -559,7 +570,7 @@ export function Profile() {
     
     // Створюємо preview URL для зображень
     const urls = files.map(file => {
-      if (file.type.startsWith('image/')) {
+      if (file instanceof File && file.type.startsWith('image/')) {
         return URL.createObjectURL(file);
       }
       return '';
@@ -669,6 +680,70 @@ export function Profile() {
     }
   };
 
+  // Додати стани для редагування опису
+  const [editingMediaId, setEditingMediaId] = useState<string | null>(null);
+  const [editingDescription, setEditingDescription] = useState('');
+
+  // Функція для видалення медіа
+  const handleDeleteMedia = async (mediaId: string, fileUrl: string) => {
+    if (!window.confirm('Видалити цей файл?')) return;
+    // Витягуємо шлях до файлу з URL (після /media/)
+    const filePath = fileUrl.split('/media/')[1];
+    if (!filePath) return alert('Не вдалося визначити шлях до файлу');
+    try {
+      await deleteMedia(mediaId, filePath);
+      setMedia(prev => prev.filter(m => m.id !== mediaId));
+    } catch (e) {
+      alert('Помилка при видаленні медіа');
+    }
+  };
+
+  // Функція для збереження опису
+  const handleSaveDescription = async (mediaId: string) => {
+    try {
+      await updateMediaDescription(mediaId, editingDescription);
+      setMedia(prev => prev.map(m => m.id === mediaId ? { ...m, description: editingDescription } : m));
+      setEditingMediaId(null);
+      setEditingDescription('');
+    } catch (e) {
+      alert('Помилка при оновленні опису');
+    }
+  };
+
+  // --- Медіа завантаження для фото/відео ---
+  const handleMediaFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setMediaFile(file);
+  };
+
+  const handleUploadMedia = async () => {
+    if (!mediaFile || !mediaTypeToUpload) return;
+    setMediaLoading(true);
+    try {
+      // Використовуємо uploadMediaFile з lib/mediaService.ts
+      // Якщо такого немає, просто завантажуємо у storage
+      // (припускаємо, що uploadMediaFile існує)
+      if (typeof uploadMediaFile === 'function') {
+        await uploadMediaFile({
+          file: mediaFile,
+          type: mediaTypeToUpload,
+          description: mediaDescription,
+        });
+      } else {
+        // Fallback: upload to storage only
+        // TODO: реалізувати якщо потрібно
+      }
+      setMediaTypeToUpload(null);
+      setMediaFile(null);
+      setMediaDescription('');
+      await loadMediaFromDB(mediaTypeToUpload);
+    } catch (e: any) {
+      alert('Помилка при завантаженні медіа: ' + (e.message || e.details || e));
+    } finally {
+      setMediaLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen">
@@ -744,31 +819,35 @@ export function Profile() {
           <div className="max-w-7xl mx-auto px-8 py-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-end space-y-4 sm:space-y-0 sm:space-x-6 -mt-16 sm:-mt-20">
               {/* Avatar */}
-              <div className="relative">
-                <div 
-                  className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 bg-white rounded-full border-4 border-white shadow-lg overflow-hidden cursor-pointer group"
-                  onClick={handleAvatarClick}
-                >
-                  {user.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt={`${user.name} ${user.lastName}`}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white text-4xl font-bold">
-                      {user.name?.[0]?.toUpperCase()}{(user.lastname || user.lastName)?.[0]?.toUpperCase()}
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-full">
-                    <Camera size={24} className="text-white" />
+              <div className="relative w-32 h-32 mx-auto mb-4">
+                {user?.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt="Avatar"
+                    className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
+                    style={{ objectPosition: avatarPosition }}
+                  />
+                ) : (
+                  <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center text-4xl text-gray-400">
+                    <User />
                   </div>
-                </div>
-                
-                {/* Online Status */}
-                {user.isOnline && (
-                  <div className="absolute bottom-2 right-2 w-6 h-6 bg-green-500 border-4 border-white rounded-full"></div>
                 )}
+                {/* Вибір позиції */}
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 bg-white bg-opacity-90 rounded-lg shadow p-2 mt-2 flex flex-col items-center">
+                  <label htmlFor="avatar-position" className="text-xs text-gray-600 mb-1">Розташування аватарки</label>
+                  <select
+                    id="avatar-position"
+                    value={avatarPosition}
+                    onChange={e => setAvatarPosition(e.target.value as any)}
+                    className="text-sm border rounded px-2 py-1"
+                  >
+                    <option value="center">По центру</option>
+                    <option value="top">Верх</option>
+                    <option value="bottom">Низ</option>
+                    <option value="left">Ліво</option>
+                    <option value="right">Право</option>
+                  </select>
+                </div>
               </div>
 
               {/* User Info */}
@@ -829,7 +908,7 @@ export function Profile() {
               {/* Action Buttons */}
               <div className="flex space-x-3 pb-4">
                 <button
-                  onClick={() => setShowEditProfile(true)}
+                  onClick={() => navigate('/settings')}
                   className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   <Edit3 size={16} className="mr-2" />
@@ -986,240 +1065,244 @@ export function Profile() {
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
                     {user.name?.[0]?.toUpperCase()}{(user.lastname || user.lastName)?.[0]?.toUpperCase()}
                   </div>
-                  <button
-                    onClick={() => setShowCreatePost(true)}
-                    className="flex-1 text-left px-4 py-3 bg-gray-50 rounded-full text-gray-500 hover:bg-gray-100 transition-colors"
-                  >
-                    Що у вас нового, {user.name}?
-                  </button>
+                  <div className="flex-1">
+                    {/* Інлайн textarea для створення поста */}
+                    <textarea
+                      value={postContent}
+                      onChange={e => setPostContent(e.target.value)}
+                      placeholder={`Що у вас нового, ${user.name}?`}
+                      className="w-full px-4 py-3 bg-gray-50 rounded-full text-gray-500 border border-gray-200 focus:bg-white focus:border-blue-400 focus:outline-none transition-all min-h-[48px] resize-none"
+                      rows={postContent ? 4 : 1}
+                      onFocus={e => e.currentTarget.rows = 4}
+                      onBlur={e => { if (!postContent) e.currentTarget.rows = 1; }}
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <button 
-                    onClick={() => setShowCreatePost(true)}
-                    className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors"
-                  >
-                    <Image size={20} />
-                    <span>Фото/Відео</span>
-                  </button>
-                  <button 
-                    onClick={() => setShowCreatePost(true)}
-                    className="flex items-center space-x-2 text-gray-600 hover:text-green-600 transition-colors"
-                  >
-                    <MapPin size={20} />
-                    <span>Локація</span>
-                  </button>
-                  <button className="flex items-center space-x-2 text-gray-600 hover:text-yellow-600 transition-colors">
-                    <Users size={20} />
-                    <span>Відмітити</span>
-                  </button>
-                </div>
+                {/* Кнопки для додавання медіа та публікації */}
+                {(postContent || selectedFiles.length > 0) && (
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center space-x-4">
+                      <button
+                        type="button"
+                        onClick={handlePostMediaSelect}
+                        className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors"
+                      >
+                        <Image size={20} />
+                        <span>Фото/Відео</span>
+                      </button>
+                    </div>
+                    <button
+                      onClick={handleCreatePost}
+                      disabled={!postContent.trim() || uploading}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {uploading ? 'Публікація...' : 'Опублікувати'}
+                    </button>
+                  </div>
+                )}
+                {/* Прев'ю медіа */}
+                {previewUrls.length > 0 && (
+                  <div className="space-y-3 mt-2">
+                    <h4 className="font-medium text-gray-900">Завантажені зображення:</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {previewUrls.map((url, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={url}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-32 object-cover rounded-lg"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removePostImage(index)}
+                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Hidden File Input */}
+                <input
+                  ref={multiFileInputRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  multiple
+                  onChange={handlePostFileChange}
+                  className="hidden"
+                />
               </div>
 
               {/* Posts */}
-              {posts.map((post) => (
-                <div key={post.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                  {/* Post Header */}
-                  <div className="p-6 pb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                        {user.name?.[0]?.toUpperCase()}{(user.lastname || user.lastName)?.[0]?.toUpperCase()}
+              {posts.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">Поки що немає постів</div>
+              ) : (
+                posts.map((post) => (
+                  <div key={post.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    {/* Post Header */}
+                    <div className="p-6 pb-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+                          {user.name?.[0]?.toUpperCase()}{(user.lastname || user.lastName)?.[0]?.toUpperCase()}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900">{user.name} {user.lastname || user.lastName}</h4>
+                          <p className="text-sm text-gray-500">{formatTime(post.created_at)}</p>
+                        </div>
+                        <button className="text-gray-400 hover:text-gray-600">
+                          <MoreHorizontal size={20} />
+                        </button>
                       </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900">{user.name} {user.lastname || user.lastName}</h4>
-                        <p className="text-sm text-gray-500">{formatTime(post.created_at)}</p>
+                      
+                      <p className="mt-4 text-gray-800">{post.content}</p>
+                    </div>
+
+                    {/* Post Images */}
+                    {post.images.length > 0 && (
+                      <div className={`grid gap-1 ${post.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                        {post.images.map((image, index) => (
+                          <img
+                            key={index}
+                            src={image}
+                            alt={`Post image ${index + 1}`}
+                            className="w-full h-80 object-cover hover:opacity-95 transition-opacity cursor-pointer"
+                          />
+                        ))}
                       </div>
-                      <button className="text-gray-400 hover:text-gray-600">
-                        <MoreHorizontal size={20} />
-                      </button>
-                    </div>
-                    
-                    <p className="mt-4 text-gray-800">{post.content}</p>
-                  </div>
+                    )}
 
-                  {/* Post Images */}
-                  {post.images.length > 0 && (
-                    <div className={`grid gap-1 ${post.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                      {post.images.map((image, index) => (
-                        <img
-                          key={index}
-                          src={image}
-                          alt={`Post image ${index + 1}`}
-                          className="w-full h-80 object-cover hover:opacity-95 transition-opacity cursor-pointer"
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Post Actions */}
-                  <div className="p-6 pt-4">
-                    <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                      <span>{post.likes} вподобань</span>
-                      <span>{post.comments} коментарів</span>
-                    </div>
-                    
-                    <div className="flex items-center space-x-1 pt-4 border-t border-gray-200">
-                      <button
-                        onClick={() => toggleLike(post.id)}
-                        className={`flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-lg transition-colors ${
-                          post.isLiked 
-                            ? 'text-red-600 bg-red-50 hover:bg-red-100' 
-                            : 'text-gray-600 hover:bg-gray-50'
-                        }`}
-                      >
-                        <Heart size={20} className={post.isLiked ? 'fill-current' : ''} />
-                        <span>Подобається</span>
-                      </button>
-                      <button className="flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
-                        <MessageSquare size={20} />
-                        <span>Коментувати</span>
-                      </button>
-                      <button className="flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
-                        <Share2 size={20} />
-                        <span>Поділитися</span>
-                      </button>
+                    {/* Post Actions */}
+                    <div className="p-6 pt-4">
+                      <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                        <span>{post.likes} вподобань</span>
+                        <span>{post.comments} коментарів</span>
+                      </div>
+                      
+                      <div className="flex items-center space-x-1 pt-4 border-t border-gray-200">
+                        <button
+                          onClick={() => toggleLike(post.id)}
+                          className={`flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-lg transition-colors ${
+                            post.isLiked 
+                              ? 'text-red-600 bg-red-50 hover:bg-red-100' 
+                              : 'text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          <Heart size={20} className={post.isLiked ? 'fill-current' : ''} />
+                          <span>Подобається</span>
+                        </button>
+                        <button className="flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+                          <MessageSquare size={20} />
+                          <span>Коментувати</span>
+                        </button>
+                        <button className="flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+                          <Share2 size={20} />
+                          <span>Поділитися</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           )}
 
-          {(activeTab === 'photos' || activeTab === 'videos') && (
+          {activeTab === 'photos' || activeTab === 'videos' ? (
             <div>
-              {/* Upload Button */}
-              <div className="mb-6">
-                <button
-                  onClick={() => setShowUploadModal(true)}
-                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <Plus size={20} className="mr-2" />
-                  Завантажити {activeTab === 'photos' ? 'фото' : 'відео'}
-                </button>
-              </div>
-
-              {/* Media Grid */}
-              {viewMode === 'grid' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {getFilteredMedia().map((item) => (
-                    <div
-                      key={item.id}
-                      className="relative group bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedMedia.has(item.id)}
-                        onChange={() => handleMediaSelect(item.id)}
-                        className="absolute top-3 left-3 w-4 h-4 rounded border-gray-300 text-blue-600 z-10"
-                      />
-                      
-                      <div className="aspect-square relative overflow-hidden">
-                        {item.type === 'video' ? (
-                          <div className="relative">
-                            <img
-                              src={item.url}
-                              alt={item.description}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="w-12 h-12 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
-                                <Play size={20} className="text-white ml-1" />
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <img
-                            src={item.url}
-                            alt={item.description}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        )}
-                        
-                        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="p-2 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70">
-                            <MoreHorizontal size={16} />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="p-3">
-                        <p className="text-sm text-gray-800 mb-2 line-clamp-2">{item.description}</p>
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>{formatTime(item.created_at)}</span>
-                          <div className="flex items-center space-x-3">
-                            <span className="flex items-center">
-                              <Heart size={12} className="mr-1" />
-                              {item.likes}
-                            </span>
-                            <span className="flex items-center">
-                              <MessageSquare size={12} className="mr-1" />
-                              {item.comments}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg mb-4"
+                onClick={() => setMediaTypeToUpload(activeTab === 'photos' ? 'photo' : 'video')}
+              >
+                Додати {activeTab === 'photos' ? 'фото' : 'відео'}
+              </button>
+              {mediaTypeToUpload && (
+                <div className="mb-4 p-4 border rounded-lg bg-gray-50">
+                  <input type="file" accept={mediaTypeToUpload === 'photo' ? 'image/*' : 'video/*'} onChange={handleMediaFileChange} />
+                  <textarea
+                    className="block w-full mt-2 border rounded"
+                    placeholder="Опис (необов'язково)"
+                    value={mediaDescription}
+                    onChange={e => setMediaDescription(e.target.value)}
+                  />
+                  <button
+                    className="mt-2 px-4 py-2 bg-green-600 text-white rounded"
+                    onClick={handleUploadMedia}
+                    disabled={mediaLoading}
+                  >
+                    {mediaLoading ? 'Завантаження...' : 'Завантажити'}
+                  </button>
+                  <button
+                    className="mt-2 ml-2 px-4 py-2 bg-gray-300 text-gray-700 rounded"
+                    onClick={() => { setMediaTypeToUpload(null); setMediaFile(null); setMediaDescription(''); }}
+                  >
+                    Скасувати
+                  </button>
                 </div>
+              )}
+              {mediaLoading ? (
+                <div>Завантаження...</div>
               ) : (
-                <div className="space-y-4">
-                  {getFilteredMedia().map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center space-x-4 bg-white p-4 rounded-lg border border-gray-200 hover:shadow-md transition-all duration-200"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedMedia.has(item.id)}
-                        onChange={() => handleMediaSelect(item.id)}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600"
-                      />
-                      
-                      <div className="w-20 h-20 relative overflow-hidden rounded-lg">
-                        <img
-                          src={item.url}
-                          alt={item.description}
-                          className="w-full h-full object-cover"
-                        />
-                        {item.type === 'video' && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Play size={16} className="text-white" />
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900 mb-1">{item.description}</h4>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
-                          <span>{formatTime(item.created_at)}</span>
-                          <span className="flex items-center">
-                            <Heart size={14} className="mr-1" />
-                            {item.likes} вподобань
-                          </span>
-                          <span className="flex items-center">
-                            <MessageSquare size={14} className="mr-1" />
-                            {item.comments} коментарів
-                          </span>
-                        </div>
-                        {item.tags && (
-                          <div className="flex space-x-1 mt-2">
-                            {item.tags.map(tag => (
-                              <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                                #{tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <button className="p-2 text-gray-400 hover:text-gray-600">
-                        <MoreHorizontal size={20} />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {media.map(m => (
+                    <div key={m.id} className="border rounded-lg p-2 bg-white relative">
+                      {/* Видалити */}
+                      <button
+                        className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-700"
+                        onClick={() => handleDeleteMedia(m.id, m.url)}
+                        title="Видалити"
+                      >
+                        <Trash2 size={16} />
                       </button>
+                      {/* Фото/відео */}
+                      {m.type === 'photo' ? (
+                        <img src={m.url} alt={m.description || ''} className="w-full h-40 object-cover rounded" />
+                      ) : (
+                        <video src={m.url} controls className="w-full h-40 object-cover rounded" />
+                      )}
+                      {/* Опис + редагування */}
+                      <div className="mt-2 text-sm text-gray-700 flex items-center">
+                        {editingMediaId === m.id ? (
+                          <>
+                            <input
+                              className="border rounded px-2 py-1 mr-2 flex-1"
+                              value={editingDescription}
+                              onChange={e => setEditingDescription(e.target.value)}
+                              autoFocus
+                            />
+                            <button
+                              className="px-2 py-1 bg-green-600 text-white rounded mr-1"
+                              onClick={() => handleSaveDescription(m.id)}
+                            >
+                              Зберегти
+                            </button>
+                            <button
+                              className="px-2 py-1 bg-gray-300 text-gray-700 rounded"
+                              onClick={() => { setEditingMediaId(null); setEditingDescription(''); }}
+                            >
+                              Скасувати
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="flex-1">{m.description}</span>
+                            <button
+                              className="ml-2 text-blue-600 hover:text-blue-800"
+                              onClick={() => { setEditingMediaId(m.id); setEditingDescription(m.description || ''); }}
+                              title="Редагувати опис"
+                            >
+                              <Edit size={16} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">{new Date(m.created_at).toLocaleString()}</div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-          )}
+          ) : null}
 
           {activeTab === 'friends' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1635,385 +1718,7 @@ export function Profile() {
           </div>
         </div>
       )}
-
-      {/* Create Post Modal */}
-      {showCreatePost && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <form onSubmit={handleCreatePost} className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Створити пост</h2>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreatePost(false);
-                    setPostContent('');
-                    setSelectedFiles([]);
-                    setPreviewUrls([]);
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X size={24} />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                {/* User Info */}
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                    {user.name?.[0]?.toUpperCase()}{(user.lastname || user.lastName)?.[0]?.toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{user.name} {user.lastname || user.lastName}</p>
-                    <p className="text-sm text-gray-500">Публічний пост</p>
-                  </div>
-                </div>
-
-                {/* Content Input */}
-                <div>
-                  <textarea
-                    value={postContent}
-                    onChange={(e) => setPostContent(e.target.value)}
-                    placeholder={`Що у вас нового, ${user.name}?`}
-                    className="w-full border-none resize-none text-lg placeholder-gray-400 focus:outline-none min-h-[120px]"
-                    autoFocus
-                  />
-                </div>
-
-                {/* Image Preview */}
-                {previewUrls.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-gray-900">Завантажені зображення:</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {previewUrls.map((url, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={url}
-                            alt={`Preview ${index + 1}`}
-                            className="w-full h-32 object-cover rounded-lg"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removePostImage(index)}
-                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Media Actions */}
-                <div className="border-t border-gray-200 pt-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <button
-                        type="button"
-                        onClick={handlePostMediaSelect}
-                        className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors"
-                      >
-                        <Image size={20} />
-                        <span>Фото/Відео</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="flex items-center space-x-2 text-gray-600 hover:text-green-600 transition-colors"
-                      >
-                        <MapPin size={20} />
-                        <span>Місце</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Submit Button */}
-                <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCreatePost(false);
-                      setPostContent('');
-                      setSelectedFiles([]);
-                      setPreviewUrls([]);
-                    }}
-                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Скасувати
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!postContent.trim() || uploading}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {uploading ? 'Публікація...' : 'Опублікувати'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Hidden File Input */}
-              <input
-                ref={multiFileInputRef}
-                type="file"
-                accept="image/*,video/*"
-                multiple
-                onChange={handlePostFileChange}
-                className="hidden"
-              />
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Profile Modal */}
-      {showEditProfile && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <form onSubmit={handleSubmit(onSubmit)} className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Редагувати профіль</h2>
-                <button
-                  type="button"
-                  onClick={() => setShowEditProfile(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X size={24} />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Ім'я</label>
-                    <input
-                      {...register('name', { required: 'Ім\'я обов\'язкове' })}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                    {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Прізвище</label>
-                    <input
-                      {...register('last_name', { required: 'Прізвище обов\'язкове' })}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                    {errors.last_name && <p className="text-red-500 text-sm mt-1">{errors.last_name.message}</p>}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                  <input
-                    {...register('email', { required: 'Email обов\'язкове' })}
-                    type="email"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                  {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Аватар</label>
-                  <input
-                    {...register('avatar')}
-                    type="url"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                  {errors.avatar && <p className="text-red-500 text-sm mt-1">{errors.avatar.message}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Про себе</label>
-                  <textarea
-                    {...register('bio')}
-                    rows={4}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="Розкажіть про себе..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Місто</label>
-                    <input
-                      {...register('city')}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="Місто, країна"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">День народження</label>
-                    <input
-                      {...register('birth_date')}
-                      type="date"
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Робота</label>
-                    <input
-                      {...register('work')}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="Посада, компанія"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Освіта</label>
-                    <input
-                      {...register('education')}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="Навчальний заклад"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Сімейний стан</label>
-                  <select
-                    {...register('relationshipStatus')}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Не вказано</option>
-                    <option value="Single">Холостий/Неодружена</option>
-                    <option value="In a relationship">У стосунках</option>
-                    <option value="Engaged">Заручений/Заручена</option>
-                    <option value="Married">Одружений/Одружена</option>
-                    <option value="Complicated">Все складно</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Телефон</label>
-                    <input
-                      {...register('phone')}
-                      type="tel"
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="+380501234567"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Повідомлення</label>
-                    <input
-                      {...register('notifications.messages')}
-                      type="checkbox"
-                      className="form-checkbox h-5 w-5 text-blue-600"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Друзі</label>
-                    <input
-                      {...register('notifications.friendRequests')}
-                      type="checkbox"
-                      className="form-checkbox h-5 w-5 text-blue-600"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                    <input
-                      {...register('notifications.email')}
-                      type="checkbox"
-                      className="form-checkbox h-5 w-5 text-blue-600"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Показувати електронну пошту</label>
-                    <input
-                      {...register('privacy.showEmail')}
-                      type="checkbox"
-                      className="form-checkbox h-5 w-5 text-blue-600"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Показувати дату народження</label>
-                    <input
-                      {...register('privacy.showBirthDate')}
-                      type="checkbox"
-                      className="form-checkbox h-5 w-5 text-blue-600"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Показувати місцезнаходження</label>
-                    <input
-                      {...register('privacy.showLocation')}
-                      type="checkbox"
-                      className="form-checkbox h-5 w-5 text-blue-600"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Дозволяти повідомлення</label>
-                    <input
-                      {...register('privacy.allowMessages')}
-                      type="checkbox"
-                      className="form-checkbox h-5 w-5 text-blue-600"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Показувати друзів</label>
-                    <input
-                      {...register('privacy.profileVisibility')}
-                      type="radio"
-                      value="public"
-                      className="form-radio h-5 w-5 text-blue-600"
-                    />
-                    <span className="ml-2">Публічно</span>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Тільки друзі</label>
-                    <input
-                      {...register('privacy.profileVisibility')}
-                      type="radio"
-                      value="friends"
-                      className="form-radio h-5 w-5 text-blue-600"
-                    />
-                    <span className="ml-2">Тільки друзі</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-4 mt-8 pt-6 border-t">
-                <button
-                  type="button"
-                  onClick={() => setShowEditProfile(false)}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Скасувати
-                </button>
-                <button
-                  type="submit"
-                  disabled={uploading}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  {uploading ? 'Збереження...' : 'Зберегти зміни'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover aria-label="Notification messages" />
     </div>
   );
 } 

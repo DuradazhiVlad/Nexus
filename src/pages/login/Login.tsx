@@ -1,13 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Lock, Github } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
+// Додаємо тип для resend (тимчасово, бо в supabase-js v2 немає прямої функції)
+
+async function resendConfirmationEmail(email: string) {
+  // Використовуємо RPC або REST, якщо supabase-js не має прямої функції
+  // Але у v2.39+ є supabase.auth.resend({ type: 'signup', email })
+  // @ts-expect-error
+  return await supabase.auth.resend({ type: 'signup', email });
+}
 
 export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showResend, setShowResend] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
   const navigate = useNavigate();
 
 //   useEffect(() => {
@@ -35,6 +46,8 @@ export function Login() {
   e.preventDefault();
   setError('');
   setLoading(true);
+  setShowResend(false);
+  setResendSuccess(false);
 
   try {
     const { error } = await supabase.auth.signInWithPassword({
@@ -42,7 +55,15 @@ export function Login() {
       password,
     });
 
-    if (error) throw error;
+    if (error) {
+      // Якщо email не підтверджено
+      if (error.message && error.message.toLowerCase().includes('email not confirmed')) {
+        setError('Електронна пошта не підтверджена. Будь ласка, підтвердіть email.');
+        setShowResend(true);
+        return;
+      }
+      throw error;
+    }
 
     // Успішний вхід
     navigate('/profile');
@@ -53,6 +74,20 @@ export function Login() {
     setLoading(false);
   }
 };
+
+  const handleResend = async () => {
+    setResendLoading(true);
+    setResendSuccess(false);
+    try {
+      const { error } = await resendConfirmationEmail(email);
+      if (error) throw error;
+      setResendSuccess(true);
+    } catch (err: any) {
+      setError('Не вдалося надіслати листа. ' + (err.message || err));
+    } finally {
+      setResendLoading(false);
+    }
+  };
 
 
   const handleGitHubLogin = async () => {
@@ -99,6 +134,20 @@ export function Login() {
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
               {error}
+              {showResend && (
+                <div className="mt-2">
+                  <button
+                    onClick={handleResend}
+                    disabled={resendLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 mt-2"
+                  >
+                    {resendLoading ? 'Відправка...' : 'Відправити лист повторно'}
+                  </button>
+                  {resendSuccess && (
+                    <div className="text-green-600 mt-2">Лист для підтвердження відправлено!</div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

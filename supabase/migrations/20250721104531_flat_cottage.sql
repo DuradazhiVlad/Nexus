@@ -234,3 +234,36 @@ DROP TRIGGER IF EXISTS update_post_updated_at_trigger ON posts;
 CREATE TRIGGER update_post_updated_at_trigger
   BEFORE UPDATE ON posts
   FOR EACH ROW EXECUTE FUNCTION update_post_updated_at();
+
+-- Унікальний індекс для user_profiles
+CREATE UNIQUE INDEX IF NOT EXISTS user_profiles_auth_user_id_unique ON public.user_profiles(auth_user_id);
+
+-- Увімкнути RLS для user_profiles
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- Дозволити власнику профілю select/update/insert
+CREATE POLICY IF NOT EXISTS "Allow profile owner" ON public.user_profiles
+  FOR ALL
+  USING (auth_user_id = auth.uid())
+  WITH CHECK (auth_user_id = auth.uid());
+
+-- Приклад для posts (оновити назви полів під свою структуру!)
+ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY IF NOT EXISTS "Allow post owner insert" ON public.posts
+  FOR INSERT
+  WITH CHECK (
+    user_id = (
+      SELECT id FROM user_profiles WHERE auth_user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY IF NOT EXISTS "Allow post owner select" ON public.posts
+  FOR SELECT
+  USING (
+    user_id = (
+      SELECT id FROM user_profiles WHERE auth_user_id = auth.uid()
+    )
+  );
+
+-- Аналогічно для інших таблиць (groups, group_members, friend_requests, friendships)

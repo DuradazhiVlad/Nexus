@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Sidebar } from '../components/Sidebar';
-import { supabase } from '../lib/supabase';
-import { VideoUploadModal } from '../components/VideoUploadModal';
+import { Sidebar } from '../../components/Sidebar';
+import { supabase } from '../../lib/supabase';
+import { VideoUploadModal } from '../../components/VideoUploadModal';
 import { 
   Search, 
   Plus, 
@@ -52,17 +52,17 @@ interface Group {
   is_private: boolean;
   created_at: string;
   created_by: string;
-  memberCount: number;
-  postCount: number;
+  member_count: number;
+  post_count: number;
   category: string;
   tags: string[];
   location?: string;
   rules?: string[];
-  isVerified?: boolean;
-  isActive?: boolean;
-  lastActivity?: string;
+  is_verified?: boolean;
+  is_active?: boolean;
+  last_activity?: string;
   website?: string;
-  contactEmail?: string;
+  contactemail?: string;
   creator?: {
     id: string;
     name: string;
@@ -87,13 +87,13 @@ interface GroupMember {
 
 interface Filters {
   category: string;
-  memberCount: 'all' | 'small' | 'medium' | 'large';
+          member_count: 'all' | 'small' | 'medium' | 'large';
   privacy: 'all' | 'public' | 'private';
   activity: 'all' | 'active' | 'inactive';
   sortBy: 'name' | 'members' | 'activity' | 'created' | 'popularity';
   sortOrder: 'asc' | 'desc';
   hasAvatar: boolean;
-  isVerified: boolean;
+      is_verified: boolean;
 }
 
 type ViewMode = 'grid' | 'list';
@@ -141,13 +141,13 @@ export function Groups() {
   
   const [filters, setFilters] = useState<Filters>({
     category: '',
-    memberCount: 'all',
+    member_count: 'all',
     privacy: 'all',
     activity: 'all',
     sortBy: 'activity',
     sortOrder: 'desc',
     hasAvatar: false,
-    isVerified: false
+    is_verified: false
   });
 
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
@@ -165,7 +165,7 @@ export function Groups() {
     location: '',
     website: '',
     rules: [''],
-    contactEmail: ''
+    contactemail: ''
   });
 
   useEffect(() => {
@@ -231,14 +231,17 @@ export function Groups() {
             is_private: false,
             created_at: new Date().toISOString(),
             created_by: 'demo-user',
-            memberCount: 1245,
-            postCount: 156,
+            member_count: 1245,
+            post_count: 156,
             category: 'technology',
             tags: ['JavaScript', 'Python', 'React'],
             location: 'Київ',
             rules: ['Будьте поважні', 'Використовуйте теги'],
-            contactEmail: 'admin@example.com',
+            contactemail: 'admin@example.com',
             website: 'https://example.com',
+            is_verified: false,
+            is_active: true,
+            last_activity: new Date().toISOString(),
             creator: {
               id: 'demo-user',
               name: 'Демонстрація',
@@ -259,18 +262,9 @@ export function Groups() {
 
       if (error) throw error;
 
-      // Симулюємо додаткові дані
+      // Використовуємо реальні дані з бази
       const enrichedGroups = (data || []).map(group => ({
         ...group,
-        memberCount: Math.floor(Math.random() * 1000) + 10,
-        postCount: Math.floor(Math.random() * 500),
-        category: CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)],
-        tags: ['react', 'javascript', 'frontend'].slice(0, Math.floor(Math.random() * 3) + 1),
-        isVerified: Math.random() > 0.8,
-        isActive: Math.random() > 0.3,
-        lastActivity: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-        location: Math.random() > 0.5 ? 'Київ, Україна' : undefined,
-        website: Math.random() > 0.7 ? 'https://example.com' : undefined,
         creator: group.creator
       }));
 
@@ -411,10 +405,10 @@ export function Groups() {
       filtered = filtered.filter(group => group.category === filters.category);
     }
 
-    if (filters.memberCount !== 'all') {
+    if (filters.member_count !== 'all') {
       filtered = filtered.filter(group => {
-        const count = group.memberCount || 0;
-        switch (filters.memberCount) {
+        const count = group.member_count || 0;
+        switch (filters.member_count) {
           case 'small': return count < 50;
           case 'medium': return count >= 50 && count < 200;
           case 'large': return count >= 200;
@@ -431,7 +425,7 @@ export function Groups() {
 
     if (filters.activity !== 'all') {
       filtered = filtered.filter(group => 
-        filters.activity === 'active' ? group.isActive : !group.isActive
+        filters.activity === 'active' ? group.is_active : !group.is_active
       );
     }
 
@@ -439,8 +433,8 @@ export function Groups() {
       filtered = filtered.filter(group => group.avatar);
     }
 
-    if (filters.isVerified) {
-      filtered = filtered.filter(group => group.isVerified);
+    if (filters.is_verified) {
+      filtered = filtered.filter(group => group.is_verified);
     }
 
     // Сортування
@@ -452,18 +446,18 @@ export function Groups() {
           comparison = a.name.localeCompare(b.name);
           break;
         case 'members':
-          comparison = (a.memberCount || 0) - (b.memberCount || 0);
+          comparison = (a.member_count || 0) - (b.member_count || 0);
           break;
         case 'activity':
-          if (a.isActive && !b.isActive) comparison = -1;
-          else if (!a.isActive && b.isActive) comparison = 1;
-          else comparison = new Date(b.lastActivity || 0).getTime() - new Date(a.lastActivity || 0).getTime();
+          if (a.is_active && !b.is_active) comparison = -1;
+          else if (!a.is_active && b.is_active) comparison = 1;
+          else comparison = new Date(b.last_activity || 0).getTime() - new Date(a.last_activity || 0).getTime();
           break;
         case 'created':
           comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
           break;
         case 'popularity':
-          comparison = (a.memberCount || 0) + (a.postCount || 0) - ((b.memberCount || 0) + (b.postCount || 0));
+          comparison = (a.member_count || 0) + (a.post_count || 0) - ((b.member_count || 0) + (b.post_count || 0));
           break;
       }
       
@@ -488,7 +482,13 @@ export function Groups() {
         name: newGroup.name.trim(),
         description: newGroup.description.trim() || null,
         is_private: newGroup.is_private,
-        created_by: currentUser
+        created_by: currentUser,
+        category: newGroup.category || null,
+        tags: newGroup.tags.length > 0 ? newGroup.tags : null,
+        location: newGroup.location || null,
+        website: newGroup.website || null,
+        contactemail: newGroup.contactemail || null,
+        rules: newGroup.rules.filter(rule => rule.trim()).length > 0 ? newGroup.rules.filter(rule => rule.trim()) : null
       };
 
       const { data, error } = await supabase
@@ -613,7 +613,7 @@ export function Groups() {
       location: '',
       website: '',
       rules: [''],
-      contactEmail: ''
+      contactemail: ''
     });
   };
 
@@ -632,13 +632,13 @@ export function Groups() {
   const resetFilters = () => {
     setFilters({
       category: '',
-      memberCount: 'all',
+      member_count: 'all',
       privacy: 'all',
       activity: 'all',
       sortBy: 'activity',
       sortOrder: 'desc',
       hasAvatar: false,
-      isVerified: false
+      is_verified: false
     });
     setSearchQuery('');
   };
@@ -646,12 +646,12 @@ export function Groups() {
   const getActiveFiltersCount = () => {
     let count = 0;
     if (filters.category) count++;
-    if (filters.memberCount !== 'all') count++;
+    if (filters.member_count !== 'all') count++;
     if (filters.privacy !== 'all') count++;
     if (filters.activity !== 'all') count++;
     if (filters.sortBy !== 'activity' || filters.sortOrder !== 'desc') count++;
     if (filters.hasAvatar) count++;
-    if (filters.isVerified) count++;
+    if (filters.is_verified) count++;
     return count;
   };
 
@@ -663,10 +663,10 @@ export function Groups() {
     });
   };
 
-  const formatLastActivity = (lastActivity?: string) => {
-    if (!lastActivity) return 'Немає активності';
+  const formatLastActivity = (last_activity?: string) => {
+    if (!last_activity) return 'Немає активності';
     
-    const diff = Date.now() - new Date(lastActivity).getTime();
+    const diff = Date.now() - new Date(last_activity).getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
@@ -732,7 +732,7 @@ export function Groups() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2 mb-2">
                 <h3 className="text-xl font-bold text-gray-900 truncate">{group.name}</h3>
-                {group.isVerified && (
+                {group.is_verified && (
                   <CheckCircle size={20} className="text-blue-500" />
                 )}
                 {group.is_private ? (
@@ -755,15 +755,15 @@ export function Groups() {
               <div className="flex items-center space-x-6 text-sm text-gray-500 mb-3">
                 <div className="flex items-center">
                   <Users size={14} className="mr-1" />
-                  {group.memberCount} учасників
+                  {group.member_count} учасників
                 </div>
                 <div className="flex items-center">
                   <MessageCircle size={14} className="mr-1" />
-                  {group.postCount} постів
+                  {group.post_count} постів
                 </div>
                 <div className="flex items-center">
                   <Activity size={14} className="mr-1" />
-                  {formatLastActivity(group.lastActivity)}
+                  {formatLastActivity(group.last_activity)}
                 </div>
                 {group.location && (
                   <div className="flex items-center">
@@ -868,7 +868,7 @@ export function Groups() {
               />
             )}
             <div className="absolute top-3 right-3 flex space-x-1">
-              {group.isVerified && (
+                              {group.is_verified && (
                 <CheckCircle size={16} className="text-white" />
               )}
               {group.is_private ? (
@@ -916,15 +916,15 @@ export function Groups() {
             <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
               <div className="flex items-center">
                 <Users size={14} className="mr-1" />
-                {group.memberCount}
+                {group.member_count}
               </div>
               <div className="flex items-center">
                 <MessageCircle size={14} className="mr-1" />
-                {group.postCount}
+                {group.post_count}
               </div>
               <div className="flex items-center">
-                <div className={`w-2 h-2 rounded-full mr-1 ${group.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                {group.isActive ? 'Активна' : 'Неактивна'}
+                <div className={`w-2 h-2 rounded-full mr-1 ${group.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                {group.is_active ? 'Активна' : 'Неактивна'}
               </div>
             </div>
 
@@ -1134,8 +1134,8 @@ export function Groups() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Розмір</label>
                     <select
-                      value={filters.memberCount}
-                      onChange={(e) => setFilters(prev => ({ ...prev, memberCount: e.target.value as any }))}
+                                      value={filters.member_count}
+                onChange={(e) => setFilters(prev => ({ ...prev, member_count: e.target.value as any }))}
                       className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="all">Всі розміри</option>
@@ -1202,8 +1202,8 @@ export function Groups() {
                     <label className="flex items-center">
                       <input
                         type="checkbox"
-                        checked={filters.isVerified}
-                        onChange={(e) => setFilters(prev => ({ ...prev, isVerified: e.target.checked }))}
+                                        checked={filters.is_verified}
+                onChange={(e) => setFilters(prev => ({ ...prev, is_verified: e.target.checked }))}
                         className="rounded border-gray-300 text-blue-600 mr-2"
                       />
                       <span className="text-sm text-gray-700">Тільки верифіковані</span>
@@ -1394,8 +1394,8 @@ export function Groups() {
                   </label>
                   <input
                     type="email"
-                    value={newGroup.contactEmail}
-                    onChange={(e) => setNewGroup(prev => ({ ...prev, contactEmail: e.target.value }))}
+                                    value={newGroup.contactemail}
+                onChange={(e) => setNewGroup(prev => ({ ...prev, contactemail: e.target.value }))}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="contact@example.com"
                   />

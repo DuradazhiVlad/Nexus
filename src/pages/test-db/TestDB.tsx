@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { DatabaseService } from '../lib/database';
-import { supabase, auth } from '../lib/supabase';
+import { DatabaseService } from '../../lib/database';
+import { supabase, auth } from '../../lib/supabase';
 
 export function TestDB() {
   const [users, setUsers] = useState<any[]>([]);

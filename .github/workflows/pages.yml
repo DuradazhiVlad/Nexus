@@ -1,0 +1,38 @@
+name: Configure GitHub Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  configure-pages:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+      
+    - name: Build project
+      run: |
+        npm ci
+        npm run build
+        
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: './dist'
+        
+    - name: Deploy to GitHub Pages
+      uses: actions/deploy-pages@v4
+      
+    - name: Notify deployment
+      run: |
+        echo "🎉 Deployment completed!"
+        echo "🌐 Your site is available at: https://duradazhivlad.github.io/Nexus/"
+        echo "⏰ Deployment time: $(date)"
+        echo "📊 Build size: $(du -sh dist/ | cut -f1)" 

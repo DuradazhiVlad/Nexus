@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Mail, Lock, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import { insertUserProfile } from '../lib/userProfileService';
+import { supabase } from '../../lib/supabase';
+import { insertUserProfile, upsertUserProfile } from '../../lib/userProfileService';
 
 export function Register() {
   const [name, setName] = useState('');
@@ -27,8 +27,8 @@ export function Register() {
       if (signUpError) throw signUpError;
 
       if (authData.user) {
-        // Додаємо профіль у user_profiles
-        const { error: profileError } = await insertUserProfile({
+        // Додаємо профіль у user_profiles через upsertUserProfile
+        const { error: profileError } = await upsertUserProfile({
           auth_user_id: authData.user.id,
           name,
           last_name: lastName,

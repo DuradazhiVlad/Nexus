@@ -1,6 +1,6 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { Sidebar } from '../components/Sidebar';
+import { Sidebar } from '../../components/Sidebar';
 
 export function GroupDetail() {
   const { groupId } = useParams();

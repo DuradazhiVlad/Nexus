@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Sidebar } from '../components/Sidebar';
-import { supabase } from '../lib/supabase';
+import { Sidebar } from '../../components/Sidebar';
+import { supabase } from '../../lib/supabase';
 import { 
   ArrowLeft, 
   Users, 
@@ -64,7 +64,7 @@ export function GroupDetail() {
       }
 
       const { data: userProfile, error: profileError } = await supabase
-        .from('users')
+        .from('user_profiles')
         .select('*')
         .eq('auth_user_id', authUser.id)
         .single();
@@ -86,7 +86,7 @@ export function GroupDetail() {
         .from('groups')
         .select(`
           *,
-          created_by_profile:users!groups_created_by_fkey(name, lastname, avatar)
+          created_by_profile:user_profiles!groups_created_by_fkey(name, last_name, avatar)
         `)
         .eq('id', groupId)
         .single();
@@ -107,7 +107,7 @@ export function GroupDetail() {
         .from('group_posts')
         .select(`
           *,
-          author:users!group_posts_author_id_fkey(name, lastname, avatar),
+          author:user_profiles!group_posts_author_id_fkey(name, last_name, avatar),
           media:group_post_media(*)
         `)
         .eq('group_id', groupId)
@@ -126,7 +126,7 @@ export function GroupDetail() {
         .from('group_members')
         .select(`
           *,
-          user:users!group_members_user_id_fkey(name, lastname, avatar)
+          user:user_profiles!group_members_user_id_fkey(name, last_name, avatar)
         `)
         .eq('group_id', groupId)
         .order('joined_at', { ascending: false });
@@ -216,23 +216,43 @@ export function GroupDetail() {
 
   const createPost = async (e) => {
     e.preventDefault();
-    if (!currentUser || !userMembership || (!newPost.trim() && selectedMedia.length === 0)) return;
+    if (!currentUser || !userMembership || (!newPost.trim() && selectedMedia.length === 0)) {
+      alert('Ви не є членом цієї групи або не авторизовані.');
+      return;
+    }
 
     try {
       setPosting(true);
 
+      // Перевірка: чи є currentUser у таблиці users
+      if (!currentUser.id) {
+        alert('Ваш профіль не знайдено. Спробуйте перелогінитися або зверніться до підтримки.');
+        setPosting(false);
+        return;
+      }
+
       // Створюємо пост
       const { data: postData, error: postError } = await supabase
         .from('group_posts')
-        .insert([{
-          group_id: groupId,
-          author_id: currentUser.id,
-          content: newPost.trim()
-        }])
+        .insert([
+          {
+            group_id: groupId,
+            author_id: currentUser.id, // user_profiles.id
+            content: newPost.trim(),
+          },
+        ])
         .select()
         .single();
 
-      if (postError) throw postError;
+      if (postError) {
+        // RLS або 403
+        if (postError.code === '42501' || postError.status === 403) {
+          alert('Ви не є членом цієї групи або у вас немає прав на створення поста.');
+        } else {
+          alert('Помилка при створенні поста: ' + (postError.message || postError.details || ''));
+        }
+        throw postError;
+      }
 
       // Завантажуємо медіа якщо є
       if (selectedMedia.length > 0) {
@@ -254,13 +274,15 @@ export function GroupDetail() {
 
           await supabase
             .from('group_post_media')
-            .insert([{
-              post_id: postData.id,
-              type: fileType,
-              url: publicUrl,
-              filename: file.name,
-              file_size: file.size
-            }]);
+            .insert([
+              {
+                post_id: postData.id,
+                type: fileType,
+                url: publicUrl,
+                filename: file.name,
+                file_size: file.size,
+              },
+            ]);
         }
       }
 
@@ -268,8 +290,13 @@ export function GroupDetail() {
       setSelectedMedia([]);
       fetchGroupPosts();
     } catch (error) {
+      // Додатковий захист: якщо це RLS або 403
+      if (error?.code === '42501' || error?.status === 403) {
+        alert('Ви не є членом цієї групи або у вас немає прав на створення поста.');
+      } else {
+        alert('Помилка при створенні поста: ' + (error.message || error.details || ''));
+      }
       console.error('Error creating post:', error);
-      alert('Помилка при створенні поста');
     } finally {
       setPosting(false);
     }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Sidebar } from '../components/Sidebar';
-import { supabase } from '../lib/supabase';
-import { DatabaseService } from '../lib/database';
+import { Sidebar } from '../../components/Sidebar';
+import { supabase } from '../../lib/supabase';
+import { DatabaseService } from '../../lib/database';
 import { 
   Search, 
   UserPlus, 
@@ -140,7 +140,10 @@ export function People() {
       }
       setCurrentUser(authUser.id);
       const PAGE_SIZE = 20;
-      let allUsers = await DatabaseService.getAllUsers({ limit: PAGE_SIZE, offset: pageNum * PAGE_SIZE });
+      let allUsers = await supabase
+        .from('user_profiles')
+        .select('*')
+        .range(pageNum * PAGE_SIZE, (pageNum + 1) * PAGE_SIZE - 1);
       // Фільтруємо лише валідних користувачів
       allUsers = allUsers.filter(user => user && user.auth_user_id && user.name && user.email);
       // Фільтруємо поточного користувача зі списку

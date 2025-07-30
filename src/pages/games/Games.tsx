@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Sidebar } from '../components/Sidebar';
-import { GamesService } from '../lib/gamesService';
-import { Game, GameCategory } from '../types/games';
+import { Sidebar } from '../../components/Sidebar';
+import { GamesService } from '../../lib/gamesService';
+import { Game, GameCategory } from '../../types/games';
 import { 
   Search, 
   Plus, 
@@ -13,9 +13,9 @@ import {
   TrendingUp,
   Award
 } from 'lucide-react';
-import { GameCard } from '../games/GameCard';
-import { CreateGameModal } from '../games/CreateGameModal';
-import { GamePlayerModal } from '../games/GamePlayerModal';
+import { GameCard } from '../../games/GameCard';
+import { CreateGameModal } from '../../games/CreateGameModal';
+import { GamePlayerModal } from '../../games/GamePlayerModal';
 import { useNavigate } from 'react-router-dom';
 
 const categories: { value: GameCategory; label: string }[] = [

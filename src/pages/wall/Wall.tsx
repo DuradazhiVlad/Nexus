@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Sidebar } from '../components/Sidebar';
-import { getAllPosts, createPost, likePost, unlikePost, getCommentsForPost as getComments, addCommentToPost as addComment, updatePost, deletePost } from '../lib/postService';
-import { supabase } from '../lib/supabase';
+import { Sidebar } from '../../components/Sidebar';
+import { getAllPosts, createPost, likePost, unlikePost, getCommentsForPost as getComments, addCommentToPost as addComment, updatePost, deletePost } from '../../lib/postService';
+import { supabase } from '../../lib/supabase';
 
 interface Post {
   id: string;
@@ -109,7 +109,9 @@ export function Wall() {
         await likePost(post.id, currentUser.id);
       }
       fetchPosts();
-    } catch {}
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+    }
   };
 
   const handleShowComments = async (postId: string) => {
@@ -119,7 +121,9 @@ export function Wall() {
       const { data, error } = await getComments(postId);
       if (error) throw error;
       setComments(c => ({ ...c, [postId]: data || [] }));
-    } catch {}
+    } catch (error) {
+      console.error('Error loading comments:', error);
+    }
     setCommentLoading(l => ({ ...l, [postId]: false }));
   };
 
@@ -133,7 +137,9 @@ export function Wall() {
       // Оновити коментарі
       const { data } = await getComments(postId);
       setComments(c => ({ ...c, [postId]: data || [] }));
-    } catch {}
+    } catch (error) {
+      console.error('Error adding comment:', error);
+    }
     setCommentLoading(l => ({ ...l, [postId]: false }));
   };
 
