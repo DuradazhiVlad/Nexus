@@ -139,25 +139,33 @@ export function People() {
       setLoading(pageNum === 0);
       setLoadingMore(pageNum > 0);
       
+      console.log('🔍 Fetching users, page:', pageNum);
+      
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       if (authError || !authUser) {
+        console.log('❌ Auth error or no user:', authError);
         setUsers([]);
         setFilteredUsers([]);
         setHasMore(false);
         return;
       }
       
+      console.log('✅ Authenticated user:', authUser.id);
       setCurrentUser(authUser.id);
       const PAGE_SIZE = 20;
       
       // Використовуємо DatabaseService для отримання користувачів
+      console.log('📡 Fetching users from DatabaseService...');
       const allUsers = await DatabaseService.getAllUsers({ 
         limit: PAGE_SIZE, 
         offset: pageNum * PAGE_SIZE 
       });
+      
+      console.log('📊 Raw users from DatabaseService:', allUsers);
 
       // Фільтруємо поточного користувача
       const otherUsers = allUsers.filter(user => user.auth_user_id !== authUser.id);
+      console.log('👥 Filtered users (excluding current):', otherUsers);
 
       if (reset) {
         setUsers(otherUsers);
@@ -176,8 +184,10 @@ export function People() {
       )].sort();
       setAvailableCities(cities);
       
+      console.log('✅ Users loaded successfully:', otherUsers.length, 'users');
+      
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error('❌ Error fetching users:', error);
       setUsers([]);
       setFilteredUsers([]);
       setHasMore(false);

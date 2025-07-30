@@ -204,22 +204,34 @@ export class DatabaseService {
   // Get all users (profiles)
   static async getAllUsers({ limit = 100, offset = 0 } = {}): Promise<UserProfile[]> {
     try {
+      console.log('🔍 DatabaseService.getAllUsers called with:', { limit, offset });
+      
       await this.ensureAuthenticated();
+      
+      console.log('📡 Executing Supabase query...');
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
+        
+      console.log('📊 Supabase response:', { data, error });
+      
       if (error) {
-        console.error('Error fetching all user_profiles:', error);
+        console.error('❌ Error fetching all user_profiles:', error);
         throw new Error(`Failed to fetch user_profiles: ${error.message}`);
       }
+      
       const validProfiles = (data || []).filter(profile => 
         profile && profile.auth_user_id && profile.name && profile.email && profile.name.trim() !== '' && profile.email.trim() !== ''
       );
+      
+      console.log('✅ Valid profiles found:', validProfiles.length);
+      console.log('📋 Sample profile:', validProfiles[0]);
+      
       return validProfiles;
     } catch (error) {
-      console.error('Error fetching all user_profiles:', error);
+      console.error('❌ Error fetching all user_profiles:', error);
       return [];
     }
   }
