@@ -675,8 +675,8 @@ export function Profile() {
                   </>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Ліва колонка */}
-                      <div className="space-y-4">
+                    {/* Ліва колонка */}
+                    <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Ім'я *
