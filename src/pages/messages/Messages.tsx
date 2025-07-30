@@ -77,22 +77,50 @@ export function Messages() {
   async function loadConversations() {
     try {
       setLoading(true);
+      
+      // Отримуємо поточного користувача з auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        addNotification({
+          type: 'error',
+          title: 'Помилка авторизації',
+          message: 'Не вдалося отримати дані користувача'
+        });
+        return;
+      }
+      
       // Отримати всі розмови, де поточний користувач учасник
       const { data, error } = await supabase
         .from('conversations')
-        .select(`
-          *,
-          participant1:user_profiles!conversations_participant1_id_fkey (id, name, last_name, avatar),
-          participant2:user_profiles!conversations_participant2_id_fkey (id, name, last_name, avatar)
-        `)
-        .or(`participant1_id.eq.${currentUser.auth_user_id},participant2_id.eq.${currentUser.auth_user_id}`)
+        .select('*')
+        .or(`participant1_id.eq.${authUser.id},participant2_id.eq.${authUser.id}`)
         .order('updated_at', { ascending: false });
         
       if (error) throw error;
       
+      // Отримуємо дані учасників окремо
+      const participantIds = (data || []).map(conv => 
+        conv.participant1_id === authUser.id ? conv.participant2_id : conv.participant1_id
+      );
+      
+      // Отримуємо профілі учасників
+      const { data: profiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('id, name, last_name, avatar')
+        .in('auth_user_id', participantIds);
+        
+      if (profilesError) throw profilesError;
+      
+      // Створюємо мапу профілів
+      const profilesMap = (profiles || []).reduce((map, profile) => {
+        map[profile.auth_user_id] = profile;
+        return map;
+      }, {});
+      
       // Формуємо список співрозмовників
       const convs = (data || []).map(conv => {
-        const participant = conv.participant1_id === currentUser.auth_user_id ? conv.participant2 : conv.participant1;
+        const participantId = conv.participant1_id === authUser.id ? conv.participant2_id : conv.participant1_id;
+        const participant = profilesMap[participantId];
         return {
           id: conv.id,
           participant,
@@ -118,9 +146,20 @@ export function Messages() {
 
   async function openOrCreateConversationWith(userId) {
     try {
+      // Отримуємо поточного користувача з auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        addNotification({
+          type: 'error',
+          title: 'Помилка авторизації',
+          message: 'Не вдалося отримати дані користувача'
+        });
+        return;
+      }
+      
       // Шукаємо існуючу розмову
       let conv = conversations.find(
-        c => c.participant && c.participant.id === userId
+        c => c.participant && c.participant.auth_user_id === userId
       );
       
       if (!conv) {
@@ -129,24 +168,26 @@ export function Messages() {
           .from('conversations')
           .insert([
             {
-              participant1_id: currentUser.auth_user_id,
+              participant1_id: authUser.id,
               participant2_id: userId,
             },
           ])
-          .select(`
-            *,
-            participant1:user_profiles!conversations_participant1_id_fkey (id, name, last_name, avatar),
-            participant2:user_profiles!conversations_participant2_id_fkey (id, name, last_name, avatar)
-          `)
+          .select('*')
           .single();
           
         if (error) throw error;
         
+        // Отримуємо профіль учасника
+        const { data: participantProfile } = await supabase
+          .from('user_profiles')
+          .select('id, name, last_name, avatar')
+          .eq('auth_user_id', userId)
+          .single();
+        
         // Створюємо об'єкт розмови
-        const participant = data.participant1_id === currentUser.auth_user_id ? data.participant2 : data.participant1;
         conv = {
           id: data.id,
-          participant,
+          participant: participantProfile,
           updated_at: data.updated_at,
         };
         
@@ -202,13 +243,24 @@ export function Messages() {
     if (!messageText.trim() || !selectedConversation) return;
     
     try {
+      // Отримуємо поточного користувача з auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        addNotification({
+          type: 'error',
+          title: 'Помилка авторизації',
+          message: 'Не вдалося отримати дані користувача'
+        });
+        return;
+      }
+      
       setSending(true);
       const { error } = await supabase
         .from('messages')
         .insert([
           {
             conversation_id: selectedConversation.id,
-            sender_id: currentUser.auth_user_id,
+            sender_id: authUser.id,
             content: messageText.trim(),
           },
         ]);
@@ -300,14 +352,22 @@ export function Messages() {
                     <div className="text-gray-500 text-center mt-8">Немає повідомлень</div>
                   ) : (
                     <div className="space-y-4">
-                      {messages.map(msg => (
-                        <div key={msg.id} className={`flex ${msg.sender_id === currentUser.auth_user_id ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-xs px-4 py-2 rounded-lg shadow-sm ${msg.sender_id === currentUser.auth_user_id ? 'bg-blue-600 text-white' : 'bg-white text-gray-900 border'}`}>
-                            {msg.content}
-                            <div className="text-xs text-gray-300 mt-1 text-right">{new Date(msg.created_at).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}</div>
+                      {messages.map(msg => {
+                        // Отримуємо поточного користувача для порівняння
+                        const { data: { user: authUser } } = supabase.auth.getUser();
+                        const isOwnMessage = authUser && msg.sender_id === authUser.id;
+                        
+                        return (
+                          <div key={msg.id} className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-xs px-4 py-2 rounded-lg shadow-sm ${isOwnMessage ? 'bg-blue-600 text-white' : 'bg-white text-gray-900 border'}`}>
+                              {msg.content}
+                              <div className={`text-xs mt-1 text-right ${isOwnMessage ? 'text-gray-300' : 'text-gray-500'}`}>
+                                {new Date(msg.created_at).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       <div ref={messagesEndRef} />
                     </div>
                   )}

@@ -371,22 +371,33 @@ export class DatabaseService {
     try {
       const { data, error } = await supabase
         .from('friendships')
-        .select(`
-          user1:user_profiles!friendships_user1_id_fkey (id, name, lastname, avatar, email),
-          user2:user_profiles!friendships_user2_id_fkey (id, name, lastname, avatar, email)
-        `)
+        .select('*')
         .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
 
       if (error) {
         throw error;
       }
 
-      // Extract friends (the other user in each friendship)
-      const friends = data?.map(friendship => {
-        return friendship.user1?.id === userId ? friendship.user2 : friendship.user1;
-      }).filter(Boolean) || [];
+      // Отримуємо ID друзів
+      const friendIds = (data || []).map(f => 
+        f.user1_id === userId ? f.user2_id : f.user1_id
+      );
 
-      return friends;
+      if (friendIds.length === 0) {
+        return [];
+      }
+
+      // Отримуємо профілі друзів
+      const { data: profiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('id, name, lastname, avatar, email')
+        .in('auth_user_id', friendIds);
+
+      if (profilesError) {
+        throw profilesError;
+      }
+
+      return profiles || [];
     } catch (error) {
       console.error('Error fetching user friends:', error);
       return [];

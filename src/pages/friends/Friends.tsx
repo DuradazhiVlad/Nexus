@@ -43,21 +43,25 @@ export function Friends() {
       // Отримуємо друзів через friendships
       const { data, error } = await supabase
         .from('friendships')
-        .select(`
-          user1:user_profiles!friendships_user1_id_fkey (id, name, last_name, avatar),
-          user2:user_profiles!friendships_user2_id_fkey (id, name, last_name, avatar)
-        `)
+        .select('*')
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
         
       if (error) throw error;
       
-      // Витягуємо друзів (не поточний користувач)
-      const friendsList = (data || []).map(f => {
-        const friend = f.user1.id === user.id ? f.user2 : f.user1;
-        return friend;
-      }).filter(Boolean);
+      // Отримуємо ID друзів
+      const friendIds = (data || []).map(f => 
+        f.user1_id === user.id ? f.user2_id : f.user1_id
+      );
       
-      setFriends(friendsList);
+      // Отримуємо профілі друзів
+      const { data: profiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('id, name, last_name, avatar')
+        .in('auth_user_id', friendIds);
+        
+      if (profilesError) throw profilesError;
+      
+      setFriends(profiles || []);
     } catch (error) {
       console.error('Error fetching friends:', error);
       addNotification({
@@ -84,12 +88,33 @@ export function Friends() {
       
       const { data, error } = await supabase
         .from('friend_requests')
-        .select('*, sender:user_profiles!friend_requests_sender_id_fkey (id, name, last_name, avatar)')
+        .select('*')
         .eq('receiver_id', user.id)
         .eq('status', 'pending');
         
       if (error) throw error;
-      setRequests(data || []);
+      
+      // Отримуємо профілі відправників
+      const senderIds = (data || []).map(req => req.sender_id);
+      
+      if (senderIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('user_profiles')
+          .select('id, name, last_name, avatar')
+          .in('auth_user_id', senderIds);
+          
+        if (profilesError) throw profilesError;
+        
+        // Додаємо профілі до запитів
+        const requestsWithProfiles = (data || []).map(req => {
+          const sender = profiles.find(p => p.auth_user_id === req.sender_id);
+          return { ...req, sender };
+        });
+        
+        setRequests(requestsWithProfiles);
+      } else {
+        setRequests([]);
+      }
     } catch (error) {
       console.error('Error fetching requests:', error);
       addNotification({
