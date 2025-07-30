@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
 import { DatabaseService } from '../../lib/database';
+import { useLocation } from 'react-router-dom';
 import { 
   Search, 
   UserPlus, 
@@ -35,6 +36,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 interface User {
+  id: string;
   auth_user_id: string;
   name: string;
   last_name: string;
@@ -108,11 +110,16 @@ export function People() {
   const [hasMore, setHasMore] = useState(true);
   const observer = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const location = useLocation();
 
   useEffect(() => {
     fetchUsers(0, true);
     fetchFriendRequests();
-  }, []);
+  }, [location.key]);
+
+  useEffect(() => {
+    applyFiltersAndSearch();
+  }, [searchQuery, users, friendRequests, filters]);
 
   useEffect(() => {
     if (observer.current) observer.current.disconnect();
@@ -131,6 +138,7 @@ export function People() {
     try {
       setLoading(pageNum === 0);
       setLoadingMore(pageNum > 0);
+      
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       if (authError || !authUser) {
         setUsers([]);
@@ -138,26 +146,36 @@ export function People() {
         setHasMore(false);
         return;
       }
+      
       setCurrentUser(authUser.id);
       const PAGE_SIZE = 20;
-      let allUsers = await supabase
-        .from('user_profiles')
-        .select('*')
-        .range(pageNum * PAGE_SIZE, (pageNum + 1) * PAGE_SIZE - 1);
-      // Фільтруємо лише валідних користувачів
-      allUsers = allUsers.filter(user => user && user.auth_user_id && user.name && user.email);
-      // Фільтруємо поточного користувача зі списку
-      let otherUsers = allUsers.filter(user => user.auth_user_id !== authUser.id);
+      
+      // Використовуємо DatabaseService для отримання користувачів
+      const allUsers = await DatabaseService.getAllUsers({ 
+        limit: PAGE_SIZE, 
+        offset: pageNum * PAGE_SIZE 
+      });
+
+      // Фільтруємо поточного користувача
+      const otherUsers = allUsers.filter(user => user.auth_user_id !== authUser.id);
+
       if (reset) {
         setUsers(otherUsers);
       } else {
         setUsers(prev => [...prev, ...otherUsers]);
       }
+      
       setHasMore(otherUsers.length === PAGE_SIZE);
       setPage(pageNum);
-      // Список унікальних міст
-      const cities = [...new Set((reset ? otherUsers : [...users, ...otherUsers]).filter(user => user.city).map(user => user.city!))].sort();
+      
+      // Оновлюємо список міст
+      const allUsersForCities = reset ? otherUsers : [...users, ...otherUsers];
+      const cities = [...new Set(allUsersForCities
+        .filter(user => user.city)
+        .map(user => user.city!)
+      )].sort();
       setAvailableCities(cities);
+      
     } catch (error) {
       console.error('Error fetching users:', error);
       setUsers([]);
@@ -267,7 +285,7 @@ export function People() {
           comparison = `${a.name} ${a.last_name}`.localeCompare(`${b.name} ${b.last_name}`);
           break;
         case 'date':
-          comparison = new Date(a.created_at || a.date).getTime() - new Date(b.created_at || b.date).getTime();
+          comparison = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
           break;
         case 'city':
           comparison = (a.city || '').localeCompare(b.city || '');
@@ -483,7 +501,7 @@ export function People() {
               <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
                 <div className="flex items-center">
                   <Calendar size={14} className="mr-1" />
-                  {formatDate(user.created_at || user.date)}
+                  {formatDate(user.created_at || '')}
                 </div>
                 {user.city && (
                   <div className="flex items-center">
@@ -662,7 +680,7 @@ export function People() {
               )}
               <div className="flex items-center text-sm text-gray-600">
                 <Calendar size={14} className="mr-2 text-gray-400 flex-shrink-0" />
-                <span className="truncate">Приєднався {formatDate(user.created_at || user.date)}</span>
+                <span className="truncate">Приєднався {formatDate(user.created_at || '')}</span>
               </div>
               <div className="flex items-center space-x-4 text-sm text-gray-500">
                 <span>{user.friendsCount} друзів</span>
