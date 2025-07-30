@@ -35,6 +35,13 @@ export interface UserProfile {
   email_verified?: boolean;
   created_at?: string;
   updated_at?: string;
+  education?: string;
+  phone?: string;
+  hobbies?: string[];
+  relationship_status?: string;
+  work?: string;
+  website?: string;
+  languages?: string[];
   notifications?: {
     email: boolean;
     messages: boolean;

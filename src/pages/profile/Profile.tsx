@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from '../../components/Sidebar';
+import { FileUpload } from '../../components/FileUpload';
 import { supabase } from '../../lib/supabase';
 import { DatabaseService } from '../../lib/database';
 import { 
@@ -36,6 +37,13 @@ interface UserProfile {
   email_verified?: boolean;
   created_at?: string;
   updated_at?: string;
+  education?: string;
+  phone?: string;
+  hobbies?: string[];
+  relationship_status?: string;
+  work?: string;
+  website?: string;
+  languages?: string[];
   notifications?: {
     email: boolean;
     messages: boolean;
@@ -66,6 +74,15 @@ export function Profile() {
     city: '',
     birth_date: '',
     avatar: '',
+    education: '',
+    phone: '',
+    hobbies: [] as string[],
+    relationship_status: '',
+    work: '',
+    website: '',
+    languages: [] as string[],
+    newHobby: '',
+    newLanguage: '',
     notifications: {
       email: true,
       messages: true,
@@ -124,6 +141,13 @@ export function Profile() {
           city: '',
           birth_date: '',
           avatar: '',
+          education: '',
+          phone: '',
+          hobbies: [],
+          relationship_status: '',
+          work: '',
+          website: '',
+          languages: [],
           email_verified: authUser.email_confirmed_at ? true : false,
           notifications: {
             email: true,
@@ -155,6 +179,15 @@ export function Profile() {
           city: savedProfile.city || '',
           birth_date: savedProfile.birth_date || '',
           avatar: savedProfile.avatar || '',
+          education: savedProfile.education || '',
+          phone: savedProfile.phone || '',
+          hobbies: savedProfile.hobbies || [],
+          relationship_status: savedProfile.relationship_status || '',
+          work: savedProfile.work || '',
+          website: savedProfile.website || '',
+          languages: savedProfile.languages || [],
+          newHobby: '',
+          newLanguage: '',
           notifications: savedProfile.notifications || {
             email: true,
             messages: true,
@@ -177,6 +210,15 @@ export function Profile() {
           city: userProfile.city || '',
           birth_date: userProfile.birth_date || '',
           avatar: userProfile.avatar || '',
+          education: userProfile.education || '',
+          phone: userProfile.phone || '',
+          hobbies: userProfile.hobbies || [],
+          relationship_status: userProfile.relationship_status || '',
+          work: userProfile.work || '',
+          website: userProfile.website || '',
+          languages: userProfile.languages || [],
+          newHobby: '',
+          newLanguage: '',
           notifications: userProfile.notifications || {
             email: true,
             messages: true,
@@ -197,23 +239,69 @@ export function Profile() {
     }
   };
 
+  const validateForm = () => {
+    const errors: string[] = [];
+
+    // Валідація імені
+    if (!editForm.name.trim()) {
+      errors.push('Ім\'я є обов\'язковим полем');
+    }
+
+    // Валідація email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (editForm.email && !emailRegex.test(editForm.email)) {
+      errors.push('Невірний формат email');
+    }
+
+    // Валідація телефону
+    if (editForm.phone && !/^[\d\s\-\+\(\)]+$/.test(editForm.phone)) {
+      errors.push('Невірний формат телефону');
+    }
+
+    // Валідація веб-сайту
+    if (editForm.website && !/^https?:\/\/.+/.test(editForm.website)) {
+      errors.push('Веб-сайт повинен починатися з http:// або https://');
+    }
+
+    // Валідація біо
+    if (editForm.bio && editForm.bio.length > 500) {
+      errors.push('Біо не може перевищувати 500 символів');
+    }
+
+    return errors;
+  };
+
   const handleSaveProfile = async () => {
     try {
       setSaving(true);
       setError(null);
+      
+      // Валідація форми
+      const validationErrors = validateForm();
+      if (validationErrors.length > 0) {
+        setError(validationErrors.join(', '));
+        return;
+      }
       
       if (!currentUser) {
         throw new Error('Користувач не авторизований');
       }
       
       const updates = {
-        name: editForm.name,
-        last_name: editForm.last_name,
-        email: editForm.email,
-        bio: editForm.bio,
-        city: editForm.city,
+        name: editForm.name.trim(),
+        last_name: editForm.last_name.trim(),
+        email: editForm.email.trim(),
+        bio: editForm.bio.trim(),
+        city: editForm.city.trim(),
         birth_date: editForm.birth_date,
         avatar: editForm.avatar,
+        education: editForm.education.trim(),
+        phone: editForm.phone.trim(),
+        hobbies: editForm.hobbies,
+        relationship_status: editForm.relationship_status.trim(),
+        work: editForm.work.trim(),
+        website: editForm.website.trim(),
+        languages: editForm.languages,
         notifications: editForm.notifications,
         privacy: editForm.privacy,
         updated_at: new Date().toISOString()
@@ -253,6 +341,15 @@ export function Profile() {
         city: profile.city || '',
         birth_date: profile.birth_date || '',
         avatar: profile.avatar || '',
+        education: profile.education || '',
+        phone: profile.phone || '',
+        hobbies: profile.hobbies || [],
+        relationship_status: profile.relationship_status || '',
+        work: profile.work || '',
+        website: profile.website || '',
+        languages: profile.languages || [],
+        newHobby: '',
+        newLanguage: '',
         notifications: profile.notifications || {
           email: true,
           messages: true,
@@ -265,6 +362,40 @@ export function Profile() {
         }
       });
     }
+  };
+
+  const addHobby = () => {
+    if (editForm.newHobby.trim() && !editForm.hobbies.includes(editForm.newHobby.trim())) {
+      setEditForm(prev => ({
+        ...prev,
+        hobbies: [...prev.hobbies, editForm.newHobby.trim()],
+        newHobby: ''
+      }));
+    }
+  };
+
+  const removeHobby = (hobby: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      hobbies: prev.hobbies.filter(h => h !== hobby)
+    }));
+  };
+
+  const addLanguage = () => {
+    if (editForm.newLanguage.trim() && !editForm.languages.includes(editForm.newLanguage.trim())) {
+      setEditForm(prev => ({
+        ...prev,
+        languages: [...prev.languages, editForm.newLanguage.trim()],
+        newLanguage: ''
+      }));
+    }
+  };
+
+  const removeLanguage = (language: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      languages: prev.languages.filter(l => l !== language)
+    }));
   };
 
   const formatDate = (dateString?: string) => {
@@ -474,103 +605,321 @@ export function Profile() {
                         </div>
                       )}
                     </div>
+
+                    {/* Додаткова інформація */}
+                    {(profile.education || profile.work || profile.phone || profile.website || profile.hobbies?.length || profile.languages?.length) && (
+                      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Додаткова інформація</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {profile.education && (
+                            <div>
+                              <span className="text-sm font-medium text-gray-600">Освіта:</span>
+                              <p className="text-gray-900">{profile.education}</p>
+                            </div>
+                          )}
+                          {profile.work && (
+                            <div>
+                              <span className="text-sm font-medium text-gray-600">Робота:</span>
+                              <p className="text-gray-900">{profile.work}</p>
+                            </div>
+                          )}
+                          {profile.phone && (
+                            <div>
+                              <span className="text-sm font-medium text-gray-600">Телефон:</span>
+                              <p className="text-gray-900">{profile.phone}</p>
+                            </div>
+                          )}
+                          {profile.website && (
+                            <div>
+                              <span className="text-sm font-medium text-gray-600">Веб-сайт:</span>
+                              <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                {profile.website}
+                              </a>
+                            </div>
+                          )}
+                          {profile.relationship_status && (
+                            <div>
+                              <span className="text-sm font-medium text-gray-600">Сімейний стан:</span>
+                              <p className="text-gray-900">{profile.relationship_status}</p>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {profile.hobbies?.length > 0 && (
+                          <div className="mt-4">
+                            <span className="text-sm font-medium text-gray-600">Хобі:</span>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {profile.hobbies.map((hobby, index) => (
+                                <span key={index} className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
+                                  {hobby}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {profile.languages?.length > 0 && (
+                          <div className="mt-4">
+                            <span className="text-sm font-medium text-gray-600">Мови:</span>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {profile.languages.map((language, index) => (
+                                <span key={index} className="bg-purple-100 text-purple-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
+                                  {language}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </>
                 ) : (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Ім'я *
-                        </label>
-                        <input
-                          type="text"
-                          value={editForm.name}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Введіть ім'я"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Прізвище
-                        </label>
-                        <input
-                          type="text"
-                          value={editForm.last_name}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, last_name: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Введіть прізвище"
-                        />
-                      </div>
-                    </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Ліва колонка */}
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Ім'я *
+                          </label>
+                          <input
+                            type="text"
+                            value={editForm.name}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Введіть ім'я"
+                            required
+                          />
+                        </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        value={editForm.email}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Введіть email"
-                        disabled={true} // Email не може бути змінений
-                      />
-                    </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Email
+                          </label>
+                          <input
+                            type="email"
+                            value={editForm.email}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Введіть email"
+                            disabled={true} // Email не може бути змінений
+                          />
+                        </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Про себе
-                      </label>
-                      <textarea
-                        value={editForm.bio}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Розкажіть про себе"
-                        maxLength={500}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">{editForm.bio.length}/500</p>
-                    </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Про себе
+                          </label>
+                          <textarea
+                            value={editForm.bio}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                            placeholder="Розкажіть про себе"
+                            maxLength={500}
+                          />
+                          <p className="text-xs text-gray-500 mt-1">{editForm.bio.length}/500</p>
+                        </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Місто
-                        </label>
-                        <input
-                          type="text"
-                          value={editForm.city}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, city: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Введіть місто"
-                        />
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Місто
+                          </label>
+                          <input
+                            type="text"
+                            value={editForm.city}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, city: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Введіть місто"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Освіта
+                          </label>
+                          <input
+                            type="text"
+                            value={editForm.education}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, education: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Введіть освіту"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Телефон
+                          </label>
+                          <input
+                            type="tel"
+                            value={editForm.phone}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Введіть телефон"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Хобі
+                          </label>
+                          <div className="flex flex-wrap items-center gap-2 p-2 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent">
+                            {editForm.hobbies.map((hobby, index) => (
+                              <span key={index} className="flex items-center bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
+                                {hobby}
+                                <button
+                                  type="button"
+                                  onClick={() => removeHobby(hobby)}
+                                  className="ml-1 text-blue-800 hover:text-blue-900 focus:outline-none"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </span>
+                            ))}
+                            <input
+                              type="text"
+                              value={editForm.newHobby}
+                              onChange={(e) => setEditForm(prev => ({ ...prev, newHobby: e.target.value }))}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  addHobby();
+                                }
+                              }}
+                              className="flex-1 px-1 py-0.5 bg-transparent focus:outline-none"
+                              placeholder="Додати хобі і натиснути Enter"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Сімейний стан
+                          </label>
+                          <input
+                            type="text"
+                            value={editForm.relationship_status}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, relationship_status: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Введіть сімейний стан"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Дата народження
-                        </label>
-                        <input
-                          type="date"
-                          value={editForm.birth_date}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, birth_date: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      </div>
-                    </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Аватар (URL)
-                      </label>
-                      <input
-                        type="url"
-                        value={editForm.avatar}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, avatar: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="https://example.com/avatar.jpg"
-                      />
+                      {/* Права колонка */}
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Прізвище
+                          </label>
+                          <input
+                            type="text"
+                            value={editForm.last_name}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, last_name: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Введіть прізвище"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Аватар
+                          </label>
+                          <div className="flex items-center space-x-3">
+                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                              {editForm.avatar ? (
+                                <img
+                                  src={editForm.avatar}
+                                  alt="Avatar"
+                                  className="w-full h-full rounded-full object-cover"
+                                />
+                              ) : (
+                                <User className="h-8 w-8 text-gray-400" />
+                              )}
+                            </div>
+                            <FileUpload
+                              onUploadSuccess={(url) => setEditForm(prev => ({ ...prev, avatar: url }))}
+                              onUploadError={(error) => setError(error)}
+                              accept="image/*"
+                              maxSize={5}
+                              buttonText="Завантажити аватар"
+                              showPreview={false}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            День народження
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="date"
+                              value={editForm.birth_date}
+                              onChange={(e) => setEditForm(prev => ({ ...prev, birth_date: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                            <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Робота
+                          </label>
+                          <input
+                            type="text"
+                            value={editForm.work}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, work: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Введіть роботу"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Веб-сайт
+                          </label>
+                          <input
+                            type="url"
+                            value={editForm.website}
+                            onChange={(e) => setEditForm(prev => ({ ...prev, website: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="https://example.com"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Мови
+                          </label>
+                          <div className="flex flex-wrap items-center gap-2 p-2 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent">
+                            {editForm.languages.map((language, index) => (
+                              <span key={index} className="flex items-center bg-purple-100 text-purple-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
+                                {language}
+                                <button
+                                  type="button"
+                                  onClick={() => removeLanguage(language)}
+                                  className="ml-1 text-purple-800 hover:text-purple-900 focus:outline-none"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </span>
+                            ))}
+                            <input
+                              type="text"
+                              value={editForm.newLanguage}
+                              onChange={(e) => setEditForm(prev => ({ ...prev, newLanguage: e.target.value }))}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  addLanguage();
+                                }
+                              }}
+                              className="flex-1 px-1 py-0.5 bg-transparent focus:outline-none"
+                              placeholder="Додати мову і натиснути Enter"
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
