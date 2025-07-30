@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
 import { Search, UserPlus, UserCheck } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 interface Friend {
   id: string;
@@ -16,11 +17,12 @@ export function Friends() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<any[]>([]); // friend_requests
+  const location = useLocation();
 
   useEffect(() => {
     fetchFriends();
     fetchRequests();
-  }, []);
+  }, [location.key]);
 
   const fetchFriends = async () => {
     try {

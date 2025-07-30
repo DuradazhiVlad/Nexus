@@ -43,7 +43,7 @@ import {
   Activity,
   Video
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface Group {
   id: string;
@@ -158,6 +158,7 @@ export function Groups() {
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [newGroup, setNewGroup] = useState({
     name: '',
@@ -175,7 +176,7 @@ export function Groups() {
 
   useEffect(() => {
     fetchCurrentUser();
-  }, []);
+  }, [location.key]);
 
   useEffect(() => {
     if (currentUser) {

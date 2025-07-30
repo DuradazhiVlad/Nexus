@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
 import { 
@@ -25,6 +25,7 @@ import {
 export function GroupDetail() {
   const { groupId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [group, setGroup] = useState(null);
   const [posts, setPosts] = useState([]);
   const [members, setMembers] = useState([]);
@@ -43,7 +44,7 @@ export function GroupDetail() {
 
   useEffect(() => {
     fetchCurrentUser();
-  }, []);
+  }, [location.key]);
 
   useEffect(() => {
     if (currentUser && groupId) {

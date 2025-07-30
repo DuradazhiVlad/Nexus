@@ -21,7 +21,7 @@ import {
   Check,
   AlertCircle
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface UserProfile {
   id: string;
@@ -65,10 +65,11 @@ export function Profile() {
   });
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     loadProfile();
-  }, []);
+  }, [location.key]);
 
   const loadProfile = async () => {
     try {

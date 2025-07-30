@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from '../../components/Sidebar';
+import { useLocation } from 'react-router-dom';
 import { getAllPosts, createPost, likePost, unlikePost, getCommentsForPost as getComments, addCommentToPost as addComment, updatePost, deletePost } from '../../lib/postService';
 import { supabase } from '../../lib/supabase';
 
@@ -52,11 +53,12 @@ export function Wall() {
   const [editMediaUrl, setEditMediaUrl] = useState('');
   const [editMediaType, setEditMediaType] = useState('');
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const location = useLocation();
 
   useEffect(() => {
     fetchCurrentUser();
     fetchPosts();
-  }, []);
+  }, [location.key]);
 
   const fetchCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
