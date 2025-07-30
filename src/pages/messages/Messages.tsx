@@ -2,8 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
 import { DatabaseService, DatabaseUser } from '../../lib/database';
-import { useLocation } from 'react-router-dom';
-import { Send, UserCircle } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Send, UserCircle, MessageCircle } from 'lucide-react';
 import { ErrorNotification, useErrorNotifications } from '../../components/ErrorNotification';
 
 function useQuery() {
@@ -16,12 +16,14 @@ export function Messages() {
   const [messages, setMessages] = useState([]); // [{id, sender_id, content, created_at}]
   const [currentUser, setCurrentUser] = useState(null); // {id, name, ...}
   const [authUser, setAuthUser] = useState(null); // auth user
-  const [messageText, setMessageText] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const query = useQuery();
   const location = useLocation();
+  const navigate = useNavigate();
   
   // Modern error handling
   const { notifications, addNotification, removeNotification } = useErrorNotifications();
@@ -218,8 +220,10 @@ export function Messages() {
     }
   }
 
-  async function loadMessages(conversationId) {
+  const loadMessages = async (conversationId: string) => {
     try {
+      setMessagesLoading(true);
+      
       const { data, error } = await supabase
         .from('messages')
         .select('*')
@@ -227,45 +231,45 @@ export function Messages() {
         .order('created_at', { ascending: true });
         
       if (error) throw error;
+      
       setMessages(data || []);
     } catch (error) {
       console.error('Error loading messages:', error);
       addNotification({
         type: 'error',
-        title: 'Помилка завантаження',
+        title: 'Помилка',
         message: 'Не вдалося завантажити повідомлення',
-        details: error instanceof Error ? error.message : 'Невідома помилка',
-        showRetry: true,
-        onRetry: () => loadMessages(conversationId)
+        details: error instanceof Error ? error.message : 'Невідома помилка'
       });
-      setMessages([]);
+    } finally {
+      setMessagesLoading(false);
     }
-  }
+  };
 
   async function handleSelectConversation(conv) {
     setSelectedConversation(conv);
     loadMessages(conv.id);
   }
 
-  async function handleSendMessage(e) {
-    e.preventDefault();
-    if (!messageText.trim() || !selectedConversation || !authUser) return;
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedConversation || !authUser) return;
     
     try {
       setSending(true);
+      
       const { error } = await supabase
         .from('messages')
         .insert([
           {
             conversation_id: selectedConversation.id,
             sender_id: authUser.id,
-            content: messageText.trim(),
+            content: newMessage.trim(),
           },
         ]);
         
       if (error) throw error;
       
-      setMessageText('');
+      setNewMessage('');
       loadMessages(selectedConversation.id);
     } catch (error) {
       console.error('Error sending message:', error);
@@ -273,19 +277,17 @@ export function Messages() {
         type: 'error',
         title: 'Помилка',
         message: 'Не вдалося надіслати повідомлення',
-        details: error instanceof Error ? error.message : 'Невідома помилка',
-        showRetry: true,
-        onRetry: () => handleSendMessage(e)
+        details: error instanceof Error ? error.message : 'Невідома помилка'
       });
     } finally {
       setSending(false);
     }
-  }
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 ml-64 p-8">
+      <div className="flex-1 ml-64 flex">
         {/* Error Notifications */}
         {notifications.map((notification) => (
           <ErrorNotification
@@ -295,103 +297,178 @@ export function Messages() {
           />
         ))}
         
-        <div className="max-w-6xl mx-auto">
-          {/* Список діалогів */}
-          <div className="w-80 border-r border-gray-200 bg-white flex flex-col">
-            <div className="p-4 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900">Діалоги</h2>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {loading ? (
-                <div className="p-4 text-gray-500">Завантаження...</div>
-              ) : conversations.length === 0 ? (
-                <div className="p-4 text-gray-500">Немає діалогів</div>
-              ) : (
-                conversations.map(conv => (
+        {/* Chat List - Left Side */}
+        <div className="w-1/3 bg-white border-r border-gray-200 flex flex-col">
+          {/* Header */}
+          <div className="p-4 border-b border-gray-200">
+            <h1 className="text-xl font-semibold text-gray-900">Повідомлення</h1>
+          </div>
+          
+          {/* Conversations List */}
+          <div className="flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="flex items-center justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-2 text-gray-500">Завантаження...</span>
+              </div>
+            ) : conversations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-8 text-center">
+                <MessageCircle className="w-12 h-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Немає розмов</h3>
+                <p className="text-gray-500">Почніть розмову з друзями</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-200">
+                {conversations.map((conversation) => (
                   <div
-                    key={conv.id}
-                    className={`flex items-center px-4 py-3 cursor-pointer hover:bg-gray-50 ${selectedConversation && selectedConversation.id === conv.id ? 'bg-gray-100' : ''}`}
-                    onClick={() => handleSelectConversation(conv)}
+                    key={conversation.id}
+                    onClick={() => {
+                      setSelectedConversation(conversation);
+                      loadMessages(conversation.id);
+                    }}
+                    className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
+                      selectedConversation?.id === conversation.id ? 'bg-blue-50 border-r-2 border-blue-500' : ''
+                    }`}
                   >
-                    <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center">
-                      {conv.participant?.avatar ? (
-                        <img src={conv.participant.avatar} alt={conv.participant.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <UserCircle className="w-8 h-8 text-gray-400" />
-                      )}
-                    </div>
-                    <div className="ml-4 flex-1">
-                      <div className="font-semibold text-gray-900">{conv.participant?.name} {conv.participant?.last_name}</div>
-                      <div className="text-xs text-gray-500">Останнє оновлення: {new Date(conv.updated_at).toLocaleString('uk-UA')}</div>
+                    <div className="flex items-center space-x-3">
+                      {/* Avatar */}
+                      <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                        {conversation.participant?.avatar ? (
+                          <img
+                            src={conversation.participant.avatar}
+                            alt={conversation.participant.name}
+                            className="w-full h-full rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-gray-600 font-semibold">
+                            {conversation.participant?.name?.[0]}{conversation.participant?.last_name?.[0]}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* User Info */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-medium text-gray-900 truncate">
+                          {conversation.participant?.name} {conversation.participant?.last_name}
+                        </h3>
+                        <p className="text-xs text-gray-500">
+                          {conversation.updated_at ? new Date(conversation.updated_at).toLocaleDateString('uk-UA') : ''}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
-          {/* Вікно чату */}
-          <div className="flex-1 flex flex-col">
-            {selectedConversation ? (
-              <>
-                <div className="flex items-center border-b border-gray-200 px-6 py-4 bg-white">
-                  <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center">
+        </div>
+        
+        {/* Chat Area - Right Side */}
+        <div className="flex-1 flex flex-col bg-white">
+          {selectedConversation ? (
+            <>
+              {/* Chat Header */}
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
                     {selectedConversation.participant?.avatar ? (
-                      <img src={selectedConversation.participant.avatar} alt={selectedConversation.participant.name} className="w-full h-full object-cover" />
+                      <img
+                        src={selectedConversation.participant.avatar}
+                        alt={selectedConversation.participant.name}
+                        className="w-full h-full rounded-full object-cover"
+                      />
                     ) : (
-                      <UserCircle className="w-7 h-7 text-gray-400" />
+                      <span className="text-gray-600 font-semibold">
+                        {selectedConversation.participant?.name?.[0]}{selectedConversation.participant?.last_name?.[0]}
+                      </span>
                     )}
                   </div>
-                  <div className="ml-4">
-                    <div className="font-semibold text-gray-900">{selectedConversation.participant?.name} {selectedConversation.participant?.last_name}</div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                      {selectedConversation.participant?.name} {selectedConversation.participant?.last_name}
+                    </h2>
+                    <p className="text-sm text-gray-500">Онлайн</p>
                   </div>
                 </div>
-                <div className="flex-1 overflow-y-auto px-6 py-4 bg-gray-50">
-                  {messages.length === 0 ? (
-                    <div className="text-gray-500 text-center mt-8">Немає повідомлень</div>
-                  ) : (
-                    <div className="space-y-4">
-                      {messages.map(msg => {
-                        const isOwnMessage = authUser && msg.sender_id === authUser.id;
-                        
-                        return (
-                          <div key={msg.id} className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-xs px-4 py-2 rounded-lg shadow-sm ${isOwnMessage ? 'bg-blue-600 text-white' : 'bg-white text-gray-900 border'}`}>
-                              {msg.content}
-                              <div className={`text-xs mt-1 text-right ${isOwnMessage ? 'text-gray-300' : 'text-gray-500'}`}>
-                                {new Date(msg.created_at).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div ref={messagesEndRef} />
+              </div>
+              
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {messagesLoading ? (
+                  <div className="flex items-center justify-center p-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <span className="ml-2 text-gray-500">Завантаження повідомлень...</span>
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center">
+                    <MessageCircle className="w-12 h-12 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Немає повідомлень</h3>
+                    <p className="text-gray-500">Почніть розмову першим повідомленням</p>
+                  </div>
+                ) : (
+                  messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex ${message.sender_id === authUser?.id ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                          message.sender_id === authUser?.id
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-200 text-gray-900'
+                        }`}
+                      >
+                        <p className="text-sm">{message.content}</p>
+                        <p className="text-xs opacity-70 mt-1">
+                          {new Date(message.created_at).toLocaleTimeString('uk-UA', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
                     </div>
-                  )}
-                </div>
-                <form onSubmit={handleSendMessage} className="flex items-center px-6 py-4 border-t border-gray-200 bg-white">
+                  ))
+                )}
+              </div>
+              
+              {/* Message Input */}
+              <div className="p-4 border-t border-gray-200">
+                <div className="flex space-x-2">
                   <input
                     type="text"
-                    value={messageText}
-                    onChange={e => setMessageText(e.target.value)}
-                    placeholder="Введіть повідомлення..."
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={newMessage}
+                    onChange={e => setNewMessage(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    placeholder="Напишіть повідомлення..."
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     disabled={sending}
                   />
                   <button
                     type="submit"
-                    disabled={sending || !messageText.trim()}
-                    className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50"
+                    onClick={handleSendMessage}
+                    disabled={sending || !newMessage.trim()}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <Send className="w-5 h-5" />
                   </button>
-                </form>
-              </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-400 text-xl">
-                Виберіть діалог для перегляду повідомлень
+                </div>
               </div>
-            )}
-          </div>
+            </>
+          ) : (
+            /* No Chat Selected */
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-xl font-medium text-gray-900 mb-2">Виберіть розмову</h3>
+                <p className="text-gray-500">Оберіть чат зі списку зліва, щоб почати спілкування</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
