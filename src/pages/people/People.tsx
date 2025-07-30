@@ -41,18 +41,14 @@ interface User {
   id: string;
   auth_user_id: string;
   name: string;
-  last_name: string;
+  last_name?: string;
   email: string;
   avatar?: string;
   bio?: string;
   city?: string;
   birth_date?: string;
   created_at?: string;
-  notifications?: {
-    email: boolean;
-    messages: boolean;
-    friendRequests: boolean;
-  };
+  updated_at?: string;
   privacy?: {
     profileVisibility: 'public' | 'friends' | 'private';
     showBirthDate: boolean;
@@ -118,7 +114,7 @@ export function People() {
   const { notifications, addNotification, removeNotification } = useErrorNotifications();
 
   useEffect(() => {
-    fetchUsers(0, true);
+    fetchUsers();
     fetchFriendRequests();
   }, [location.key]);
 
@@ -139,82 +135,66 @@ export function People() {
     return () => observer.current?.disconnect();
   }, [hasMore, loadingMore, page, filteredUsers]);
 
-  const fetchUsers = async (pageNum = 0, reset = false) => {
+  const fetchUsers = async () => {
     try {
-      setLoading(pageNum === 0);
-      setLoadingMore(pageNum > 0);
-      
-      console.log('🔍 Fetching users, page:', pageNum);
+      setLoading(true);
+      console.log('🔍 Fetching users...');
       
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       if (authError || !authUser) {
-        console.log('❌ Auth error or no user:', authError);
+        console.error('Auth error:', authError);
         addNotification({
           type: 'error',
           title: 'Помилка авторизації',
-          message: 'Не вдалося отримати дані користувача',
-          details: authError?.message || 'Користувач не авторизований',
-          showRetry: true,
-          onRetry: () => fetchUsers(pageNum, reset)
+          message: 'Не вдалося отримати дані користувача'
         });
-        setUsers([]);
-        setFilteredUsers([]);
-        setHasMore(false);
         return;
       }
       
-      console.log('✅ Authenticated user:', authUser.id);
       setCurrentUser(authUser.id);
-      const PAGE_SIZE = 20;
       
-      // Використовуємо DatabaseService для отримання користувачів
-      console.log('📡 Fetching users from DatabaseService...');
-      const allUsers = await DatabaseService.getAllUsers({ 
-        limit: PAGE_SIZE, 
-        offset: pageNum * PAGE_SIZE 
-      });
+      // Отримуємо всіх користувачів
+      const { data: allUsers, error: usersError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (usersError) throw usersError;
       
-      console.log('📊 Raw users from DatabaseService:', allUsers);
-
-      // Фільтруємо поточного користувача
-      const otherUsers = allUsers.filter(user => user.auth_user_id !== authUser.id);
-      console.log('👥 Filtered users (excluding current):', otherUsers);
-
-      if (reset) {
-        setUsers(otherUsers);
-      } else {
-        setUsers(prev => [...prev, ...otherUsers]);
-      }
+      // Отримуємо список друзів поточного користувача
+      const { data: friendships, error: friendshipsError } = await supabase
+        .from('friendships')
+        .select('*')
+        .or(`user1_id.eq.${authUser.id},user2_id.eq.${authUser.id}`);
+        
+      if (friendshipsError) throw friendshipsError;
       
-      setHasMore(otherUsers.length === PAGE_SIZE);
-      setPage(pageNum);
+      // Створюємо список ID друзів
+      const friendIds = (friendships || []).map(f => 
+        f.user1_id === authUser.id ? f.user2_id : f.user1_id
+      );
       
-      // Оновлюємо список міст
-      const allUsersForCities = reset ? otherUsers : [...users, ...otherUsers];
-      const cities = [...new Set(allUsersForCities
-        .filter(user => user.city)
-        .map(user => user.city!)
-      )].sort();
-      setAvailableCities(cities);
+      // Фільтруємо користувачів - приховуємо друзів та себе
+      const filteredUsers = (allUsers || []).filter(user => 
+        user.auth_user_id !== authUser.id && 
+        !friendIds.includes(user.auth_user_id)
+      );
       
-      console.log('✅ Users loaded successfully:', otherUsers.length, 'users');
-      
+      console.log('✅ Users loaded:', filteredUsers.length);
+      setUsers(filteredUsers);
     } catch (error) {
-      console.error('❌ Error fetching users:', error);
+      console.error('Error fetching users:', error);
       addNotification({
         type: 'error',
         title: 'Помилка завантаження',
         message: 'Не вдалося завантажити користувачів',
         details: error instanceof Error ? error.message : 'Невідома помилка',
         showRetry: true,
-        onRetry: () => fetchUsers(pageNum, reset)
+        onRetry: fetchUsers
       });
       setUsers([]);
-      setFilteredUsers([]);
-      setHasMore(false);
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
   };
 
@@ -262,6 +242,13 @@ export function People() {
       return request.sender_id === currentUser ? 'sent' : 'received';
     }
     return 'not_friends';
+  };
+
+  const canSendMessage = (user: User) => {
+    // Можна писати повідомлення якщо:
+    // 1. Профіль публічний
+    // 2. Або користувач не друг (тобто не в списку друзів)
+    return user.privacy?.profileVisibility === 'public';
   };
 
   const applyFiltersAndSearch = () => {
@@ -601,18 +588,37 @@ export function People() {
                 Приєднався {formatDate(user.created_at || '')}
               </p>
             )}
+            
+            {/* Показуємо статус приватності */}
+            {user.privacy?.profileVisibility && (
+              <p className="text-xs text-gray-500 mt-1">
+                {user.privacy.profileVisibility === 'public' ? '🌐 Публічний профіль' : '🔒 Приватний профіль'}
+              </p>
+            )}
           </div>
           
           {/* Action Buttons */}
           <div className="flex flex-col space-y-2">
             {friendStatus === 'not_friends' && (
-              <button
-                onClick={() => addFriend(user.auth_user_id)}
-                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Додати в друзі
-              </button>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => addFriend(user.auth_user_id)}
+                  className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Додати в друзі
+                </button>
+                
+                {canSendMessage(user) && (
+                  <button
+                    onClick={() => navigate(`/messages?user=${user.auth_user_id}`)}
+                    className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Повідомлення
+                  </button>
+                )}
+              </div>
             )}
             
             {friendStatus === 'sent' && (
@@ -645,38 +651,6 @@ export function People() {
                   Відхилити
                 </button>
               </div>
-            )}
-            
-            {friendStatus === 'friends' && (
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => navigate(`/messages?user=${user.auth_user_id}`)}
-                  className="flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                >
-                  <MessageCircle className="w-4 h-4 mr-1" />
-                  Повідомлення
-                </button>
-                <button
-                  onClick={() => removeFriend(user.auth_user_id)}
-                  className="flex items-center justify-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
-                >
-                  <X className="w-4 h-4 mr-1" />
-                  Видалити
-                </button>
-              </div>
-            )}
-            
-            {friendStatus === 'received' && (
-              <button
-                onClick={() => {
-                  const request = friendRequests.find(req => req.sender_id === user.auth_user_id);
-                  if (request) handleFriendRequest(request.id, 'accept');
-                }}
-                className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-              >
-                <Check className="w-4 h-4 mr-2" />
-                Прийняти
-              </button>
             )}
           </div>
         </div>
