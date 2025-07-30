@@ -134,42 +134,22 @@ export class DatabaseService {
         .select('*')
         .eq('auth_user_id', authUser.id)
         .single();
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // Profile doesn't exist, create new profile
-          return await this.createUserProfile(authUser);
-        } else {
-          console.error('Error fetching user profile:', error);
-          return null;
+              if (error) {
+          if (error.code === 'PGRST116') {
+            // Profile doesn't exist, create new profile
+            return await this.createUserProfile(authUser);
+          } else {
+            console.error('Error fetching user profile:', error);
+            throw new Error(`Failed to fetch user profile: ${error.message}`);
+          }
         }
-      }
       return profile;
     } catch (error) {
       console.error('Error getting current user profile:', error);
-      return null;
+      throw error;
     }
   }
 
-  // Fallback метод пошуку користувача за email
-  private static async findUserByEmail(email: string): Promise<DatabaseUser | null> {
-    try {
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .single();
-
-      if (error) {
-        console.error('Error finding user by email:', error);
-        return null;
-      }
-
-      return user;
-    } catch (error) {
-      console.error('Error in findUserByEmail:', error);
-      return null;
-    }
-  }
 
   // Create new user profile
   private static async createUserProfile(authUser: any): Promise<UserProfile | null> {
@@ -288,7 +268,11 @@ export class DatabaseService {
   static async updateUserProfile(updates: Partial<UserProfile>): Promise<UserProfile | null> {
     try {
       const authUser = await this.ensureAuthenticated();
-      const { auth_user_id, ...safeUpdates } = updates;
+
+      // Remove non-database fields
+      const { id, ...safeUpdates } = updates;
+
+      console.log('Updating user profile with:', safeUpdates);
       const { data, error } = await supabase
         .from('user_profiles')
         .update(safeUpdates)
@@ -299,10 +283,12 @@ export class DatabaseService {
         console.error('Error updating user profile:', error);
         throw new Error(`Failed to update profile: ${error.message}`);
       }
+
+      console.log('Successfully updated user profile:', data);
       return data;
     } catch (error) {
       console.error('Error updating user profile:', error);
-      return null;
+      throw error;
     }
   }
 
