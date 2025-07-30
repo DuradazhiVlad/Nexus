@@ -62,7 +62,7 @@ interface Group {
   is_active?: boolean;
   last_activity?: string;
   website?: string;
-  contactemail?: string;
+  contactEmail?: string; // Виправлено назву поля
   creator?: {
     id: string;
     name: string;
@@ -165,7 +165,7 @@ export function Groups() {
     location: '',
     website: '',
     rules: [''],
-    contactemail: ''
+    contactEmail: '' // Виправлено назву поля
   });
 
   useEffect(() => {
@@ -237,7 +237,7 @@ export function Groups() {
             tags: ['JavaScript', 'Python', 'React'],
             location: 'Київ',
             rules: ['Будьте поважні', 'Використовуйте теги'],
-            contactemail: 'admin@example.com',
+            contactEmail: 'admin@example.com',
             website: 'https://example.com',
             is_verified: false,
             is_active: true,
@@ -254,18 +254,35 @@ export function Groups() {
         return;
       }
 
+      // Спрощений запит без проблемних join'ів
       const { data, error } = await supabase
         .from('groups')
-        .select(`*, creator:user_profiles!groups_created_by_fkey (id, name, last_name, avatar)`)
+        .select('*')
         .eq('is_private', false)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Використовуємо реальні дані з бази
-      const enrichedGroups = (data || []).map(group => ({
-        ...group,
-        creator: group.creator
+      // Додаємо creator інформацію окремим запитом
+      const enrichedGroups = await Promise.all((data || []).map(async (group) => {
+        if (group.created_by) {
+          const { data: creatorData } = await supabase
+            .from('user_profiles')
+            .select('id, name, last_name, avatar')
+            .eq('auth_user_id', group.created_by)
+            .single();
+          
+          return {
+            ...group,
+            creator: creatorData || {
+              id: group.created_by,
+              name: 'Unknown',
+              last_name: 'User',
+              avatar: ''
+            }
+          };
+        }
+        return group;
       }));
 
       setGroups(enrichedGroups);
@@ -297,21 +314,28 @@ export function Groups() {
     try {
       if (!currentUser) return;
 
+      // Спрощений запит для group_members
       const { data, error } = await supabase
         .from('group_members')
-        .select(`
-          groups (*, creator:user_profiles!groups_created_by_fkey (id, name, last_name, avatar)),
-          user:user_profiles!group_members_user_id_fkey (id, name, last_name, avatar)
-        `)
+        .select('group_id, role')
         .eq('user_id', currentUser)
         .eq('role', 'member');
 
       if (error) throw error;
-      setJoinedGroups(data?.map(item => ({
-        ...item.groups,
-        creator: item.creator,
-        user: item.user
-      })).filter(Boolean) || []);
+
+      // Отримуємо деталі груп окремим запитом
+      if (data && data.length > 0) {
+        const groupIds = data.map(item => item.group_id);
+        const { data: groupsData, error: groupsError } = await supabase
+          .from('groups')
+          .select('*')
+          .in('id', groupIds);
+
+        if (groupsError) throw groupsError;
+        setJoinedGroups(groupsData || []);
+      } else {
+        setJoinedGroups([]);
+      }
     } catch (error) {
       console.error('Error fetching joined groups:', error);
       setJoinedGroups([]);
@@ -322,21 +346,28 @@ export function Groups() {
     try {
       if (!currentUser) return;
 
+      // Спрощений запит для group_members
       const { data, error } = await supabase
         .from('group_members')
-        .select(`
-          groups (*, creator:user_profiles!groups_created_by_fkey (id, name, last_name, avatar)),
-          user:user_profiles!group_members_user_id_fkey (id, name, last_name, avatar)
-        `)
+        .select('group_id, role')
         .eq('user_id', currentUser)
         .in('role', ['admin', 'moderator']);
 
       if (error) throw error;
-      setManagedGroups(data?.map(item => ({
-        ...item.groups,
-        creator: item.creator,
-        user: item.user
-      })).filter(Boolean) || []);
+
+      // Отримуємо деталі груп окремим запитом
+      if (data && data.length > 0) {
+        const groupIds = data.map(item => item.group_id);
+        const { data: groupsData, error: groupsError } = await supabase
+          .from('groups')
+          .select('*')
+          .in('id', groupIds);
+
+        if (groupsError) throw groupsError;
+        setManagedGroups(groupsData || []);
+      } else {
+        setManagedGroups([]);
+      }
     } catch (error) {
       console.error('Error fetching managed groups:', error);
       setManagedGroups([]);
@@ -357,9 +388,10 @@ export function Groups() {
 
   const fetchGroupMembers = async () => {
     try {
+      // Спрощений запит без проблемних join'ів
       const { data, error } = await supabase
         .from('group_members')
-        .select(`*, user:user_profiles!group_members_user_id_fkey (id, name, last_name, avatar)`);
+        .select('*');
 
       if (error) throw error;
       setGroupMembers(data || []);
@@ -478,6 +510,8 @@ export function Groups() {
         setCreating(false);
         return;
       }
+      
+      // Спрощений об'єкт даних без проблемних полів
       const groupData = {
         name: newGroup.name.trim(),
         description: newGroup.description.trim() || null,
@@ -487,7 +521,7 @@ export function Groups() {
         tags: newGroup.tags.length > 0 ? newGroup.tags : null,
         location: newGroup.location || null,
         website: newGroup.website || null,
-        contactemail: newGroup.contactemail || null,
+        contactEmail: newGroup.contactEmail || null, // Виправлено назву поля
         rules: newGroup.rules.filter(rule => rule.trim()).length > 0 ? newGroup.rules.filter(rule => rule.trim()) : null
       };
 
@@ -613,7 +647,7 @@ export function Groups() {
       location: '',
       website: '',
       rules: [''],
-      contactemail: ''
+      contactEmail: ''
     });
   };
 
@@ -1394,8 +1428,8 @@ export function Groups() {
                   </label>
                   <input
                     type="email"
-                                    value={newGroup.contactemail}
-                onChange={(e) => setNewGroup(prev => ({ ...prev, contactemail: e.target.value }))}
+                                    value={newGroup.contactEmail}
+                onChange={(e) => setNewGroup(prev => ({ ...prev, contactEmail: e.target.value }))}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="contact@example.com"
                   />
