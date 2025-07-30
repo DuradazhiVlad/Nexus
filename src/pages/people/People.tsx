@@ -32,7 +32,8 @@ import {
   Camera,
   MoreHorizontal,
   Share2,
-  Flag
+  Flag,
+  Check
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -547,303 +548,136 @@ export function People() {
     return count;
   };
 
+  const getInitials = (name: string, lastName: string) => {
+    const firstLetter = name ? name[0].toUpperCase() : '';
+    const lastLetter = lastName ? lastName[0].toUpperCase() : '';
+    return `${firstLetter}${lastLetter}`;
+  };
+
   const renderUserCard = (user: User) => {
     const friendStatus = getFriendStatus(user.auth_user_id);
-    const isSelected = selectedUsers.has(user.auth_user_id);
-
-    if (viewMode === 'list') {
-      return (
-        <div
-          key={user.auth_user_id}
-          className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-all duration-200 ${
-            isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
-          }`}
-        >
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={() => toggleUserSelection(user.auth_user_id)}
-                className="absolute top-0 left-0 w-4 h-4 rounded border-gray-300 text-blue-600"
-              />
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xl font-bold overflow-hidden ml-6">
-                {user.avatar ? (
-                  <img
-                    src={user.avatar}
-                    alt={user.name}
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  <span>
-                    {user.name?.[0]?.toUpperCase()}{(user.last_name || '').toUpperCase()}
-                  </span>
-                )}
-                {user.isOnline && (
-                  <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2">
-                <h3 className="text-lg font-semibold text-gray-900 truncate">
-                  {user.name} {user.last_name}
-                </h3>
-                {user.privacy?.profileVisibility === 'private' && (
-                  <Lock size={16} className="text-gray-400" />
-                )}
-                {friendStatus === 'friends' && (
-                  <UserCheck size={16} className="text-green-500" />
-                )}
-              </div>
-
-              <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
-                <div className="flex items-center">
-                  <Calendar size={14} className="mr-1" />
-                  {formatDate(user.created_at || '')}
-                </div>
-                {user.city && (
-                  <div className="flex items-center">
-                    <MapPin size={14} className="mr-1" />
-                    {user.city}
-                  </div>
-                )}
-                <div className="flex items-center">
-                  <Clock size={14} className="mr-1" />
-                  {formatLastSeen(user.lastSeen, user.isOnline)}
-                </div>
-              </div>
-
-              {user.bio && (
-                <p className="text-gray-600 text-sm mt-2 line-clamp-2">
-                  {user.bio}
-                </p>
-              )}
-
-              <div className="flex items-center space-x-4 text-sm text-gray-500 mt-2">
-                <span>{user.friendsCount} друзів</span>
-                <span>{user.postsCount} постів</span>
-              </div>
-            </div>
-
-            <div className="flex space-x-2">
-              {friendStatus === 'self' ? (
-                <button
-                  className="px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium cursor-default"
-                  disabled
-                >
-                  Це ви
-                </button>
-              ) : friendStatus === 'friends' ? (
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => removeFriend(user.auth_user_id)}
-                    className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
-                  >
-                    Видалити з друзів
-                  </button>
-                  <button
-                    onClick={() => navigate(`/messages?user=${user.auth_user_id}`)}
-                    className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <MessageCircle size={16} />
-                  </button>
-                </div>
-              ) : friendStatus === 'sent' ? (
-                <button
-                  className="px-4 py-2 bg-yellow-100 text-yellow-700 rounded-lg text-sm font-medium cursor-default"
-                  disabled
-                >
-                  Запит надіслано
-                </button>
-              ) : friendStatus === 'received' ? (
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => {
-                      const request = friendRequests.find(req => req.sender_id === user.auth_user_id);
-                      if (request) handleFriendRequest(request.id, 'accept');
-                    }}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                  >
-                    Прийняти
-                  </button>
-                  <button
-                    onClick={() => {
-                      const request = friendRequests.find(req => req.sender_id === user.auth_user_id);
-                      if (request) handleFriendRequest(request.id, 'reject');
-                    }}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-                  >
-                    Відхилити
-                  </button>
-                </div>
+    
+    return (
+      <div key={user.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+        <div className="flex items-center space-x-4">
+          {/* Avatar */}
+          <div className="flex-shrink-0">
+            <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+              {user.avatar ? (
+                <img 
+                  src={user.avatar} 
+                  alt={`${user.name} ${user.last_name}`} 
+                  className="w-full h-full rounded-full object-cover"
+                />
               ) : (
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => addFriend(user.auth_user_id)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                  >
-                    Додати в друзі
-                  </button>
-                  <button
-                    onClick={() => navigate(`/messages?user=${user.auth_user_id}`)}
-                    className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <MessageCircle size={16} />
-                  </button>
+                <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-lg">
+                  {getInitials(user.name, user.last_name)}
                 </div>
               )}
-              
-              <button
-                className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <MoreHorizontal size={16} />
-              </button>
             </div>
           </div>
-        </div>
-      );
-    }
-
-    // Grid view
-    return (
-      <div
-        key={user.auth_user_id}
-        className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200 cursor-pointer group hover:scale-105 ${
-          isSelected ? 'ring-2 ring-blue-500' : ''
-        }`}
-        onClick={() => navigate(`/profile/${user.auth_user_id}`)}
-      >
-        <div className="relative">
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={(e) => {
-              e.stopPropagation();
-              toggleUserSelection(user.auth_user_id);
-            }}
-            className="absolute top-3 left-3 w-4 h-4 rounded border-gray-300 text-blue-600 z-10"
-          />
           
-          <div className="p-6">
-            <div className="flex items-center mb-4">
-              <div className="relative w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xl font-bold overflow-hidden flex-shrink-0">
-                {user.avatar ? (
-                  <img
-                    src={user.avatar}
-                    alt={user.name}
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  <span>
-                    {user.name?.[0]?.toUpperCase()}{(user.last_name || '').toUpperCase()}
-                  </span>
-                )}
-                {user.isOnline && (
-                  <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
-                )}
-              </div>
-              
-              <div className="ml-4 flex-1 min-w-0">
-                <div className="flex items-center space-x-2">
-                  <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
-                    {user.name} {user.last_name}
-                  </h3>
-                  {user.privacy?.profileVisibility === 'private' && (
-                    <Lock size={16} className="text-gray-400" />
-                  )}
-                  {friendStatus === 'friends' && (
-                    <UserCheck size={16} className="text-green-500" />
-                  )}
-                </div>
-                
-                <div className="flex items-center text-sm text-gray-500 mt-1">
-                  <Clock size={14} className="mr-1 flex-shrink-0" />
-                  <span className="truncate">{formatLastSeen(user.lastSeen, user.isOnline)}</span>
-                </div>
-              </div>
+          {/* User Info */}
+          <div className="flex-1 min-w-0">
+            <div 
+              className="cursor-pointer hover:text-blue-600 transition-colors"
+              onClick={() => navigate(`/profile/${user.auth_user_id}`)}
+            >
+              <h3 className="text-lg font-semibold text-gray-900 truncate">
+                {user.name} {user.last_name}
+              </h3>
+              <p className="text-sm text-gray-500 truncate">{user.email}</p>
             </div>
-
-            {user.bio && (
-              <p className="text-gray-600 text-sm mb-3 line-clamp-3">
-                {user.bio}
+            
+            {user.city && (
+              <p className="text-sm text-gray-600 flex items-center mt-1">
+                <MapPin className="w-4 h-4 mr-1" />
+                {user.city}
               </p>
             )}
-
-            <div className="space-y-2 mb-4">
-              {user.city && (
-                <div className="flex items-center text-sm text-gray-600">
-                  <MapPin size={14} className="mr-2 text-gray-400 flex-shrink-0" />
-                  <span className="truncate">{user.city}</span>
-                </div>
-              )}
-              <div className="flex items-center text-sm text-gray-600">
-                <Calendar size={14} className="mr-2 text-gray-400 flex-shrink-0" />
-                <span className="truncate">Приєднався {formatDate(user.created_at || '')}</span>
+            
+            {user.created_at && (
+              <p className="text-xs text-gray-400 mt-1">
+                Приєднався {formatDate(user.created_at || '')}
+              </p>
+            )}
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex flex-col space-y-2">
+            {friendStatus === 'not_friends' && (
+              <button
+                onClick={() => addFriend(user.auth_user_id)}
+                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Додати в друзі
+              </button>
+            )}
+            
+            {friendStatus === 'sent' && (
+              <div className="flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm">
+                <Check className="w-4 h-4 mr-2" />
+                Запит надіслано
               </div>
-              <div className="flex items-center space-x-4 text-sm text-gray-500">
-                <span>{user.friendsCount} друзів</span>
-                <span>{user.postsCount} постів</span>
-              </div>
-            </div>
-
-            <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
-              {friendStatus === 'self' ? (
-                <button
-                  className="flex-1 flex items-center justify-center px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium cursor-default"
-                  disabled
-                >
-                  <UserCircle size={16} className="mr-1" />
-                  Це ви
-                </button>
-              ) : friendStatus === 'friends' ? (
-                <button
-                  onClick={() => removeFriend(user.auth_user_id)}
-                  className="flex-1 flex items-center justify-center px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
-                >
-                  <UserX size={16} className="mr-1" />
-                  Видалити
-                </button>
-              ) : friendStatus === 'sent' ? (
-                <button
-                  className="flex-1 flex items-center justify-center px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg text-sm font-medium cursor-default"
-                  disabled
-                >
-                  <Clock size={16} className="mr-1" />
-                  Надіслано
-                </button>
-              ) : friendStatus === 'received' ? (
+            )}
+            
+            {friendStatus === 'received' && (
+              <div className="flex space-x-2">
                 <button
                   onClick={() => {
                     const request = friendRequests.find(req => req.sender_id === user.auth_user_id);
                     if (request) handleFriendRequest(request.id, 'accept');
                   }}
-                  className="flex-1 flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                  className="flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
                 >
-                  <UserCheck size={16} className="mr-1" />
+                  <Check className="w-4 h-4 mr-1" />
                   Прийняти
                 </button>
-              ) : (
                 <button
-                  onClick={() => addFriend(user.auth_user_id)}
-                  className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  onClick={() => {
+                    const request = friendRequests.find(req => req.sender_id === user.auth_user_id);
+                    if (request) handleFriendRequest(request.id, 'reject');
+                  }}
+                  className="flex items-center justify-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
                 >
-                  <UserPlus size={16} className="mr-1" />
-                  Додати
+                  <X className="w-4 h-4 mr-1" />
+                  Відхилити
                 </button>
-              )}
-              
-              {friendStatus !== 'self' && (
+              </div>
+            )}
+            
+            {friendStatus === 'friends' && (
+              <div className="flex space-x-2">
                 <button
                   onClick={() => navigate(`/messages?user=${user.auth_user_id}`)}
-                  className="flex items-center justify-center px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  title="Написати повідомлення"
+                  className="flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                 >
-                  <MessageCircle size={16} />
+                  <MessageCircle className="w-4 h-4 mr-1" />
+                  Повідомлення
                 </button>
-              )}
-            </div>
+                <button
+                  onClick={() => removeFriend(user.auth_user_id)}
+                  className="flex items-center justify-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Видалити
+                </button>
+              </div>
+            )}
+            
+            {friendStatus === 'received' && (
+              <button
+                onClick={() => {
+                  const request = friendRequests.find(req => req.sender_id === user.auth_user_id);
+                  if (request) handleFriendRequest(request.id, 'accept');
+                }}
+                className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+              >
+                <Check className="w-4 h-4 mr-2" />
+                Прийняти
+              </button>
+            )}
           </div>
         </div>
       </div>

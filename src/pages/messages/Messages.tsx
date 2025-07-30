@@ -117,7 +117,7 @@ export function Messages() {
       // Отримуємо профілі учасників
       const { data: profiles, error: profilesError } = await supabase
         .from('user_profiles')
-        .select('id, name, last_name, avatar')
+        .select('id, name, last_name, avatar, auth_user_id')
         .in('auth_user_id', participantIds);
         
       if (profilesError) throw profilesError;
@@ -189,7 +189,7 @@ export function Messages() {
         // Отримуємо профіль учасника
         const { data: participantProfile } = await supabase
           .from('user_profiles')
-          .select('id, name, last_name, avatar')
+          .select('id, name, last_name, avatar, auth_user_id')
           .eq('auth_user_id', userId)
           .single();
         

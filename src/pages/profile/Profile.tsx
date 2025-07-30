@@ -25,14 +25,17 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 interface UserProfile {
   id: string;
+  auth_user_id: string;
   name: string;
-  lastname?: string;
+  last_name?: string;
   email: string;
   avatar?: string;
   bio?: string;
   city?: string;
-  birthdate?: string;
+  birth_date?: string;
+  email_verified?: boolean;
   created_at?: string;
+  updated_at?: string;
   notifications?: {
     email: boolean;
     messages: boolean;
@@ -57,11 +60,22 @@ export function Profile() {
   // Form states
   const [editForm, setEditForm] = useState({
     name: '',
-    lastname: '',
+    last_name: '',
+    email: '',
     bio: '',
     city: '',
-    birthdate: '',
-    avatar: ''
+    birth_date: '',
+    avatar: '',
+    notifications: {
+      email: true,
+      messages: true,
+      friendRequests: true
+    },
+    privacy: {
+      profileVisibility: 'public' as const,
+      showBirthDate: true,
+      showEmail: false
+    }
   });
 
   const navigate = useNavigate();
@@ -99,27 +113,85 @@ export function Profile() {
       const userProfile = await DatabaseService.getCurrentUserProfile();
       
       if (!userProfile) {
-        console.log('❌ No profile found');
-        setError('Профіль не знайдено. Спробуйте увійти знову.');
-        return;
+        console.log('No user profile found, creating new one');
+        // Створюємо новий профіль
+        const newProfile = {
+          auth_user_id: authUser.id,
+          name: authUser.user_metadata?.full_name?.split(' ')[0] || 'Користувач',
+          last_name: authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+          email: authUser.email || '',
+          bio: '',
+          city: '',
+          birth_date: '',
+          avatar: '',
+          email_verified: authUser.email_confirmed_at ? true : false,
+          notifications: {
+            email: true,
+            messages: true,
+            friendRequests: true
+          },
+          privacy: {
+            profileVisibility: 'public' as const,
+            showBirthDate: true,
+            showEmail: false
+          }
+        };
+        
+        // Зберігаємо новий профіль
+        const { data: savedProfile, error: saveError } = await supabase
+          .from('user_profiles')
+          .insert([newProfile])
+          .select()
+          .single();
+          
+        if (saveError) throw saveError;
+        
+        setProfile(savedProfile);
+        setEditForm({
+          name: savedProfile.name,
+          last_name: savedProfile.last_name || '',
+          email: savedProfile.email,
+          bio: savedProfile.bio || '',
+          city: savedProfile.city || '',
+          birth_date: savedProfile.birth_date || '',
+          avatar: savedProfile.avatar || '',
+          notifications: savedProfile.notifications || {
+            email: true,
+            messages: true,
+            friendRequests: true
+          },
+          privacy: savedProfile.privacy || {
+            profileVisibility: 'public',
+            showBirthDate: true,
+            showEmail: false
+          }
+        });
+      } else {
+        console.log('✅ User profile loaded:', userProfile);
+        setProfile(userProfile);
+        setEditForm({
+          name: userProfile.name,
+          last_name: userProfile.last_name || '',
+          email: userProfile.email,
+          bio: userProfile.bio || '',
+          city: userProfile.city || '',
+          birth_date: userProfile.birth_date || '',
+          avatar: userProfile.avatar || '',
+          notifications: userProfile.notifications || {
+            email: true,
+            messages: true,
+            friendRequests: true
+          },
+          privacy: userProfile.privacy || {
+            profileVisibility: 'public',
+            showBirthDate: true,
+            showEmail: false
+          }
+        });
       }
-      
-      console.log('✅ Profile loaded:', userProfile);
-      setProfile(userProfile);
-      
-      // Заповнюємо форму редагування
-      setEditForm({
-        name: userProfile.name || '',
-        lastname: userProfile.lastname || '',
-        bio: userProfile.bio || '',
-        city: userProfile.city || '',
-        birthdate: userProfile.birthdate || '',
-        avatar: userProfile.avatar || ''
-      });
-      
-    } catch (err) {
-      console.error('Error loading profile:', err);
-      setError(err instanceof Error ? err.message : 'Помилка завантаження профілю');
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      setError(error instanceof Error ? error.message : 'Помилка завантаження профілю');
     } finally {
       setLoading(false);
     }
@@ -129,58 +201,70 @@ export function Profile() {
     try {
       setSaving(true);
       setError(null);
-      setSuccess(null);
       
-      console.log('💾 Saving profile...', editForm);
-      
-      if (!editForm.name.trim()) {
-        setError('Ім\'я є обов\'язковим полем');
-        return;
+      if (!currentUser) {
+        throw new Error('Користувач не авторизований');
       }
       
-      // Оновлюємо профіль
-      const updatedProfile = await DatabaseService.updateUserProfile({
-        name: editForm.name.trim(),
-        lastname: editForm.lastname.trim(),
-        bio: editForm.bio.trim(),
-        city: editForm.city.trim(),
-        birthdate: editForm.birthdate || undefined,
-        avatar: editForm.avatar.trim() || undefined
-      });
+      const updates = {
+        name: editForm.name,
+        last_name: editForm.last_name,
+        email: editForm.email,
+        bio: editForm.bio,
+        city: editForm.city,
+        birth_date: editForm.birth_date,
+        avatar: editForm.avatar,
+        notifications: editForm.notifications,
+        privacy: editForm.privacy,
+        updated_at: new Date().toISOString()
+      };
       
-      if (updatedProfile) {
-        console.log('✅ Profile updated:', updatedProfile);
-        setProfile(updatedProfile);
-        setIsEditing(false);
-        setSuccess('Профіль успішно оновлено!');
+      const { error } = await supabase
+        .from('user_profiles')
+        .update(updates)
+        .eq('auth_user_id', currentUser.id);
         
-        // Очищаємо повідомлення через 3 секунди
-        setTimeout(() => setSuccess(null), 3000);
-      } else {
-        throw new Error('Не вдалося оновити профіль');
-      }
+      if (error) throw error;
       
-    } catch (err) {
-      console.error('Error saving profile:', err);
-      setError(err instanceof Error ? err.message : 'Помилка збереження профілю');
+      setSuccess('Профіль успішно оновлено!');
+      setIsEditing(false);
+      loadProfile(); // Перезавантажуємо профіль
+      
+      // Очищаємо повідомлення через 3 секунди
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      setError(error instanceof Error ? error.message : 'Помилка збереження профілю');
     } finally {
       setSaving(false);
     }
   };
 
   const handleCancelEdit = () => {
-    if (profile) {
-      setEditForm({
-        name: profile.name || '',
-        lastname: profile.lastname || '',
-        bio: profile.bio || '',
-        city: profile.city || '',
-        birthdate: profile.birthdate || '',
-        avatar: profile.avatar || ''
-      });
-    }
     setIsEditing(false);
     setError(null);
+    // Відновлюємо оригінальні дані
+    if (profile) {
+      setEditForm({
+        name: profile.name,
+        last_name: profile.last_name || '',
+        email: profile.email,
+        bio: profile.bio || '',
+        city: profile.city || '',
+        birth_date: profile.birth_date || '',
+        avatar: profile.avatar || '',
+        notifications: profile.notifications || {
+          email: true,
+          messages: true,
+          friendRequests: true
+        },
+        privacy: profile.privacy || {
+          profileVisibility: 'public',
+          showBirthDate: true,
+          showEmail: false
+        }
+      });
+    }
   };
 
   const formatDate = (dateString?: string) => {
@@ -193,9 +277,9 @@ export function Profile() {
   };
 
   const getInitials = (name?: string, lastname?: string) => {
-    const firstInitial = name?.[0]?.toUpperCase() || '';
-    const lastInitial = lastname?.[0]?.toUpperCase() || '';
-    return firstInitial + lastInitial || '?';
+    const first = name ? name[0].toUpperCase() : '';
+    const last = lastname ? lastname[0].toUpperCase() : '';
+    return `${first}${last}`;
   };
 
   if (loading) {
@@ -295,7 +379,7 @@ export function Profile() {
                       />
                     ) : (
                       <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-                        {getInitials(profile.name, profile.lastname)}
+                        {getInitials(profile.name, profile.last_name)}
                       </div>
                     )}
                   </div>
@@ -358,7 +442,7 @@ export function Profile() {
                   <>
                     <div>
                       <h1 className="text-3xl font-bold text-gray-900">
-                        {profile.name} {profile.lastname}
+                        {profile.name} {profile.last_name}
                       </h1>
                       <p className="text-gray-600 flex items-center mt-1">
                         <Mail size={16} className="mr-2" />
@@ -383,10 +467,10 @@ export function Profile() {
                         <Calendar size={16} className="mr-1" />
                         Приєднався {formatDate(profile.created_at)}
                       </div>
-                      {profile.birthdate && (
+                      {profile.birth_date && (
                         <div className="flex items-center">
                           <Calendar size={16} className="mr-1" />
-                          Народився {formatDate(profile.birthdate)}
+                          Народився {formatDate(profile.birth_date)}
                         </div>
                       )}
                     </div>
@@ -413,12 +497,26 @@ export function Profile() {
                         </label>
                         <input
                           type="text"
-                          value={editForm.lastname}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, lastname: e.target.value }))}
+                          value={editForm.last_name}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, last_name: e.target.value }))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           placeholder="Введіть прізвище"
                         />
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={editForm.email}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Введіть email"
+                        disabled={true} // Email не може бути змінений
+                      />
                     </div>
 
                     <div>
@@ -455,8 +553,8 @@ export function Profile() {
                         </label>
                         <input
                           type="date"
-                          value={editForm.birthdate}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, birthdate: e.target.value }))}
+                          value={editForm.birth_date}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, birth_date: e.target.value }))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </div>
@@ -473,6 +571,61 @@ export function Profile() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="https://example.com/avatar.jpg"
                       />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Показувати дату народження
+                        </label>
+                        <select
+                          value={editForm.privacy.showBirthDate ? 'true' : 'false'}
+                          onChange={(e) => setEditForm(prev => ({
+                            ...prev,
+                            privacy: { ...prev.privacy, showBirthDate: e.target.value === 'true' }
+                          }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="true">Так</option>
+                          <option value="false">Ні</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Показувати email
+                        </label>
+                        <select
+                          value={editForm.privacy.showEmail ? 'true' : 'false'}
+                          onChange={(e) => setEditForm(prev => ({
+                            ...prev,
+                            privacy: { ...prev.privacy, showEmail: e.target.value === 'true' }
+                          }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="true">Так</option>
+                          <option value="false">Ні</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Показувати профіль всім
+                        </label>
+                        <select
+                          value={editForm.privacy.profileVisibility}
+                          onChange={(e) => setEditForm(prev => ({
+                            ...prev,
+                            privacy: { ...prev.privacy, profileVisibility: e.target.value as 'public' | 'friends' | 'private' }
+                          }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="public">Всім</option>
+                          <option value="friends">Друзям</option>
+                          <option value="private">Тільки мені</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 )}

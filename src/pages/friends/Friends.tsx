@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
-import { Search, UserPlus, UserCheck } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { Search, UserPlus, UserCheck, Users, MessageCircle, User } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ErrorNotification, useErrorNotifications } from '../../components/ErrorNotification';
 
 interface Friend {
@@ -20,6 +20,7 @@ export function Friends() {
   const [loading, setLoading] = useState(true);
   const [authUser, setAuthUser] = useState(null); // auth user
   const location = useLocation();
+  const navigate = useNavigate();
   
   // Modern error handling
   const { notifications, addNotification, removeNotification } = useErrorNotifications();
@@ -85,7 +86,7 @@ export function Friends() {
       // Отримуємо профілі друзів
       const { data: profiles, error: profilesError } = await supabase
         .from('user_profiles')
-        .select('id, name, last_name, avatar')
+        .select('id, name, last_name, avatar, auth_user_id')
         .in('auth_user_id', friendIds);
         
       if (profilesError) throw profilesError;
@@ -128,7 +129,7 @@ export function Friends() {
       if (senderIds.length > 0) {
         const { data: profiles, error: profilesError } = await supabase
           .from('user_profiles')
-          .select('id, name, last_name, avatar')
+          .select('id, name, last_name, avatar, auth_user_id')
           .in('auth_user_id', senderIds);
           
         if (profilesError) throw profilesError;
@@ -227,7 +228,7 @@ export function Friends() {
     try {
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('id, name, last_name, avatar')
+        .select('id, name, last_name, avatar, auth_user_id')
         .or(`name.ilike.%${query}%,last_name.ilike.%${query}%`)
         .limit(10);
       if (error) throw error;
@@ -300,118 +301,157 @@ export function Friends() {
         
         <div className="max-w-3xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">Пошук друзів</h1>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Пошук за ім'ям або прізвищем"
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Друзі</h1>
+            <p className="text-gray-600">Керуйте своїми друзями та запитами на дружбу</p>
+          </div>
+
+          {/* Search Section */}
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Знайти користувачів</h2>
+            <div className="flex space-x-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Пошук за ім'ям або прізвищем..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
             </div>
             
             {searchResults.length > 0 && (
-              <div className="mt-4 bg-white rounded-lg shadow-sm">
-                {searchResults.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-4 border-b last:border-b-0">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                        {user.avatar ? (
-                          <img
-                            src={user.avatar}
-                            alt={user.name}
-                            className="w-full h-full rounded-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-lg text-gray-600">
-                            {user.name?.[0]}
-                          </span>
-                        )}
+              <div className="mt-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Результати пошуку:</h3>
+                <div className="space-y-2">
+                  {searchResults.map((user) => (
+                    <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                          {user.avatar ? (
+                            <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" />
+                          ) : (
+                            <span className="text-gray-600 font-semibold">
+                              {user.name?.[0]}{user.last_name?.[0]}
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{user.name} {user.last_name}</p>
+                        </div>
                       </div>
-                      <div className="ml-3">
-                        <p className="font-medium text-gray-900">
-                          {user.name} {user.last_name}
-                        </p>
-                      </div>
+                      <button
+                        onClick={() => addFriend(user.id)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                      >
+                        <UserPlus className="w-4 h-4 mr-2 inline" />
+                        Додати
+                      </button>
                     </div>
-                    <button
-                      onClick={() => addFriend(user.id)}
-                      className="flex items-center px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      <UserPlus size={18} className="mr-1" />
-                      Додати
-                    </button>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Запити у друзі</h2>
-            {requests.length > 0 ? (
-              <div className="space-y-4 mb-8">
-                {requests.map((req) => (
-                  <div key={req.id} className="bg-white p-4 rounded-lg shadow-sm flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                        {req.sender?.avatar ? (
-                          <img src={req.sender.avatar} alt={req.sender.name} className="w-full h-full rounded-full object-cover" />
+          {/* Friend Requests */}
+          {requests.length > 0 && (
+            <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Запити на дружбу</h2>
+              <div className="space-y-4">
+                {requests.map((request) => (
+                  <div key={request.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                        {request.sender?.avatar ? (
+                          <img src={request.sender.avatar} alt={request.sender.name} className="w-full h-full rounded-full object-cover" />
                         ) : (
-                          <span className="text-lg text-gray-600">{req.sender?.name?.[0]}</span>
+                          <span className="text-gray-600 font-semibold">
+                            {request.sender?.name?.[0]}{request.sender?.last_name?.[0]}
+                          </span>
                         )}
                       </div>
-                      <div className="ml-3">
-                        <p className="font-medium text-gray-900">{req.sender?.name} {req.sender?.last_name}</p>
+                      <div>
+                        <p className="font-medium text-gray-900">{request.sender?.name} {request.sender?.last_name}</p>
+                        <p className="text-sm text-gray-500">Надіслав запит на дружбу</p>
                       </div>
                     </div>
                     <div className="flex space-x-2">
-                      <button onClick={() => acceptRequest(req.id)} className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700">Прийняти</button>
-                      <button onClick={() => rejectRequest(req.id)} className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700">Відхилити</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-gray-600 mb-8">Немає нових запитів</div>
-            )}
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Мої друзі</h2>
-            {loading ? (
-              <div className="text-center py-8">Завантаження...</div>
-            ) : friends.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {friends.map((friend) => (
-                  <div key={friend.id} className="bg-white p-4 rounded-lg shadow-sm flex items-center">
-                    <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                      {friend.avatar ? (
-                        <img
-                          src={friend.avatar}
-                          alt={friend.name}
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-xl text-gray-600">
-                          {friend.name?.[0]}
-                        </span>
-                      )}
-                    </div>
-                    <div className="ml-4">
-                      <p className="font-medium text-gray-900">
-                        {friend.name} {friend.last_name}
-                      </p>
-                      <button className="flex items-center text-sm text-blue-600 hover:text-blue-700 mt-1">
-                        <UserCheck size={16} className="mr-1" />
-                        Друзі
+                      <button
+                        onClick={() => acceptRequest(request.id)}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                      >
+                        Прийняти
+                      </button>
+                      <button
+                        onClick={() => rejectRequest(request.id)}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                      >
+                        Відхилити
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Friends List */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Мої друзі ({friends.length})</h2>
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="text-gray-500 mt-2">Завантаження...</p>
+              </div>
+            ) : friends.length === 0 ? (
+              <div className="text-center py-8">
+                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">У вас поки немає друзів</p>
+                <p className="text-sm text-gray-400 mt-1">Знайдіть друзів через пошук вище</p>
+              </div>
             ) : (
-              <div className="text-center py-8 text-gray-600">
-                У вас поки немає друзів
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {friends.map((friend) => (
+                  <div key={friend.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                        {friend.avatar ? (
+                          <img src={friend.avatar} alt={friend.name} className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          <span className="text-gray-600 font-semibold">
+                            {friend.name?.[0]}{friend.last_name?.[0]}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div 
+                          className="cursor-pointer hover:text-blue-600 transition-colors"
+                          onClick={() => navigate(`/profile/${friend.auth_user_id}`)}
+                        >
+                          <p className="font-medium text-gray-900 truncate">{friend.name} {friend.last_name}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => navigate(`/messages?user=${friend.auth_user_id}`)}
+                        className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                      >
+                        <MessageCircle className="w-4 h-4 mr-1" />
+                        Повідомлення
+                      </button>
+                      <button
+                        onClick={() => navigate(`/profile/${friend.auth_user_id}`)}
+                        className="flex items-center justify-center px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                        title="Переглянути профіль"
+                      >
+                        <User className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
