@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { useLocation } from 'react-router-dom';
 import { getAllPosts, createPost, likePost, unlikePost, getCommentsForPost as getComments, addCommentToPost as addComment, updatePost, deletePost } from '../../lib/postService';
@@ -18,7 +18,8 @@ import {
   MoreHorizontal,
   User,
   Calendar,
-  MapPin
+  MapPin,
+  Upload
 } from 'lucide-react';
 
 interface Post {
@@ -35,6 +36,7 @@ interface Post {
     name: string;
     last_name: string;
     avatar?: string;
+    friends_count?: number;
   };
   isLiked?: boolean;
 }
@@ -76,6 +78,9 @@ export function Wall() {
   const [showMediaInput, setShowMediaInput] = useState(false);
   const [characterCount, setCharacterCount] = useState(0);
   const [showPostMenu, setShowPostMenu] = useState<string | null>(null);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
 
   const MAX_CHARACTERS = 280; // Twitter-style character limit
@@ -114,7 +119,6 @@ export function Wall() {
     setCreating(true);
     try {
       const { error } = await createPost({
-        user_id: currentUser.id,
         content,
         media_url: mediaUrl || undefined,
         media_type: mediaType || undefined,
@@ -123,6 +127,7 @@ export function Wall() {
       setContent('');
       setMediaUrl('');
       setMediaType('');
+      setMediaPreview(null);
       setShowMediaInput(false);
       setShowEmojiPicker(false);
       fetchPosts();
@@ -143,13 +148,13 @@ export function Wall() {
     if (!currentUser) return;
     try {
       if (post.isLiked) {
-        await unlikePost(post.id, currentUser.id);
+        await unlikePost(post.id);
       } else {
-        await likePost(post.id, currentUser.id);
+        await likePost(post.id);
       }
       fetchPosts();
     } catch (error) {
-      console.error('Error fetching posts:', error);
+      console.error('Error handling like:', error);
     }
   };
 
@@ -170,7 +175,7 @@ export function Wall() {
     if (!currentUser || !commentInputs[postId]?.trim()) return;
     setCommentLoading(l => ({ ...l, [postId]: true }));
     try {
-      const { error } = await addComment(postId, currentUser.id, commentInputs[postId]);
+      const { error } = await addComment(postId, commentInputs[postId]);
       if (error) throw error;
       setCommentInputs(inputs => ({ ...inputs, [postId]: '' }));
       // Оновити коментарі
@@ -247,6 +252,80 @@ export function Wall() {
     }
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Перевірка розміру файлу (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Файл занадто великий. Максимальний розмір: 5MB');
+      return;
+    }
+
+    // Перевірка типу файлу
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      setError('Будь ласка, виберіть зображення або відео');
+      return;
+    }
+
+    setUploadingMedia(true);
+    setError('');
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Не авторизовано');
+
+      // Генеруємо унікальне ім'я файлу
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `posts/${user.id}/${fileName}`;
+
+      // Завантажуємо файл в Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('media')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // Отримуємо публічний URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('media')
+        .getPublicUrl(filePath);
+
+      // Встановлюємо тип медіа
+      const mediaType = file.type.startsWith('video/') ? 'video' : 'photo';
+
+      setMediaUrl(publicUrl);
+      setMediaType(mediaType);
+      setShowMediaInput(true);
+
+      // Показуємо превью
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setMediaPreview(e.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
+
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      setError('Помилка завантаження файлу');
+    } finally {
+      setUploadingMedia(false);
+    }
+  };
+
+  const removeMedia = () => {
+    setMediaUrl('');
+    setMediaType('');
+    setMediaPreview(null);
+    setShowMediaInput(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
@@ -272,6 +351,24 @@ export function Wall() {
                     maxLength={MAX_CHARACTERS}
                   />
                   
+                  {/* Media preview */}
+                  {mediaPreview && (
+                    <div className="mt-3 relative">
+                      <img 
+                        src={mediaPreview} 
+                        alt="Preview" 
+                        className="max-h-48 rounded-lg object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={removeMedia}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  )}
+                  
                   {/* Character count */}
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center space-x-2">
@@ -284,11 +381,23 @@ export function Wall() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setShowMediaInput(!showMediaInput)}
-                        className="p-2 text-gray-500 hover:text-green-500 hover:bg-green-50 rounded-full transition-colors"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingMedia}
+                        className="p-2 text-gray-500 hover:text-green-500 hover:bg-green-50 rounded-full transition-colors disabled:opacity-50"
                       >
-                        <ImageIcon size={20} />
+                        {uploadingMedia ? (
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-500"></div>
+                        ) : (
+                          <Upload size={20} />
+                        )}
                       </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,video/*"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
                     </div>
                     
                     <div className="flex items-center space-x-3">
@@ -329,7 +438,7 @@ export function Wall() {
                 )}
                 
                 {/* Media input */}
-                {showMediaInput && (
+                {showMediaInput && !mediaPreview && (
                   <div className="mt-3 space-y-3">
                     <input
                       type="text"
@@ -390,9 +499,16 @@ export function Wall() {
                           <div className="font-semibold text-gray-900">
                             {post.author.name} {post.author.last_name}
                           </div>
-                          <div className="text-sm text-gray-500 flex items-center">
+                          <div className="text-sm text-gray-500 flex items-center space-x-2">
                             <Calendar size={14} className="mr-1" />
                             {formatDate(post.created_at)}
+                            {post.author.friends_count !== undefined && (
+                              <>
+                                <span className="mx-1">•</span>
+                                <User size={14} className="mr-1" />
+                                {post.author.friends_count} {post.author.friends_count === 1 ? 'друг' : post.author.friends_count < 5 ? 'друзі' : 'друзів'}
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>

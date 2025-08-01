@@ -3,7 +3,7 @@ import { Sidebar } from '../../components/Sidebar';
 import { FileUpload } from '../../components/FileUpload';
 import { supabase } from '../../lib/supabase';
 import { DatabaseService } from '../../lib/database';
-import { createPost, getAllPosts } from '../../lib/postService';
+import { createPost, getAllPosts, deletePost } from '../../lib/postService';
 import { 
   User, 
   Mail, 
@@ -22,7 +22,9 @@ import {
   AlertCircle,
   Send,
   Smile,
-  FileText
+  FileText,
+  Trash2,
+  MoreHorizontal
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -78,6 +80,8 @@ export function Profile() {
   const [characterCount, setCharacterCount] = useState(0);
   const [userPosts, setUserPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
+  const [showPostMenu, setShowPostMenu] = useState<string | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   
   // Form states
   const [editForm, setEditForm] = useState({
@@ -343,7 +347,10 @@ export function Profile() {
       
       setSuccess('Профіль успішно оновлено!');
       setIsEditing(false);
-      loadProfile(); // Перезавантажуємо профіль
+      await loadProfile(); // Перезавантажуємо профіль
+      
+      // Оновлюємо пости після збереження профілю
+      await loadUserPosts();
       
       // Очищаємо повідомлення через 3 секунди
       setTimeout(() => setSuccess(null), 3000);
@@ -500,6 +507,31 @@ export function Profile() {
     } finally {
       setLoadingPosts(false);
     }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    try {
+      const { error } = await deletePost(postId);
+      if (error) throw error;
+      
+      // Оновлюємо список постів після видалення
+      await loadUserPosts();
+      setSuccess('Пост успішно видалено');
+      setDeletingPostId(null);
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      setError('Не вдалося видалити пост');
+      setDeletingPostId(null);
+    }
+  };
+
+  const handleDeleteClick = (postId: string) => {
+    setDeletingPostId(postId);
+    setShowPostMenu(null);
+  };
+
+  const handleDeleteCancel = () => {
+    setDeletingPostId(null);
   };
 
   const formatPostDate = (dateString: string) => {
@@ -1263,13 +1295,37 @@ export function Profile() {
                           {profile?.name?.charAt(0).toUpperCase() || 'U'}
                         </div>
                         <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <span className="font-medium text-gray-900 text-sm">
-                              {profile?.name} {profile?.last_name}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {formatPostDate(post.created_at)}
-                            </span>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="font-medium text-gray-900 text-sm">
+                                {profile?.name} {profile?.last_name}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {formatPostDate(post.created_at)}
+                              </span>
+                            </div>
+                            
+                            {/* Post menu */}
+                            <div className="relative">
+                              <button
+                                onClick={() => setShowPostMenu(showPostMenu === post.id ? null : post.id)}
+                                className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-full transition-colors"
+                              >
+                                <MoreHorizontal size={14} />
+                              </button>
+                              
+                              {showPostMenu === post.id && (
+                                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[100px]">
+                                  <button
+                                    onClick={() => handleDeleteClick(post.id)}
+                                    className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
+                                  >
+                                    <Trash2 size={12} className="mr-2" />
+                                    Видалити
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                           <div className="text-gray-700 text-sm whitespace-pre-line mb-2">
                             {post.content}
@@ -1319,6 +1375,35 @@ export function Profile() {
           </div>
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      {deletingPostId && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Видалити пост?</h3>
+              <p className="text-gray-600 mb-6">Цю дію неможливо скасувати. Пост буде видалено назавжди.</p>
+              <div className="flex space-x-3">
+                <button
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  onClick={handleDeleteCancel}
+                >
+                  Скасувати
+                </button>
+                <button
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  onClick={() => handleDeletePost(deletingPostId)}
+                >
+                  Видалити
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
