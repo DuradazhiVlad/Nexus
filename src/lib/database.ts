@@ -134,25 +134,32 @@ export class DatabaseService {
   // Get current user profile or create if doesn't exist
   static async getCurrentUserProfile(): Promise<UserProfile | null> {
     try {
+      console.log('🔍 Getting current user profile...');
       const authUser = await this.ensureAuthenticated();
+      console.log('✅ User authenticated:', authUser.email);
+      
       // Look for user profile by auth_user_id
       const { data: profile, error } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('auth_user_id', authUser.id)
         .single();
-              if (error) {
-          if (error.code === 'PGRST116') {
-            // Profile doesn't exist, create new profile
-            return await this.createUserProfile(authUser);
-          } else {
-            console.error('Error fetching user profile:', error);
-            throw new Error(`Failed to fetch user profile: ${error.message}`);
-          }
+      
+      if (error) {
+        if (error.code === 'PGRST116') {
+          console.log('📝 Profile not found, creating new one...');
+          // Profile doesn't exist, create new profile
+          return await this.createUserProfile(authUser);
+        } else {
+          console.error('❌ Error fetching user profile:', error);
+          throw new Error(`Failed to fetch user profile: ${error.message}`);
         }
+      }
+      
+      console.log('✅ User profile found:', profile.id);
       return profile;
     } catch (error) {
-      console.error('Error getting current user profile:', error);
+      console.error('❌ Error getting current user profile:', error);
       throw error;
     }
   }
@@ -161,6 +168,8 @@ export class DatabaseService {
   // Create new user profile
   private static async createUserProfile(authUser: any): Promise<UserProfile | null> {
     try {
+      console.log('📝 Creating new user profile for:', authUser.email);
+      
       const newProfileData = {
         auth_user_id: authUser.id,
         name: authUser.user_metadata?.name || authUser.user_metadata?.full_name?.split(' ')[0] || authUser.email?.split('@')[0] || 'User',
@@ -169,18 +178,24 @@ export class DatabaseService {
         notifications: { email: true, messages: true, friendRequests: true },
         privacy: { profileVisibility: 'public', showBirthDate: true, showEmail: false }
       };
+      
+      console.log('📋 New profile data:', newProfileData);
+      
       const { data: newProfile, error } = await supabase
         .from('user_profiles')
         .insert([newProfileData])
         .select()
         .single();
+        
       if (error) {
-        console.error('Error creating user profile:', error);
+        console.error('❌ Error creating user profile:', error);
         throw new Error(`Failed to create user profile: ${error.message}`);
       }
+      
+      console.log('✅ New profile created:', newProfile.id);
       return newProfile;
     } catch (error) {
-      console.error('Error creating user profile:', error);
+      console.error('❌ Error creating user profile:', error);
       throw error;
     }
   }

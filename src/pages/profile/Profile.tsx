@@ -123,10 +123,10 @@ export function Profile() {
   }, [location.key]);
 
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && profile) {
       loadUserPosts();
     }
-  }, [currentUser]);
+  }, [currentUser, profile]);
 
   useEffect(() => {
     setCharacterCount(postContent.length);
@@ -457,6 +457,7 @@ export function Profile() {
     e.preventDefault();
     if (!postContent.trim() || !currentUser || characterCount > MAX_CHARACTERS) return;
     
+    console.log('🔍 Creating post:', { content: postContent, media_url: postMediaUrl, media_type: postMediaType });
     setCreatingPost(true);
     try {
       const { data, error } = await createPost({
@@ -470,15 +471,33 @@ export function Profile() {
         throw error;
       }
       
+      console.log('✅ Post created successfully:', data);
+      
+      // Додаємо новий пост до списку без перезавантаження
+      if (data && data[0]) {
+        const newPost = data[0];
+        const processedPost = {
+          ...newPost,
+          likes_count: 0,
+          comments_count: 0,
+          isLiked: false,
+          author: {
+            id: profile?.id || '',
+            name: profile?.name || '',
+            last_name: profile?.last_name || '',
+            avatar: profile?.avatar || '',
+            friends_count: profile?.friends_count || 0
+          }
+        };
+        setUserPosts(prev => [processedPost, ...prev]);
+      }
+      
       setPostContent('');
       setPostMediaUrl('');
       setPostMediaType('');
       setShowMediaInput(false);
       setShowEmojiPicker(false);
       setSuccess('Пост успішно створено!');
-      
-      // Reload user posts
-      loadUserPosts();
     } catch (e: any) {
       console.error('Error creating post:', e);
       setError('Не вдалося створити пост');
@@ -488,8 +507,12 @@ export function Profile() {
   };
 
   const loadUserPosts = async () => {
-    if (!currentUser || !profile) return;
+    if (!currentUser || !profile) {
+      console.log('❌ Cannot load posts: currentUser or profile is missing', { currentUser: !!currentUser, profile: !!profile });
+      return;
+    }
     
+    console.log('🔍 Loading user posts for profile:', profile.id);
     setLoadingPosts(true);
     try {
       const { data, error } = await getUserPosts(profile.id);
@@ -498,6 +521,7 @@ export function Profile() {
         throw error;
       }
       
+      console.log('✅ Posts loaded:', data?.length || 0, 'posts');
       setUserPosts(data || []);
     } catch (error) {
       console.error('Error loading user posts:', error);
@@ -1264,7 +1288,9 @@ export function Profile() {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {console.log('📝 Rendering posts:', userPosts.length, 'posts')}
                   {userPosts.map((post: any) => {
+                    console.log('📄 Rendering post:', post.id, post.content?.substring(0, 50));
                     const postCardProps = {
                       post: {
                         id: post.id,

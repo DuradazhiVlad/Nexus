@@ -3,6 +3,17 @@ import { supabase } from './supabase';
 export async function getAllPosts() {
   const { data: { user } } = await supabase.auth.getUser();
   
+  // Отримуємо ID профілю поточного користувача для перевірки лайків
+  let currentUserProfileId = null;
+  if (user) {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .single();
+    currentUserProfileId = profile?.id;
+  }
+  
   let query = supabase
     .from('posts')
     .select(`
@@ -14,7 +25,7 @@ export async function getAllPosts() {
         avatar, 
         friends_count
       ),
-      post_likes (id),
+      post_likes (id, user_id),
       post_comments (id)
     `)
     .order('created_at', { ascending: false });
@@ -30,7 +41,7 @@ export async function getAllPosts() {
     ...post,
     likes_count: post.post_likes?.length || 0,
     comments_count: post.post_comments?.length || 0,
-    isLiked: user ? post.post_likes?.some((like: any) => like.user_id === user.id) : false,
+    isLiked: currentUserProfileId ? post.post_likes?.some((like: any) => like.user_id === currentUserProfileId) : false,
     author: {
       ...post.user_profiles,
       friends_count: post.user_profiles?.friends_count || 0
@@ -41,11 +52,15 @@ export async function getAllPosts() {
 }
 
 export async function createPost(post: { content: string, media_url?: string, media_type?: string }) {
+  console.log('🔍 Creating post with data:', post);
+  
   // Get the current user's profile ID
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  console.log('✅ User authenticated:', user.email);
 
   // Get user profile
   const { data: profile, error: profileError } = await supabase
@@ -55,12 +70,22 @@ export async function createPost(post: { content: string, media_url?: string, me
     .single();
 
   if (profileError || !profile) {
+    console.error('❌ Profile error:', profileError);
     throw new Error('User profile not found');
   }
 
-  return supabase
+  console.log('✅ User profile found:', profile.id);
+
+  const postData = { ...post, user_id: profile.id };
+  console.log('📝 Inserting post data:', postData);
+
+  const result = await supabase
     .from('posts')
-    .insert([{ ...post, user_id: profile.id }]);
+    .insert([postData])
+    .select();
+
+  console.log('✅ Post creation result:', result);
+  return result;
 }
 
 export async function likePost(post_id: string) {
@@ -217,7 +242,21 @@ export async function deletePost(post_id: string) {
 } 
 
 export async function getUserPosts(userProfileId: string) {
+  console.log('🔍 Getting user posts for profile ID:', userProfileId);
+  
   const { data: { user } } = await supabase.auth.getUser();
+  
+  // Отримуємо ID профілю поточного користувача для перевірки лайків
+  let currentUserProfileId = null;
+  if (user) {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .single();
+    currentUserProfileId = profile?.id;
+    console.log('✅ Current user profile ID:', currentUserProfileId);
+  }
   
   let query = supabase
     .from('posts')
@@ -230,7 +269,7 @@ export async function getUserPosts(userProfileId: string) {
         avatar, 
         friends_count
       ),
-      post_likes (id),
+      post_likes (id, user_id),
       post_comments (id)
     `)
     .eq('user_id', userProfileId)
@@ -239,20 +278,24 @@ export async function getUserPosts(userProfileId: string) {
   const { data, error } = await query;
 
   if (error) {
+    console.error('❌ Error fetching posts:', error);
     return { data: null, error };
   }
+
+  console.log('✅ Raw posts data:', data);
 
   // Обробляємо дані щоб додати кількість лайків, коментарів та перевірку лайку
   const processedPosts = data?.map(post => ({
     ...post,
     likes_count: post.post_likes?.length || 0,
     comments_count: post.post_comments?.length || 0,
-    isLiked: user ? post.post_likes?.some((like: any) => like.user_id === user.id) : false,
+    isLiked: currentUserProfileId ? post.post_likes?.some((like: any) => like.user_id === currentUserProfileId) : false,
     author: {
       ...post.user_profiles,
       friends_count: post.user_profiles?.friends_count || 0
     }
   })) || [];
 
+  console.log('✅ Processed posts:', processedPosts);
   return { data: processedPosts, error: null };
 } 
