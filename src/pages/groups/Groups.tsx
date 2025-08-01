@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
-import { VideoUploadModal } from '../../components/VideoUploadModal';
-import { ErrorNotification, useErrorNotifications } from '../../components/ErrorNotification';
-import { LoadingSpinner, CardSkeleton } from '../../components/LoadingSpinner';
+import { DatabaseService } from '../../lib/database';
 import { 
   Search, 
   Plus, 
@@ -11,168 +9,119 @@ import {
   Lock, 
   Globe, 
   Calendar,
-  User,
-  X,
-  Upload,
-  Image as ImageIcon,
-  Filter,
-  ChevronDown,
-  SlidersHorizontal,
-  Grid,
-  List,
+  MapPin,
+  Settings,
+  UserPlus,
   Eye,
   MessageCircle,
-  Heart,
-  Share2,
-  MoreHorizontal,
-  UserPlus,
-  UserCheck,
-  Crown,
-  Shield,
+  Filter,
+  Grid,
+  List,
+  SlidersHorizontal,
+  X,
+  ChevronDown,
   Star,
   TrendingUp,
   Clock,
-  MapPin,
-  Hash,
-  Settings,
-  ExternalLink,
-  Copy,
-  Flag,
-  AlertCircle,
-  CheckCircle,
-  Activity,
-  Video
+  Award
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { ErrorNotification, useErrorNotifications } from '../../components/ErrorNotification';
 
 interface Group {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   avatar?: string;
   cover?: string;
   is_private: boolean;
-  created_at: string;
   created_by: string;
+  created_at: string;
   member_count: number;
   post_count: number;
-  category: string;
-  tags: string[];
+  category?: string;
+  tags?: string[];
   location?: string;
+  website?: string;
   rules?: string[];
+  contactemail?: string;
   is_verified?: boolean;
   is_active?: boolean;
   last_activity?: string;
-  website?: string;
-  contactEmail?: string; // Виправлено назву поля
   creator?: {
-    id: string;
     name: string;
     last_name: string;
-    avatar: string;
+    avatar?: string;
+  };
+  user_membership?: {
+    role: string;
+    joined_at: string;
   };
 }
 
-interface GroupMember {
-  id: string;
-  group_id: string;
-  user_id: string;
-  role: 'admin' | 'moderator' | 'member';
-  joined_at?: string;
-  user?: {
-    id: string;
-    name: string;
-    last_name: string;
-    avatar: string;
-  };
-}
-
-interface Filters {
+interface CreateGroupForm {
+  name: string;
+  description: string;
+  is_private: boolean;
   category: string;
-          member_count: 'all' | 'small' | 'medium' | 'large';
-  privacy: 'all' | 'public' | 'private';
-  activity: 'all' | 'active' | 'inactive';
-  sortBy: 'name' | 'members' | 'activity' | 'created' | 'popularity';
-  sortOrder: 'asc' | 'desc';
-  hasAvatar: boolean;
-      is_verified: boolean;
+  location: string;
+  website: string;
+  contactemail: string;
+  rules: string[];
+  newRule: string;
 }
 
 type ViewMode = 'grid' | 'list';
-type TabType = 'explore' | 'my-groups' | 'joined' | 'managed' | 'invitations';
-
-const CATEGORIES = [
-  'Технології',
-  'Мистецтво',
-  'Спорт',
-  'Музика',
-  'Освіта',
-  'Бізнес',
-  'Подорожі',
-  'Їжа',
-  'Фотографія',
-  'Ігри',
-  'Книги',
-  'Фільми',
-  'Наука',
-  'Природа',
-  'Мода',
-  'Здоров\'я',
-  'Інше'
-];
+type SortBy = 'name' | 'members' | 'activity' | 'created';
 
 export function Groups() {
   const [groups, setGroups] = useState<Group[]>([]);
-  const [myGroups, setMyGroups] = useState<Group[]>([]);
-  const [joinedGroups, setJoinedGroups] = useState<Group[]>([]);
-  const [managedGroups, setManagedGroups] = useState<Group[]>([]);
-  const [invitations, setInvitations] = useState<Group[]>([]);
   const [filteredGroups, setFilteredGroups] = useState<Group[]>([]);
-  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
-  
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<TabType>('explore');
   const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showVideoUpload, setShowVideoUpload] = useState(false);
-  const [selectedGroupForVideo, setSelectedGroupForVideo] = useState<string>('');
-  const [creating, setCreating] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [sortBy, setSortBy] = useState<SortBy>('activity');
+  const [showFilters, setShowFilters] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'public' | 'private'>('all');
+  const [membershipFilter, setMembershipFilter] = useState<'all' | 'member' | 'not_member'>('all');
   
-  // Modern error handling
-  const { notifications, addNotification, removeNotification } = useErrorNotifications();
-  
-  const [filters, setFilters] = useState<Filters>({
-    category: '',
-    member_count: 'all',
-    privacy: 'all',
-    activity: 'all',
-    sortBy: 'activity',
-    sortOrder: 'desc',
-    hasAvatar: false,
-    is_verified: false
-  });
-
-  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
-  const [showBulkActions, setShowBulkActions] = useState(false);
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const [newGroup, setNewGroup] = useState({
+  const [createForm, setCreateForm] = useState<CreateGroupForm>({
     name: '',
     description: '',
-    category: '',
     is_private: false,
-    avatar: null as File | null,
-    cover: null as File | null,
-    tags: [] as string[],
+    category: '',
     location: '',
     website: '',
-    rules: [''],
-    contactEmail: '' // Виправлено назву поля
+    contactemail: '',
+    rules: [],
+    newRule: ''
   });
+  const [creating, setCreating] = useState(false);
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { notifications, addNotification, removeNotification } = useErrorNotifications();
+
+  const categories = [
+    'Технології',
+    'Спорт',
+    'Мистецтво',
+    'Музика',
+    'Освіта',
+    'Бізнес',
+    'Подорожі',
+    'Кулінарія',
+    'Фотографія',
+    'Ігри',
+    'Книги',
+    'Фільми',
+    'Здоров\'я',
+    'Мода',
+    'Інше'
+  ];
 
   useEffect(() => {
     fetchCurrentUser();
@@ -180,486 +129,226 @@ export function Groups() {
 
   useEffect(() => {
     if (currentUser) {
-      fetchAllData();
+      fetchGroups();
     }
   }, [currentUser]);
 
   useEffect(() => {
     applyFiltersAndSearch();
-  }, [searchQuery, groups, myGroups, joinedGroups, managedGroups, invitations, filters, activeTab]);
+  }, [groups, searchQuery, categoryFilter, typeFilter, membershipFilter, sortBy]);
 
   const fetchCurrentUser = async () => {
     try {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !authUser) {
+        addNotification({
+          type: 'error',
+          title: 'Помилка авторизації',
+          message: 'Не вдалося отримати дані користувача'
+        });
         navigate('/login');
         return;
       }
 
-      setCurrentUser(authUser.id);
+      const userProfile = await DatabaseService.getCurrentUserProfile();
+      setCurrentUser(userProfile);
     } catch (error) {
       console.error('Error fetching current user:', error);
-      navigate('/login');
-    }
-  };
-
-  const fetchAllData = async () => {
-    try {
-      await Promise.all([
-        fetchGroups(),
-        fetchMyGroups(),
-        fetchJoinedGroups(),
-        fetchManagedGroups(),
-        fetchInvitations(),
-        fetchGroupMembers()
-      ]);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
+      addNotification({
+        type: 'error',
+        title: 'Помилка завантаження',
+        message: 'Не вдалося завантажити дані користувача',
+        details: error instanceof Error ? error.message : 'Невідома помилка'
+      });
     }
   };
 
   const fetchGroups = async () => {
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      setLoading(true);
       
-      if (!authUser) {
-        addNotification({
-          type: 'warning',
-          title: 'Не авторизовано',
-          message: 'Для перегляду груп потрібно авторизуватися',
-          showRetry: true,
-          onRetry: () => navigate('/login')
-        });
-        setGroups([]);
-        return;
-      }
-
-      // Отримуємо користувача з таблиці users
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', authUser.id)
-        .single();
-
-      if (userError) {
-        addNotification({
-          type: 'error',
-          title: 'Помилка отримання даних',
-          message: 'Не вдалося отримати дані користувача',
-          details: userError.message,
-          showRetry: true,
-          onRetry: fetchGroups
-        });
-        setGroups([]);
-        return;
-      }
-
-      // Отримуємо публічні групи
-      const { data, error } = await supabase
+      // Отримуємо всі групи
+      const { data: groupsData, error: groupsError } = await supabase
         .from('groups')
-        .select('*')
-        .eq('is_private', false)
-        .order('created_at', { ascending: false });
+        .select(`
+          *,
+          creator:user_profiles!groups_created_by_fkey(name, last_name, avatar)
+        `)
+        .eq('is_active', true)
+        .order('last_activity', { ascending: false });
 
-      if (error) {
-        addNotification({
-          type: 'error',
-          title: 'Помилка завантаження груп',
-          message: 'Не вдалося завантажити групи',
-          details: error.message,
-          showRetry: true,
-          onRetry: fetchGroups
-        });
-        setGroups([]);
-        return;
+      if (groupsError) throw groupsError;
+
+      // Отримуємо членство користувача в групах
+      let userMemberships = [];
+      if (currentUser) {
+        const { data: membershipsData, error: membershipsError } = await supabase
+          .from('group_members')
+          .select('group_id, role, joined_at')
+          .eq('user_id', currentUser.id);
+
+        if (membershipsError) {
+          console.error('Error fetching memberships:', membershipsError);
+        } else {
+          userMemberships = membershipsData || [];
+        }
       }
 
-      // Додаємо creator інформацію
-      const enrichedGroups = await Promise.all((data || []).map(async (group) => {
-        if (group.created_by) {
-          const { data: creatorData } = await supabase
-            .from('users')
-            .select('id, name, lastName as last_name, avatar')
-            .eq('id', group.created_by)
-            .single();
-          
-          return {
-            ...group,
-            creator: creatorData || {
-              id: group.created_by,
-              name: 'Unknown',
-              last_name: 'User',
-              avatar: ''
-            }
-          };
-        }
-        return group;
-      }));
+      // Додаємо інформацію про членство до груп
+      const groupsWithMembership = (groupsData || []).map(group => {
+        const membership = userMemberships.find(m => m.group_id === group.id);
+        return {
+          ...group,
+          user_membership: membership || null
+        };
+      });
 
-      setGroups(enrichedGroups);
+      setGroups(groupsWithMembership);
     } catch (error) {
       console.error('Error fetching groups:', error);
       addNotification({
         type: 'error',
-        title: 'Помилка системи',
-        message: 'Виникла неочікувана помилка при завантаженні груп',
+        title: 'Помилка завантаження',
+        message: 'Не вдалося завантажити групи',
         details: error instanceof Error ? error.message : 'Невідома помилка',
         showRetry: true,
         onRetry: fetchGroups
       });
       setGroups([]);
-    }
-  };
-
-  const fetchMyGroups = async () => {
-    try {
-      if (!currentUser) return;
-
-      // Отримуємо користувача з таблиці users
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', currentUser)
-        .single();
-
-      if (userError) {
-        addNotification({
-          type: 'error',
-          title: 'Помилка отримання даних',
-          message: 'Не вдалося отримати дані користувача',
-          details: userError.message
-        });
-        setMyGroups([]);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('groups')
-        .select('*')
-        .eq('created_by', userData.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        addNotification({
-          type: 'error',
-          title: 'Помилка завантаження груп',
-          message: 'Не вдалося завантажити ваші групи',
-          details: error.message
-        });
-        setMyGroups([]);
-        return;
-      }
-
-      setMyGroups(data || []);
-    } catch (error) {
-      console.error('Error fetching my groups:', error);
-      addNotification({
-        type: 'error',
-        title: 'Помилка системи',
-        message: 'Виникла неочікувана помилка при завантаженні ваших груп',
-        details: error instanceof Error ? error.message : 'Невідома помилка'
-      });
-      setMyGroups([]);
-    }
-  };
-
-  const fetchJoinedGroups = async () => {
-    try {
-      if (!currentUser) return;
-
-      // Спрощений запит для group_members
-      const { data, error } = await supabase
-        .from('group_members')
-        .select('group_id, role')
-        .eq('user_id', currentUser)
-        .eq('role', 'member');
-
-      if (error) throw error;
-
-      // Отримуємо деталі груп окремим запитом
-      if (data && data.length > 0) {
-        const groupIds = data.map(item => item.group_id);
-        const { data: groupsData, error: groupsError } = await supabase
-          .from('groups')
-          .select('*')
-          .in('id', groupIds);
-
-        if (groupsError) throw groupsError;
-        setJoinedGroups(groupsData || []);
-      } else {
-        setJoinedGroups([]);
-      }
-    } catch (error) {
-      console.error('Error fetching joined groups:', error);
-      setJoinedGroups([]);
-    }
-  };
-
-  const fetchManagedGroups = async () => {
-    try {
-      if (!currentUser) return;
-
-      // Спрощений запит для group_members
-      const { data, error } = await supabase
-        .from('group_members')
-        .select('group_id, role')
-        .eq('user_id', currentUser)
-        .in('role', ['admin', 'moderator']);
-
-      if (error) throw error;
-
-      // Отримуємо деталі груп окремим запитом
-      if (data && data.length > 0) {
-        const groupIds = data.map(item => item.group_id);
-        const { data: groupsData, error: groupsError } = await supabase
-          .from('groups')
-          .select('*')
-          .in('id', groupIds);
-
-        if (groupsError) throw groupsError;
-        setManagedGroups(groupsData || []);
-      } else {
-        setManagedGroups([]);
-      }
-    } catch (error) {
-      console.error('Error fetching managed groups:', error);
-      setManagedGroups([]);
-    }
-  };
-
-  const fetchInvitations = async () => {
-    try {
-      if (!currentUser) return;
-
-      // Симулюємо запрошення
-      setInvitations([]);
-    } catch (error) {
-      console.error('Error fetching invitations:', error);
-      setInvitations([]);
-    }
-  };
-
-  const fetchGroupMembers = async () => {
-    try {
-      // Спрощений запит без проблемних join'ів
-      const { data, error } = await supabase
-        .from('group_members')
-        .select('*');
-
-      if (error) throw error;
-      setGroupMembers(data || []);
-    } catch (error) {
-      console.error('Error fetching group members:', error);
-      setGroupMembers([]);
-    }
-  };
-
-  const getGroupsForCurrentTab = () => {
-    switch (activeTab) {
-      case 'explore':
-        return groups;
-      case 'my-groups':
-        return myGroups;
-      case 'joined':
-        return joinedGroups;
-      case 'managed':
-        return managedGroups;
-      case 'invitations':
-        return invitations;
-      default:
-        return groups;
+    } finally {
+      setLoading(false);
     }
   };
 
   const applyFiltersAndSearch = () => {
-    let filtered = getGroupsForCurrentTab();
+    let filtered = [...groups];
 
     // Пошук
-    if (searchQuery.trim() !== '') {
+    if (searchQuery.trim()) {
       filtered = filtered.filter(group =>
         group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        group.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        group.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        group.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        group.location?.toLowerCase().includes(searchQuery.toLowerCase())
+        (group.description && group.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (group.category && group.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (group.location && group.location.toLowerCase().includes(searchQuery.toLowerCase()))
       );
     }
 
-    // Фільтри
-    if (filters.category) {
-      filtered = filtered.filter(group => group.category === filters.category);
+    // Фільтр по категорії
+    if (categoryFilter) {
+      filtered = filtered.filter(group => group.category === categoryFilter);
     }
 
-    if (filters.member_count !== 'all') {
+    // Фільтр по типу
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(group => 
+        typeFilter === 'public' ? !group.is_private : group.is_private
+      );
+    }
+
+    // Фільтр по членству
+    if (membershipFilter !== 'all') {
       filtered = filtered.filter(group => {
-        const count = group.member_count || 0;
-        switch (filters.member_count) {
-          case 'small': return count < 50;
-          case 'medium': return count >= 50 && count < 200;
-          case 'large': return count >= 200;
-          default: return true;
-        }
+        const isMember = !!group.user_membership;
+        return membershipFilter === 'member' ? isMember : !isMember;
       });
-    }
-
-    if (filters.privacy !== 'all') {
-      filtered = filtered.filter(group => 
-        filters.privacy === 'public' ? !group.is_private : group.is_private
-      );
-    }
-
-    if (filters.activity !== 'all') {
-      filtered = filtered.filter(group => 
-        filters.activity === 'active' ? group.is_active : !group.is_active
-      );
-    }
-
-    if (filters.hasAvatar) {
-      filtered = filtered.filter(group => group.avatar);
-    }
-
-    if (filters.is_verified) {
-      filtered = filtered.filter(group => group.is_verified);
     }
 
     // Сортування
     filtered.sort((a, b) => {
-      let comparison = 0;
-      
-      switch (filters.sortBy) {
+      switch (sortBy) {
         case 'name':
-          comparison = a.name.localeCompare(b.name);
-          break;
+          return a.name.localeCompare(b.name);
         case 'members':
-          comparison = (a.member_count || 0) - (b.member_count || 0);
-          break;
-        case 'activity':
-          if (a.is_active && !b.is_active) comparison = -1;
-          else if (!a.is_active && b.is_active) comparison = 1;
-          else comparison = new Date(b.last_activity || 0).getTime() - new Date(a.last_activity || 0).getTime();
-          break;
+          return (b.member_count || 0) - (a.member_count || 0);
         case 'created':
-          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-          break;
-        case 'popularity':
-          comparison = (a.member_count || 0) + (a.post_count || 0) - ((b.member_count || 0) + (b.post_count || 0));
-          break;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'activity':
+        default:
+          return new Date(b.last_activity || b.created_at).getTime() - new Date(a.last_activity || a.created_at).getTime();
       }
-      
-      return filters.sortOrder === 'asc' ? comparison : -comparison;
     });
 
     setFilteredGroups(filtered);
   };
 
-  const createGroup = async () => {
-    if (!newGroup.name.trim()) return;
+  const createGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!currentUser) {
+      addNotification({
+        type: 'warning',
+        title: 'Не авторизовано',
+        message: 'Для створення групи потрібно авторизуватися'
+      });
+      return;
+    }
 
-    setCreating(true);
+    if (!createForm.name.trim()) {
+      addNotification({
+        type: 'warning',
+        title: 'Невірні дані',
+        message: 'Назва групи є обов\'язковою'
+      });
+      return;
+    }
+
     try {
-      if (!currentUser) {
-        addNotification({
-          type: 'warning',
-          title: 'Не авторизовано',
-          message: 'Для створення групи потрібно авторизуватися',
-          showRetry: true,
-          onRetry: () => navigate('/login')
-        });
-        setCreating(false);
-        return;
-      }
+      setCreating(true);
 
-      // Отримуємо користувача з таблиці users
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', currentUser)
-        .single();
-
-      if (userError) {
-        addNotification({
-          type: 'error',
-          title: 'Помилка отримання даних',
-          message: 'Не вдалося отримати дані користувача',
-          details: userError.message
-        });
-        setCreating(false);
-        return;
-      }
-      
-      const groupData = {
-        name: newGroup.name.trim(),
-        description: newGroup.description.trim() || null,
-        is_private: newGroup.is_private,
-        created_by: userData.id,
-        category: newGroup.category || null,
-        tags: newGroup.tags.length > 0 ? newGroup.tags : null,
-        location: newGroup.location || null,
-        website: newGroup.website || null,
-        contactEmail: newGroup.contactEmail || null,
-        rules: newGroup.rules.filter(rule => rule.trim()).length > 0 ? newGroup.rules.filter(rule => rule.trim()) : null
-      };
-
-      const { data, error } = await supabase
+      const { data: groupData, error: groupError } = await supabase
         .from('groups')
-        .insert([groupData])
+        .insert([{
+          name: createForm.name.trim(),
+          description: createForm.description.trim(),
+          is_private: createForm.is_private,
+          created_by: currentUser.id,
+          category: createForm.category || null,
+          location: createForm.location.trim() || null,
+          website: createForm.website.trim() || null,
+          contactemail: createForm.contactemail.trim() || null,
+          rules: createForm.rules.length > 0 ? createForm.rules : null,
+          member_count: 1,
+          post_count: 0,
+          is_active: true,
+          last_activity: new Date().toISOString()
+        }])
         .select()
         .single();
 
-      if (error) {
-        addNotification({
-          type: 'error',
-          title: 'Помилка створення групи',
-          message: 'Не вдалося створити групу',
-          details: error.message,
-          showRetry: true,
-          onRetry: createGroup
-        });
-        setCreating(false);
-        return;
-      }
+      if (groupError) throw groupError;
 
-      // Додаємо створювача як члена групи з роллю admin
+      // Додаємо створювача як адміністратора
       const { error: memberError } = await supabase
         .from('group_members')
         .insert([{
-          group_id: data.id,
-          user_id: userData.id,
+          group_id: groupData.id,
+          user_id: currentUser.id,
           role: 'admin'
         }]);
 
-      if (memberError) {
-        addNotification({
-          type: 'warning',
-          title: 'Часткова помилка',
-          message: 'Групу створено, але не вдалося додати вас як адміністратора',
-          details: memberError.message
-        });
-      } else {
-        addNotification({
-          type: 'success',
-          title: 'Успішно!',
-          message: 'Групу успішно створено!',
-          autoClose: true,
-          duration: 3000
-        });
-      }
+      if (memberError) throw memberError;
+
+      addNotification({
+        type: 'success',
+        title: 'Успішно!',
+        message: 'Група створена успішно!',
+        autoClose: true,
+        duration: 3000
+      });
 
       setShowCreateModal(false);
-      resetNewGroup();
-      fetchAllData();
+      resetCreateForm();
+      fetchGroups();
     } catch (error) {
       console.error('Error creating group:', error);
       addNotification({
         type: 'error',
-        title: 'Помилка системи',
-        message: 'Виникла неочікувана помилка при створенні групи',
+        title: 'Помилка створення',
+        message: 'Не вдалося створити групу',
         details: error instanceof Error ? error.message : 'Невідома помилка',
         showRetry: true,
-        onRetry: createGroup
+        onRetry: () => createGroup(e)
       });
     } finally {
       setCreating(false);
@@ -667,76 +356,41 @@ export function Groups() {
   };
 
   const joinGroup = async (groupId: string) => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      addNotification({
+        type: 'warning',
+        title: 'Не авторизовано',
+        message: 'Для приєднання до групи потрібно авторизуватися'
+      });
+      return;
+    }
 
     try {
-      // Отримуємо користувача з таблиці users
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', currentUser)
-        .single();
-
-      if (userError) {
-        addNotification({
-          type: 'error',
-          title: 'Помилка отримання даних',
-          message: 'Не вдалося отримати дані користувача',
-          details: userError.message
-        });
-        return;
-      }
-
-      const existingMember = groupMembers.find(
-        member => member.group_id === groupId && member.user_id === userData.id
-      );
-
-      if (existingMember) {
-        addNotification({
-          type: 'warning',
-          title: 'Вже є членом',
-          message: 'Ви вже є членом цієї групи!',
-          autoClose: true,
-          duration: 3000
-        });
-        return;
-      }
-
       const { error } = await supabase
         .from('group_members')
         .insert([{
           group_id: groupId,
-          user_id: userData.id,
+          user_id: currentUser.id,
           role: 'member'
         }]);
 
-      if (error) {
-        addNotification({
-          type: 'error',
-          title: 'Помилка приєднання',
-          message: 'Не вдалося приєднатися до групи',
-          details: error.message,
-          showRetry: true,
-          onRetry: () => joinGroup(groupId)
-        });
-        return;
-      }
+      if (error) throw error;
 
       addNotification({
         type: 'success',
         title: 'Успішно!',
-        message: 'Ви успішно приєдналися до групи!',
+        message: 'Ви приєдналися до групи!',
         autoClose: true,
         duration: 3000
       });
 
-      fetchAllData();
+      fetchGroups();
     } catch (error) {
       console.error('Error joining group:', error);
       addNotification({
         type: 'error',
-        title: 'Помилка системи',
-        message: 'Виникла неочікувана помилка при приєднанні до групи',
+        title: 'Помилка',
+        message: 'Не вдалося приєднатися до групи',
         details: error instanceof Error ? error.message : 'Невідома помилка',
         showRetry: true,
         onRetry: () => joinGroup(groupId)
@@ -748,40 +402,13 @@ export function Groups() {
     if (!currentUser) return;
 
     try {
-      // Отримуємо користувача з таблиці users
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', currentUser)
-        .single();
-
-      if (userError) {
-        addNotification({
-          type: 'error',
-          title: 'Помилка отримання даних',
-          message: 'Не вдалося отримати дані користувача',
-          details: userError.message
-        });
-        return;
-      }
-
       const { error } = await supabase
         .from('group_members')
         .delete()
         .eq('group_id', groupId)
-        .eq('user_id', userData.id);
+        .eq('user_id', currentUser.id);
 
-      if (error) {
-        addNotification({
-          type: 'error',
-          title: 'Помилка виходу',
-          message: 'Не вдалося покинути групу',
-          details: error.message,
-          showRetry: true,
-          onRetry: () => leaveGroup(groupId)
-        });
-        return;
-      }
+      if (error) throw error;
 
       addNotification({
         type: 'success',
@@ -791,107 +418,47 @@ export function Groups() {
         duration: 3000
       });
 
-      fetchAllData();
+      fetchGroups();
     } catch (error) {
       console.error('Error leaving group:', error);
       addNotification({
         type: 'error',
-        title: 'Помилка системи',
-        message: 'Виникла неочікувана помилка при виході з групи',
-        details: error instanceof Error ? error.message : 'Невідома помилка',
-        showRetry: true,
-        onRetry: () => leaveGroup(groupId)
+        title: 'Помилка',
+        message: 'Не вдалося покинути групу',
+        details: error instanceof Error ? error.message : 'Невідома помилка'
       });
     }
   };
 
-  const getUserRole = (groupId: string) => {
-    // This function needs to be updated to work with the correct user ID
-    // For now, we'll return null and handle this in a future update
-    return null;
-  };
-
-  const isGroupCreator = (group: Group) => {
-    // This function needs to be updated to work with the correct user ID
-    // For now, we'll return false and handle this in a future update
-    return false;
-  };
-
-  const toggleGroupSelection = (groupId: string) => {
-    const newSelection = new Set(selectedGroups);
-    if (newSelection.has(groupId)) {
-      newSelection.delete(groupId);
-    } else {
-      newSelection.add(groupId);
-    }
-    setSelectedGroups(newSelection);
-    setShowBulkActions(newSelection.size > 0);
-  };
-
-  const clearSelection = () => {
-    setSelectedGroups(new Set());
-    setShowBulkActions(false);
-  };
-
-  const bulkJoinGroups = async () => {
-    for (const groupId of selectedGroups) {
-      await joinGroup(groupId);
-    }
-    clearSelection();
-  };
-
-  const resetNewGroup = () => {
-    setNewGroup({
+  const resetCreateForm = () => {
+    setCreateForm({
       name: '',
       description: '',
-      category: '',
       is_private: false,
-      avatar: null,
-      cover: null,
-      tags: [],
+      category: '',
       location: '',
       website: '',
-      rules: [''],
-      contactEmail: ''
+      contactemail: '',
+      rules: [],
+      newRule: ''
     });
   };
 
-  const handleVideoUpload = (groupId: string) => {
-    setSelectedGroupForVideo(groupId);
-    setShowVideoUpload(true);
+  const addRule = () => {
+    if (createForm.newRule.trim() && !createForm.rules.includes(createForm.newRule.trim())) {
+      setCreateForm(prev => ({
+        ...prev,
+        rules: [...prev.rules, createForm.newRule.trim()],
+        newRule: ''
+      }));
+    }
   };
 
-  const handleVideoUploadComplete = (videoData: any) => {
-    console.log('Video uploaded to group:', selectedGroupForVideo, videoData);
-    // Тут буде логіка завантаження відео в групу
-    setShowVideoUpload(false);
-    setSelectedGroupForVideo('');
-  };
-
-  const resetFilters = () => {
-    setFilters({
-      category: '',
-      member_count: 'all',
-      privacy: 'all',
-      activity: 'all',
-      sortBy: 'activity',
-      sortOrder: 'desc',
-      hasAvatar: false,
-      is_verified: false
-    });
-    setSearchQuery('');
-  };
-
-  const getActiveFiltersCount = () => {
-    let count = 0;
-    if (filters.category) count++;
-    if (filters.member_count !== 'all') count++;
-    if (filters.privacy !== 'all') count++;
-    if (filters.activity !== 'all') count++;
-    if (filters.sortBy !== 'activity' || filters.sortOrder !== 'desc') count++;
-    if (filters.hasAvatar) count++;
-    if (filters.is_verified) count++;
-    return count;
+  const removeRule = (rule: string) => {
+    setCreateForm(prev => ({
+      ...prev,
+      rules: prev.rules.filter(r => r !== rule)
+    }));
   };
 
   const formatDate = (dateString: string) => {
@@ -902,314 +469,234 @@ export function Groups() {
     });
   };
 
-  const formatLastActivity = (last_activity?: string) => {
-    if (!last_activity) return 'Немає активності';
-    
-    const diff = Date.now() - new Date(last_activity).getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (hours < 24) return `${hours} год тому`;
-    return `${days} дн тому`;
+  const getInitials = (name: string) => {
+    return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  const addRule = () => {
-    setNewGroup(prev => ({
-      ...prev,
-      rules: [...prev.rules, '']
-    }));
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (categoryFilter) count++;
+    if (typeFilter !== 'all') count++;
+    if (membershipFilter !== 'all') count++;
+    if (sortBy !== 'activity') count++;
+    return count;
   };
 
-  const removeRule = (index: number) => {
-    setNewGroup(prev => ({
-      ...prev,
-      rules: prev.rules.filter((_, i) => i !== index)
-    }));
-  };
-
-  const updateRule = (index: number, value: string) => {
-    setNewGroup(prev => ({
-      ...prev,
-      rules: prev.rules.map((rule, i) => i === index ? value : rule)
-    }));
+  const resetFilters = () => {
+    setSearchQuery('');
+    setCategoryFilter('');
+    setTypeFilter('all');
+    setMembershipFilter('all');
+    setSortBy('activity');
   };
 
   const renderGroupCard = (group: Group) => {
-    const userRole = getUserRole(group.id);
-    const isCreator = isGroupCreator(group);
-    const isSelected = selectedGroups.has(group.id);
+    const isMember = !!group.user_membership;
+    const isAdmin = group.user_membership?.role === 'admin';
 
-    if (viewMode === 'list') {
-      return (
-        <div
-          key={group.id}
-          className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-all duration-200 ${
-            isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
-          }`}
-        >
-          <div className="flex items-start space-x-4">
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={() => toggleGroupSelection(group.id)}
-                className="absolute top-0 left-0 w-4 h-4 rounded border-gray-300 text-blue-600"
-              />
-              <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center text-white text-2xl font-bold overflow-hidden ml-6">
+    return (
+      <div key={group.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+        {/* Group Cover */}
+        <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600 relative">
+          {group.cover ? (
+            <img src={group.cover} alt={group.name} className="w-full h-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600"></div>
+          )}
+          <div className="absolute top-3 right-3">
+            {group.is_private ? (
+              <Lock size={16} className="text-white" />
+            ) : (
+              <Globe size={16} className="text-white" />
+            )}
+          </div>
+          {group.is_verified && (
+            <div className="absolute top-3 left-3">
+              <Star size={16} className="text-yellow-400 fill-current" />
+            </div>
+          )}
+        </div>
+
+        {/* Group Info */}
+        <div className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
                 {group.avatar ? (
-                  <img
-                    src={group.avatar}
-                    alt={group.name}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={group.avatar} alt={group.name} className="w-full h-full rounded-full object-cover" />
                 ) : (
-                  <span>{group.name[0]?.toUpperCase()}</span>
+                  <span className="text-gray-600 font-semibold text-sm">
+                    {getInitials(group.name)}
+                  </span>
                 )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 
+                  className="font-semibold text-gray-900 truncate cursor-pointer hover:text-blue-600 transition-colors"
+                  onClick={() => navigate(`/groups/${group.id}`)}
+                >
+                  {group.name}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {group.member_count} учасників
+                </p>
               </div>
             </div>
+          </div>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2 mb-2">
-                <h3 className="text-xl font-bold text-gray-900 truncate">{group.name}</h3>
-                {group.is_verified && (
-                  <CheckCircle size={20} className="text-blue-500" />
-                )}
-                {group.is_private ? (
-                  <Lock size={16} className="text-gray-400" />
-                ) : (
-                  <Globe size={16} className="text-green-500" />
-                )}
-                {isCreator && (
-                  <Crown size={16} className="text-yellow-500" />
-                )}
-                {userRole === 'admin' && (
-                  <Shield size={16} className="text-purple-500" />
-                )}
-              </div>
+          <p className="text-gray-700 text-sm mb-3 line-clamp-2">
+            {group.description || 'Опис відсутній'}
+          </p>
 
-              <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                {group.description}
-              </p>
-
-              <div className="flex items-center space-x-6 text-sm text-gray-500 mb-3">
-                <div className="flex items-center">
-                  <Users size={14} className="mr-1" />
-                  {group.member_count} учасників
-                </div>
-                <div className="flex items-center">
-                  <MessageCircle size={14} className="mr-1" />
-                  {group.post_count} постів
-                </div>
-                <div className="flex items-center">
-                  <Activity size={14} className="mr-1" />
-                  {formatLastActivity(group.last_activity)}
-                </div>
-                {group.location && (
-                  <div className="flex items-center">
-                    <MapPin size={14} className="mr-1" />
-                    {group.location}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center space-x-2 mb-3">
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+          <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
+            <div className="flex items-center space-x-3">
+              {group.category && (
+                <span className="bg-gray-100 px-2 py-1 rounded-full">
                   {group.category}
                 </span>
-                {group.tags?.map(tag => (
-                  <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-col space-y-2">
-              {isCreator ? (
-                <>
-                  <button
-                    onClick={() => navigate(`/groups/${group.id}`)}
-                    className="px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium"
-                  >
-                    Управління
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleVideoUpload(group.id);
-                    }}
-                    className="flex items-center justify-center space-x-1 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200 transition-colors"
-                  >
-                    <Video size={14} />
-                    <span>Додати відео</span>
-                  </button>
-                </>
-              ) : userRole ? (
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => navigate(`/groups/${group.id}`)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                  >
-                    Переглянути
-                  </button>
-                  <button
-                    onClick={() => leaveGroup(group.id)}
-                    className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm"
-                  >
-                    Покинути
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => joinGroup(group.id)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                >
-                  Приєднатися
-                </button>
               )}
-              
-              <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                <MoreHorizontal size={16} />
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // Grid view
-    return (
-      <div
-        key={group.id}
-        className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200 cursor-pointer group hover:scale-105 ${
-          isSelected ? 'ring-2 ring-blue-500' : ''
-        }`}
-        onClick={() => navigate(`/groups/${group.id}`)}
-      >
-        <div className="relative">
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={(e) => {
-              e.stopPropagation();
-              toggleGroupSelection(group.id);
-            }}
-            className="absolute top-3 left-3 w-4 h-4 rounded border-gray-300 text-blue-600 z-10"
-          />
-          
-          {/* Cover image */}
-          <div className="h-32 bg-gradient-to-r from-purple-500 to-blue-600 relative">
-            {group.cover && (
-              <img
-                src={group.cover}
-                alt={group.name}
-                className="w-full h-full object-cover"
-              />
-            )}
-            <div className="absolute top-3 right-3 flex space-x-1">
-                              {group.is_verified && (
-                <CheckCircle size={16} className="text-white" />
-              )}
-              {group.is_private ? (
-                <Lock size={16} className="text-white" />
-              ) : (
-                <Globe size={16} className="text-white" />
-              )}
-            </div>
-          </div>
-
-          <div className="p-4">
-            {/* Avatar and title */}
-            <div className="flex items-start space-x-3 mb-3 -mt-8">
-              <div className="w-16 h-16 bg-white rounded-lg border-4 border-white shadow-lg flex items-center justify-center text-purple-600 text-xl font-bold overflow-hidden">
-                {group.avatar ? (
-                  <img
-                    src={group.avatar}
-                    alt={group.name}
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                ) : (
-                  <span>{group.name[0]?.toUpperCase()}</span>
-                )}
-              </div>
-              
-              <div className="flex-1 mt-2">
-                <div className="flex items-center space-x-2">
-                  <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">
-                    {group.name}
-                  </h3>
-                  {isCreator && (
-                    <Crown size={16} className="text-yellow-500" />
-                  )}
-                  {userRole === 'admin' && (
-                    <Shield size={16} className="text-purple-500" />
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-              {group.description}
-            </p>
-
-            <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
-              <div className="flex items-center">
-                <Users size={14} className="mr-1" />
-                {group.member_count}
-              </div>
-              <div className="flex items-center">
-                <MessageCircle size={14} className="mr-1" />
-                {group.post_count}
-              </div>
-              <div className="flex items-center">
-                <div className={`w-2 h-2 rounded-full mr-1 ${group.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                {group.is_active ? 'Активна' : 'Неактивна'}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between mb-4">
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                {group.category}
-              </span>
               {group.location && (
-                <div className="flex items-center text-xs text-gray-500">
+                <div className="flex items-center">
                   <MapPin size={12} className="mr-1" />
                   {group.location}
                 </div>
               )}
             </div>
+            <div className="flex items-center">
+              <Calendar size={12} className="mr-1" />
+              {formatDate(group.created_at)}
+            </div>
+          </div>
 
-            <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
-              {isCreator ? (
-                <button
-                  onClick={() => navigate(`/groups/${group.id}`)}
-                  className="flex-1 flex items-center justify-center px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium"
-                >
-                  <Settings size={16} className="mr-1" />
-                  Управління
-                </button>
-              ) : userRole ? (
-                <button
-                  onClick={() => leaveGroup(group.id)}
-                  className="flex-1 flex items-center justify-center px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
-                >
-                  <X size={16} className="mr-1" />
-                  Покинути
-                </button>
-              ) : (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 text-xs text-gray-500">
+              <div className="flex items-center">
+                <MessageCircle size={12} className="mr-1" />
+                {group.post_count || 0}
+              </div>
+              <div className="flex items-center">
+                <Eye size={12} className="mr-1" />
+                {group.member_count}
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              {!isMember ? (
                 <button
                   onClick={() => joinGroup(group.id)}
-                  className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  className="flex items-center px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                 >
-                  <UserPlus size={16} className="mr-1" />
+                  <UserPlus size={14} className="mr-1" />
                   Приєднатися
                 </button>
+              ) : (
+                <div className="flex items-center space-x-1">
+                  <button
+                    onClick={() => navigate(`/groups/${group.id}`)}
+                    className="flex items-center px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                  >
+                    <Eye size={14} className="mr-1" />
+                    Переглянути
+                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => navigate(`/groups/${group.id}?tab=settings`)}
+                      className="p-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
+                      title="Керувати групою"
+                    >
+                      <Settings size={14} />
+                    </button>
+                  )}
+                </div>
               )}
-              
-              <button className="flex items-center justify-center px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                <Share2 size={16} />
-              </button>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderGroupList = (group: Group) => {
+    const isMember = !!group.user_membership;
+    const isAdmin = group.user_membership?.role === 'admin';
+
+    return (
+      <div key={group.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+        <div className="flex items-center space-x-4">
+          <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
+            {group.avatar ? (
+              <img src={group.avatar} alt={group.name} className="w-full h-full rounded-full object-cover" />
+            ) : (
+              <span className="text-gray-600 font-semibold">
+                {getInitials(group.name)}
+              </span>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center space-x-2 mb-1">
+              <h3 
+                className="font-semibold text-gray-900 truncate cursor-pointer hover:text-blue-600 transition-colors"
+                onClick={() => navigate(`/groups/${group.id}`)}
+              >
+                {group.name}
+              </h3>
+              {group.is_private ? (
+                <Lock size={14} className="text-gray-500" />
+              ) : (
+                <Globe size={14} className="text-gray-500" />
+              )}
+              {group.is_verified && (
+                <Star size={14} className="text-yellow-400 fill-current" />
+              )}
+            </div>
+            
+            <p className="text-gray-700 text-sm mb-2 line-clamp-1">
+              {group.description || 'Опис відсутній'}
+            </p>
+            
+            <div className="flex items-center space-x-4 text-xs text-gray-500">
+              <span>{group.member_count} учасників</span>
+              <span>{group.post_count || 0} постів</span>
+              {group.category && <span>{group.category}</span>}
+              {group.location && (
+                <div className="flex items-center">
+                  <MapPin size={10} className="mr-1" />
+                  {group.location}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            {!isMember ? (
+              <button
+                onClick={() => joinGroup(group.id)}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              >
+                <UserPlus size={16} className="mr-2" />
+                Приєднатися
+              </button>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => navigate(`/groups/${group.id}`)}
+                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                >
+                  <Eye size={16} className="mr-2" />
+                  Переглянути
+                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => navigate(`/groups/${group.id}?tab=settings`)}
+                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+                    title="Керувати групою"
+                  >
+                    <Settings size={16} />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1218,14 +705,13 @@ export function Groups() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
         <div className="flex-1 ml-64 p-8">
-          <LoadingSpinner 
-            size="lg" 
-            text="Завантаження груп..." 
-            color="blue"
-          />
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Завантаження груп...</p>
+          </div>
         </div>
       </div>
     );
@@ -1243,12 +729,13 @@ export function Groups() {
             onClose={() => removeNotification(notification.id)}
           />
         ))}
+
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex justify-between items-center mb-8">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Групи</h1>
-              <p className="text-gray-600">Знайдіть спільноти за вашими інтересами або створіть власну</p>
+              <p className="text-gray-600">Знаходьте спільноти за інтересами та створюйте власні</p>
             </div>
             <button
               onClick={() => setShowCreateModal(true)}
@@ -1258,54 +745,6 @@ export function Groups() {
               Створити групу
             </button>
           </div>
-
-          {/* Tabs */}
-          <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg">
-            {[
-              { id: 'explore', label: 'Дослідити', count: groups.length },
-              { id: 'my-groups', label: 'Мої групи', count: myGroups.length },
-              { id: 'joined', label: 'Приєднані', count: joinedGroups.length },
-              { id: 'managed', label: 'Керую', count: managedGroups.length },
-              { id: 'invitations', label: 'Запрошення', count: invitations.length }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as TabType)}
-                className={`flex-1 px-4 py-3 text-sm font-medium rounded-md transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {tab.label} ({tab.count})
-              </button>
-            ))}
-          </div>
-
-          {/* Bulk Actions */}
-          {showBulkActions && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-blue-800">
-                  Обрано {selectedGroups.size} груп
-                </span>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={bulkJoinGroups}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                  >
-                    Приєднатися до всіх
-                  </button>
-                  <button
-                    onClick={clearSelection}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-                  >
-                    Скасувати
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Search and Filters */}
           <div className="mb-6 space-y-4">
@@ -1364,40 +803,26 @@ export function Groups() {
             {/* Filters Panel */}
             {showFilters && (
               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Категорія</label>
                     <select
-                      value={filters.category}
-                      onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
                       className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Всі категорії</option>
-                      {CATEGORIES.map(category => (
+                      {categories.map(category => (
                         <option key={category} value={category}>{category}</option>
                       ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Розмір</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Тип групи</label>
                     <select
-                                      value={filters.member_count}
-                onChange={(e) => setFilters(prev => ({ ...prev, member_count: e.target.value as any }))}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="all">Всі розміри</option>
-                      <option value="small">Мала (&lt;50)</option>
-                      <option value="medium">Середня (50-200)</option>
-                      <option value="large">Велика (&gt;200)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Приватність</label>
-                    <select
-                      value={filters.privacy}
-                      onChange={(e) => setFilters(prev => ({ ...prev, privacy: e.target.value as any }))}
+                      value={typeFilter}
+                      onChange={(e) => setTypeFilter(e.target.value as any)}
                       className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="all">Всі</option>
@@ -1407,65 +832,37 @@ export function Groups() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Активність</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Членство</label>
                     <select
-                      value={filters.activity}
-                      onChange={(e) => setFilters(prev => ({ ...prev, activity: e.target.value as any }))}
+                      value={membershipFilter}
+                      onChange={(e) => setMembershipFilter(e.target.value as any)}
                       className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="all">Всі</option>
-                      <option value="active">Активні</option>
-                      <option value="inactive">Неактивні</option>
+                      <option value="all">Всі групи</option>
+                      <option value="member">Мої групи</option>
+                      <option value="not_member">Не член</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Сортування</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Сортувати за</label>
                     <select
-                      value={filters.sortBy}
-                      onChange={(e) => setFilters(prev => ({ ...prev, sortBy: e.target.value as any }))}
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
                       className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="activity">Активністю</option>
                       <option value="name">Назвою</option>
                       <option value="members">Кількістю учасників</option>
                       <option value="created">Датою створення</option>
-                      <option value="popularity">Популярністю</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex items-center space-x-6">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={filters.hasAvatar}
-                        onChange={(e) => setFilters(prev => ({ ...prev, hasAvatar: e.target.checked }))}
-                        className="rounded border-gray-300 text-blue-600 mr-2"
-                      />
-                      <span className="text-sm text-gray-700">Тільки з аватаром</span>
-                    </label>
-
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                                        checked={filters.is_verified}
-                onChange={(e) => setFilters(prev => ({ ...prev, is_verified: e.target.checked }))}
-                        className="rounded border-gray-300 text-blue-600 mr-2"
-                      />
-                      <span className="text-sm text-gray-700">Тільки верифіковані</span>
-                    </label>
-
-                    <button
-                      onClick={() => setFilters(prev => ({ ...prev, sortOrder: prev.sortOrder === 'asc' ? 'desc' : 'asc' }))}
-                      className="flex items-center text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      <TrendingUp size={16} className="mr-1" />
-                      {filters.sortOrder === 'asc' ? 'За зростанням' : 'За спаданням'}
-                    </button>
+                  <div className="text-sm text-gray-600">
+                    Знайдено {filteredGroups.length} груп з {groups.length}
                   </div>
-                  
                   <button
                     onClick={resetFilters}
                     className="text-sm text-blue-600 hover:text-blue-800"
@@ -1481,29 +878,13 @@ export function Groups() {
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-gray-600">
               {searchQuery 
-                ? `Знайдено ${filteredGroups.length} груп з ${getGroupsForCurrentTab().length}`
+                ? `Знайдено ${filteredGroups.length} груп з ${groups.length}`
                 : `Всього ${filteredGroups.length} груп`
               }
               {searchQuery && (
                 <span> за запитом "<span className="font-semibold">{searchQuery}</span>"</span>
               )}
             </p>
-            
-            {selectedGroups.size > 0 && (
-              <button
-                onClick={() => {
-                  if (selectedGroups.size === filteredGroups.length) {
-                    clearSelection();
-                  } else {
-                    setSelectedGroups(new Set(filteredGroups.map(g => g.id)));
-                    setShowBulkActions(true);
-                  }
-                }}
-                className="text-sm text-blue-600 hover:text-blue-800"
-              >
-                {selectedGroups.size === filteredGroups.length ? 'Скасувати вибір' : 'Обрати всі'}
-              </button>
-            )}
           </div>
 
           {/* Groups Grid/List */}
@@ -1512,7 +893,9 @@ export function Groups() {
               ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
               : "space-y-4"
             }>
-              {filteredGroups.map(renderGroupCard)}
+              {filteredGroups.map(group => 
+                viewMode === 'grid' ? renderGroupCard(group) : renderGroupList(group)
+              )}
             </div>
           ) : (
             <div className="text-center py-12">
@@ -1528,112 +911,119 @@ export function Groups() {
                   : 'Поки що немає створених груп'
                 }
               </p>
-              {searchQuery || getActiveFiltersCount() > 0 ? (
+              {!searchQuery && getActiveFiltersCount() === 0 && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Створити першу групу
+                </button>
+              )}
+              {(searchQuery || getActiveFiltersCount() > 0) && (
                 <button
                   onClick={resetFilters}
                   className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   Скинути всі фільтри
                 </button>
-              ) : (
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <Plus size={20} className="mr-2" />
-                  Створити першу групу
-                </button>
               )}
             </div>
           )}
         </div>
-      </div>
 
-      {/* Create Group Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Створити групу</h2>
+        {/* Create Group Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">Створити нову групу</h2>
                 <button
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    resetCreateForm();
+                  }}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X size={24} />
                 </button>
               </div>
 
-              <div className="space-y-6">
-                {/* Basic Info */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Назва групи *
-                  </label>
-                  <input
-                    type="text"
-                    value={newGroup.name}
-                    onChange={(e) => setNewGroup(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Введіть назву групи"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Опис
-                  </label>
-                  <textarea
-                    value={newGroup.description}
-                    onChange={(e) => setNewGroup(prev => ({ ...prev, description: e.target.value }))}
-                    rows={4}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Розкажіть про вашу групу"
-                  />
-                </div>
-
+              <form onSubmit={createGroup} className="p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Назва групи *
+                    </label>
+                    <input
+                      type="text"
+                      value={createForm.name}
+                      onChange={(e) => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Введіть назву групи"
+                      required
+                      maxLength={100}
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Категорія
                     </label>
                     <select
-                      value={newGroup.category}
-                      onChange={(e) => setNewGroup(prev => ({ ...prev, category: e.target.value }))}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      value={createForm.category}
+                      onChange={(e) => setCreateForm(prev => ({ ...prev, category: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Оберіть категорію</option>
-                      {CATEGORIES.map(category => (
+                      {categories.map(category => (
                         <option key={category} value={category}>{category}</option>
                       ))}
                     </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Місцезнаходження
-                    </label>
-                    <input
-                      type="text"
-                      value={newGroup.location}
-                      onChange={(e) => setNewGroup(prev => ({ ...prev, location: e.target.value }))}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Місто, країна"
-                    />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Веб-сайт
+                    Опис групи
                   </label>
-                  <input
-                    type="url"
-                    value={newGroup.website}
-                    onChange={(e) => setNewGroup(prev => ({ ...prev, website: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="https://example.com"
+                  <textarea
+                    value={createForm.description}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, description: e.target.value }))}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    placeholder="Розкажіть про вашу групу"
+                    maxLength={500}
                   />
+                  <p className="text-xs text-gray-500 mt-1">{createForm.description.length}/500</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Локація
+                    </label>
+                    <input
+                      type="text"
+                      value={createForm.location}
+                      onChange={(e) => setCreateForm(prev => ({ ...prev, location: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Місто, країна"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Веб-сайт
+                    </label>
+                    <input
+                      type="url"
+                      value={createForm.website}
+                      onChange={(e) => setCreateForm(prev => ({ ...prev, website: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="https://example.com"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -1642,96 +1032,94 @@ export function Groups() {
                   </label>
                   <input
                     type="email"
-                                    value={newGroup.contactEmail}
-                onChange={(e) => setNewGroup(prev => ({ ...prev, contactEmail: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={createForm.contactemail}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, contactemail: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="contact@example.com"
                   />
                 </div>
 
-                {/* Rules */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Правила групи
                   </label>
                   <div className="space-y-2">
-                    {newGroup.rules.map((rule, index) => (
-                      <div key={index} className="flex items-center space-x-2">
-                        <input
-                          type="text"
-                          value={rule}
-                          onChange={(e) => updateRule(index, e.target.value)}
-                          className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder={`Правило ${index + 1}`}
-                        />
-                        {newGroup.rules.length > 1 && (
-                          <button
-                            onClick={() => removeRule(index)}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <X size={20} />
-                          </button>
-                        )}
+                    {createForm.rules.map((rule, index) => (
+                      <div key={index} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg">
+                        <span className="text-sm text-gray-700">{rule}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeRule(rule)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X size={16} />
+                        </button>
                       </div>
                     ))}
-                    <button
-                      onClick={addRule}
-                      className="text-blue-600 hover:text-blue-800 text-sm"
-                    >
-                      + Додати правило
-                    </button>
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={createForm.newRule}
+                        onChange={(e) => setCreateForm(prev => ({ ...prev, newRule: e.target.value }))}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addRule();
+                          }
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Додати правило"
+                      />
+                      <button
+                        type="button"
+                        onClick={addRule}
+                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                      >
+                        Додати
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Privacy */}
                 <div>
-                  <label className="flex items-center">
+                  <label className="flex items-center space-x-2">
                     <input
                       type="checkbox"
-                      checked={newGroup.is_private}
-                      onChange={(e) => setNewGroup(prev => ({ ...prev, is_private: e.target.checked }))}
-                      className="rounded border-gray-300 text-blue-600 mr-3"
+                      checked={createForm.is_private}
+                      onChange={(e) => setCreateForm(prev => ({ ...prev, is_private: e.target.checked }))}
+                      className="rounded border-gray-300 text-blue-600"
                     />
-                    <div>
-                      <span className="font-medium text-gray-900">Приватна група</span>
-                      <p className="text-sm text-gray-500">
-                        Тільки запрошені користувачі зможуть приєднатися до групи
-                      </p>
-                    </div>
+                    <span className="text-sm font-medium text-gray-700">Приватна група</span>
                   </label>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Приватні групи видимі тільки учасникам
+                  </p>
                 </div>
-              </div>
 
-              <div className="flex justify-end space-x-4 mt-8 pt-6 border-t">
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Скасувати
-                </button>
-                <button
-                  onClick={createGroup}
-                  disabled={creating || !newGroup.name.trim()}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {creating ? 'Створення...' : 'Створити групу'}
-                </button>
-              </div>
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      resetCreateForm();
+                    }}
+                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Скасувати
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creating || !createForm.name.trim()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {creating ? 'Створення...' : 'Створити групу'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Video Upload Modal */}
-      <VideoUploadModal
-        isOpen={showVideoUpload}
-        onClose={() => {
-          setShowVideoUpload(false);
-          setSelectedGroupForVideo('');
-        }}
-        onUpload={handleVideoUploadComplete}
-        groupId={selectedGroupForVideo}
-      />
+        )}
+      </div>
     </div>
   );
 }

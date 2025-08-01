@@ -488,7 +488,7 @@ export function Profile() {
   };
 
   const loadUserPosts = async () => {
-    if (!currentUser) return;
+    if (!currentUser || !profile) return;
     
     setLoadingPosts(true);
     try {
@@ -499,7 +499,7 @@ export function Profile() {
       }
       
       // Filter posts by current user's profile ID
-      const userPosts = (data || []).filter((post: any) => post.user_id === currentUser.id);
+      const userPosts = (data || []).filter((post: any) => post.user_id === profile.id);
       setUserPosts(userPosts);
     } catch (error) {
       console.error('Error loading user posts:', error);
@@ -793,9 +793,10 @@ export function Profile() {
                     )}
                   </>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Ліва колонка */}
-                    <div className="space-y-4">
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Ліва колонка */}
+                      <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Ім'я *
@@ -1094,7 +1095,7 @@ export function Profile() {
                         </select>
                       </div>
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
             </div>
