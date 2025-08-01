@@ -496,99 +496,96 @@ export function Profile() {
               <div className="absolute inset-0 bg-black bg-opacity-20"></div>
             </div>
 
-                          {/* Profile Info */}
-              <div className="relative px-6 pb-6">
-                {/* Avatar and Name Section */}
-                <div className="flex items-end justify-between -mt-16 mb-4">
-                  <div className="flex items-center space-x-6">
-                    <div className="relative">
-                      <div className="w-32 h-32 bg-white rounded-full p-2 shadow-lg">
-                        {profile.avatar ? (
-                          <img
-                            src={profile.avatar}
-                            alt={profile.name}
-                            className="w-full h-full rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-                            {getInitials(profile.name, profile.last_name)}
-                          </div>
-                        )}
+            {/* Profile Info */}
+            <div className="relative px-6 pb-6">
+              {/* Avatar */}
+              <div className="flex items-end justify-between -mt-16 mb-4">
+                <div className="relative">
+                  <div className="w-32 h-32 bg-white rounded-full p-2 shadow-lg">
+                    {profile.avatar ? (
+                      <img
+                        src={profile.avatar}
+                        alt={profile.name}
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+                        {getInitials(profile.name, profile.last_name)}
                       </div>
-                      {isEditing && (
-                        <button className="absolute bottom-2 right-2 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors">
-                          <Camera size={16} />
-                        </button>
-                      )}
-                    </div>
+                    )}
+                  </div>
+                  {isEditing && (
+                    <button className="absolute bottom-2 right-2 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors">
+                      <Camera size={16} />
+                    </button>
+                  )}
+                </div>
 
-                    {/* Name and Email Section */}
-                    <div className="flex flex-col justify-center">
-                      <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                {/* Edit Button */}
+                <div className="flex space-x-2">
+                  {!isEditing ? (
+                    <>
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        <Edit3 size={16} className="mr-2" />
+                        Редагувати профіль
+                      </button>
+                      <button
+                        onClick={() => navigate('/settings')}
+                        className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <Settings size={16} className="mr-2" />
+                        Налаштування
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleSaveProfile}
+                        disabled={saving}
+                        className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {saving ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        ) : (
+                          <Save size={16} className="mr-2" />
+                        )}
+                        {saving ? 'Збереження...' : 'Зберегти'}
+                      </button>
+                      <button
+                        onClick={handleCancelEdit}
+                        disabled={saving}
+                        className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                      >
+                        <X size={16} className="mr-2" />
+                        Скасувати
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* User Info */}
+              <div className="space-y-4">
+                {!isEditing ? (
+                  <>
+                    <div>
+                      <h1 className="text-3xl font-bold text-gray-900">
                         {profile.name} {profile.last_name}
                       </h1>
-                      <p className="text-gray-600 flex items-center">
+                      <p className="text-gray-600 flex items-center mt-1">
                         <Mail size={16} className="mr-2" />
                         {profile.email}
                       </p>
                     </div>
-                  </div>
 
-                  {/* Edit Button */}
-                  <div className="flex space-x-2">
-                    {!isEditing ? (
-                      <>
-                        <button
-                          onClick={() => setIsEditing(true)}
-                          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                          <Edit3 size={16} className="mr-2" />
-                          Редагувати профіль
-                        </button>
-                        <button
-                          onClick={() => navigate('/settings')}
-                          className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          <Settings size={16} className="mr-2" />
-                          Налаштування
-                        </button>
-                      </>
-                    ) : (
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={handleSaveProfile}
-                          disabled={saving}
-                          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {saving ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          ) : (
-                            <Save size={16} className="mr-2" />
-                          )}
-                          {saving ? 'Збереження...' : 'Зберегти'}
-                        </button>
-                        <button
-                          onClick={handleCancelEdit}
-                          disabled={saving}
-                          className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                        >
-                          <X size={16} className="mr-2" />
-                          Скасувати
-                        </button>
-                      </div>
+                    {profile.bio && (
+                      <p className="text-gray-700 text-lg leading-relaxed">
+                        {profile.bio}
+                      </p>
                     )}
-                  </div>
-                </div>
-
-                {/* User Info */}
-                <div className="space-y-4">
-                  {!isEditing ? (
-                    <>
-                                            {profile.bio && (
-                        <p className="text-gray-700 text-lg leading-relaxed">
-                          {profile.bio}
-                        </p>
-                      )}
 
                     <div className="flex flex-wrap gap-4 text-sm text-gray-600">
                       {profile.city && (
@@ -979,7 +976,6 @@ export function Profile() {
                           <option value="private">Тільки мені</option>
                         </select>
                       </div>
-                    </div>
                     </div>
                   </>
                 )}
