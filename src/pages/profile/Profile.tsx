@@ -18,16 +18,11 @@ import {
   MessageCircle,
   Users,
   Image as ImageIcon,
-  Plus,
-  Upload,
   Check,
   AlertCircle,
   Send,
   Smile,
-  FileText,
-  Video,
-  MoreHorizontal,
-  Trash2
+  FileText
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -77,7 +72,7 @@ export function Profile() {
   const [postMediaUrl, setPostMediaUrl] = useState('');
   const [postMediaType, setPostMediaType] = useState('');
   const [creatingPost, setCreatingPost] = useState(false);
-  const [showPostForm, setShowPostForm] = useState(false);
+
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMediaInput, setShowMediaInput] = useState(false);
   const [characterCount, setCharacterCount] = useState(0);
@@ -286,7 +281,7 @@ export function Profile() {
     }
 
     // Валідація телефону
-    if (editForm.phone && !/^[\d\s\-\+\(\)]+$/.test(editForm.phone)) {
+    if (editForm.phone && !/^[\d\s\-+()]+$/.test(editForm.phone)) {
       errors.push('Невірний формат телефону');
     }
 
@@ -474,7 +469,6 @@ export function Profile() {
       setPostMediaType('');
       setShowMediaInput(false);
       setShowEmojiPicker(false);
-      setShowPostForm(false);
       setSuccess('Пост успішно створено!');
       
       // Reload user posts
@@ -1040,6 +1034,7 @@ export function Profile() {
                           </div>
                         </div>
                       </div>
+                    </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
