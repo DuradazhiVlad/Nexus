@@ -674,7 +674,8 @@ export function Profile() {
                     )}
                   </>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Ліва колонка */}
                       <div className="space-y-4">
                         <div>
@@ -976,7 +977,8 @@ export function Profile() {
                         </select>
                       </div>
                     </div>
-                  </div>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
