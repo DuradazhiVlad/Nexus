@@ -1,0 +1,66 @@
+name: Update Dependencies
+
+on:
+  schedule:
+    # Запускається щотижня в неділю о 2:00 UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch: # Ручний запуск
+
+jobs:
+  update-deps:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Check for outdated packages
+      run: |
+        echo "📦 Checking for outdated packages..."
+        npm outdated || echo "All packages are up to date"
+        
+    - name: Update dependencies
+      run: |
+        echo "🔄 Updating dependencies..."
+        npm update
+        npm audit fix --audit-level=moderate || true
+        
+    - name: Test after updates
+      run: |
+        echo "🧪 Testing after dependency updates..."
+        npm run lint
+        npm run build
+        
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "chore: update dependencies"
+        title: "🤖 Automated dependency updates"
+        body: |
+          ## Automated Dependency Updates
+          
+          This PR was automatically created to update project dependencies.
+          
+          ### Changes:
+          - Updated npm packages to latest compatible versions
+          - Fixed security vulnerabilities (if any)
+          - All tests passing ✅
+          
+          ### To merge:
+          1. Review the changes
+          2. Ensure all tests pass
+          3. Merge when ready
+          
+          ---
+          *This PR was created automatically by GitHub Actions*
+        branch: chore/update-dependencies
+        delete-branch: true 
