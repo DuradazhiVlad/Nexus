@@ -3,6 +3,7 @@ import { Sidebar } from '../../components/Sidebar';
 import { FileUpload } from '../../components/FileUpload';
 import { supabase } from '../../lib/supabase';
 import { DatabaseService } from '../../lib/database';
+import { createPost, getAllPosts } from '../../lib/postService';
 import { 
   User, 
   Mail, 
@@ -20,7 +21,13 @@ import {
   Plus,
   Upload,
   Check,
-  AlertCircle
+  AlertCircle,
+  Send,
+  Smile,
+  FileText,
+  Video,
+  MoreHorizontal,
+  Trash2
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -65,6 +72,18 @@ export function Profile() {
   const [saving, setSaving] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   
+  // Post creation states
+  const [postContent, setPostContent] = useState('');
+  const [postMediaUrl, setPostMediaUrl] = useState('');
+  const [postMediaType, setPostMediaType] = useState('');
+  const [creatingPost, setCreatingPost] = useState(false);
+  const [showPostForm, setShowPostForm] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showMediaInput, setShowMediaInput] = useState(false);
+  const [characterCount, setCharacterCount] = useState(0);
+  const [userPosts, setUserPosts] = useState([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  
   // Form states
   const [editForm, setEditForm] = useState({
     name: '',
@@ -98,9 +117,22 @@ export function Profile() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const MAX_CHARACTERS = 280; // Twitter-style character limit
+  const EMOJIS = ['😊', '😂', '❤️', '👍', '🎉', '🔥', '😍', '🤔', '😭', '😎', '🥳', '💪', '✨', '🌟', '💯'];
+
   useEffect(() => {
     loadProfile();
   }, [location.key]);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadUserPosts();
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    setCharacterCount(postContent.length);
+  }, [postContent]);
 
   const loadProfile = async () => {
     try {
@@ -413,6 +445,88 @@ export function Profile() {
     return `${first}${last}`;
   };
 
+  // Post creation functions
+  const addEmoji = (emoji: string) => {
+    if (characterCount + emoji.length <= MAX_CHARACTERS) {
+      setPostContent(prev => prev + emoji);
+    }
+  };
+
+  const handleCreatePost = async (e: any) => {
+    e.preventDefault();
+    if (!postContent.trim() || !currentUser || characterCount > MAX_CHARACTERS) return;
+    
+    setCreatingPost(true);
+    try {
+      const { data, error } = await createPost({
+        content: postContent,
+        media_url: postMediaUrl || undefined,
+        media_type: postMediaType || undefined,
+      });
+      
+      if (error) {
+        console.error('Error creating post:', error);
+        throw error;
+      }
+      
+      setPostContent('');
+      setPostMediaUrl('');
+      setPostMediaType('');
+      setShowMediaInput(false);
+      setShowEmojiPicker(false);
+      setShowPostForm(false);
+      setSuccess('Пост успішно створено!');
+      
+      // Reload user posts
+      loadUserPosts();
+    } catch (e: any) {
+      console.error('Error creating post:', e);
+      setError('Не вдалося створити пост');
+    } finally {
+      setCreatingPost(false);
+    }
+  };
+
+  const loadUserPosts = async () => {
+    if (!currentUser) return;
+    
+    setLoadingPosts(true);
+    try {
+      const { data, error } = await getAllPosts();
+      if (error) {
+        console.error('Error fetching posts:', error);
+        throw error;
+      }
+      
+      // Filter posts by current user's profile ID
+      const userPosts = (data || []).filter((post: any) => post.user_id === currentUser.id);
+      setUserPosts(userPosts);
+    } catch (error) {
+      console.error('Error loading user posts:', error);
+    } finally {
+      setLoadingPosts(false);
+    }
+  };
+
+  const formatPostDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) {
+      return 'щойно';
+    } else if (diffInHours < 24) {
+      return `${diffInHours}г тому`;
+    } else {
+      return date.toLocaleDateString('uk-UA', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen bg-gray-50">
@@ -498,26 +612,41 @@ export function Profile() {
 
             {/* Profile Info */}
             <div className="relative px-6 pb-6">
-              {/* Avatar */}
+              {/* Avatar and User Info */}
               <div className="flex items-end justify-between -mt-16 mb-4">
-                <div className="relative">
-                  <div className="w-32 h-32 bg-white rounded-full p-2 shadow-lg">
-                    {profile.avatar ? (
-                      <img
-                        src={profile.avatar}
-                        alt={profile.name}
-                        className="w-full h-full rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-                        {getInitials(profile.name, profile.last_name)}
-                      </div>
+                <div className="flex items-end space-x-6">
+                  <div className="relative">
+                    <div className="w-32 h-32 bg-white rounded-full p-2 shadow-lg">
+                      {profile.avatar ? (
+                        <img
+                          src={profile.avatar}
+                          alt={profile.name}
+                          className="w-full h-full rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+                          {getInitials(profile.name, profile.last_name)}
+                        </div>
+                      )}
+                    </div>
+                    {isEditing && (
+                      <button className="absolute bottom-2 right-2 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors">
+                        <Camera size={16} />
+                      </button>
                     )}
                   </div>
-                  {isEditing && (
-                    <button className="absolute bottom-2 right-2 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors">
-                      <Camera size={16} />
-                    </button>
+
+                  {/* User Name and Email */}
+                  {!isEditing && (
+                    <div className="mb-2">
+                      <h1 className="text-3xl font-bold text-gray-900">
+                        {profile.name} {profile.last_name}
+                      </h1>
+                      <p className="text-gray-600 flex items-center mt-1">
+                        <Mail size={16} className="mr-2" />
+                        {profile.email}
+                      </p>
+                    </div>
                   )}
                 </div>
 
@@ -571,16 +700,6 @@ export function Profile() {
               <div className="space-y-4">
                 {!isEditing ? (
                   <>
-                    <div>
-                      <h1 className="text-3xl font-bold text-gray-900">
-                        {profile.name} {profile.last_name}
-                      </h1>
-                      <p className="text-gray-600 flex items-center mt-1">
-                        <Mail size={16} className="mr-2" />
-                        {profile.email}
-                      </p>
-                    </div>
-
                     {profile.bio && (
                       <p className="text-gray-700 text-lg leading-relaxed">
                         {profile.bio}
@@ -1023,15 +1142,183 @@ export function Profile() {
             </div>
 
             <div className="p-6">
-              <div className="text-center py-12">
-                <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Поки що немає контенту</h3>
-                <p className="text-gray-600 mb-4">Почніть ділитися своїми думками та фото</p>
-                <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Створити пост
-                </button>
+              {/* Create Post Form */}
+              <div className="mb-6">
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                      {profile?.name?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                    
+                    <div className="flex-1">
+                      <form onSubmit={handleCreatePost}>
+                        <textarea
+                          className="w-full border-0 resize-none text-lg placeholder-gray-500 focus:outline-none focus:ring-0 bg-transparent"
+                          placeholder="Що нового?"
+                          value={postContent}
+                          onChange={e => setPostContent(e.target.value)}
+                          rows={3}
+                          maxLength={MAX_CHARACTERS}
+                        />
+                        
+                        {/* Character count and actions */}
+                        <div className="flex items-center justify-between mt-3">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                              className="p-2 text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
+                            >
+                              <Smile size={18} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowMediaInput(!showMediaInput)}
+                              className="p-2 text-gray-500 hover:text-green-500 hover:bg-green-50 rounded-full transition-colors"
+                            >
+                              <ImageIcon size={18} />
+                            </button>
+                          </div>
+                          
+                          <div className="flex items-center space-x-3">
+                            <span className={`text-sm ${characterCount > MAX_CHARACTERS ? 'text-red-500' : 'text-gray-500'}`}>
+                              {characterCount}/{MAX_CHARACTERS}
+                            </span>
+                            <button
+                              type="submit"
+                              disabled={creatingPost || !postContent.trim() || characterCount > MAX_CHARACTERS}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center text-sm"
+                            >
+                              {creatingPost ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              ) : (
+                                <Send size={14} className="mr-2" />
+                              )}
+                              {creatingPost ? 'Створення...' : 'Опублікувати'}
+                            </button>
+                          </div>
+                        </div>
+                      </form>
+                      
+                      {/* Emoji picker */}
+                      {showEmojiPicker && (
+                        <div className="mt-3 p-3 bg-white rounded-lg border">
+                          <div className="grid grid-cols-8 gap-2">
+                            {EMOJIS.map((emoji, index) => (
+                              <button
+                                key={index}
+                                onClick={() => addEmoji(emoji)}
+                                className="text-xl hover:bg-gray-100 rounded p-1 transition-colors"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Media input */}
+                      {showMediaInput && (
+                        <div className="mt-3 space-y-3">
+                          <input
+                            type="text"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            placeholder="Посилання на медіа (необов'язково)"
+                            value={postMediaUrl}
+                            onChange={e => setPostMediaUrl(e.target.value)}
+                          />
+                          <select
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            value={postMediaType}
+                            onChange={e => setPostMediaType(e.target.value)}
+                          >
+                            <option value="">Тип медіа</option>
+                            <option value="photo">Фото</option>
+                            <option value="video">Відео</option>
+                            <option value="document">Документ</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
+
+              {/* User Posts */}
+              {loadingPosts ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-gray-600 text-sm">Завантаження постів...</p>
+                </div>
+              ) : userPosts.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <MessageCircle className="h-6 w-6 text-gray-400" />
+                  </div>
+                  <h3 className="text-base font-medium text-gray-900 mb-1">Поки що немає постів</h3>
+                  <p className="text-gray-600 text-sm">Створіть свій перший пост вище!</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {userPosts.map((post: any) => (
+                    <div key={post.id} className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex items-start space-x-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                          {profile?.name?.charAt(0).toUpperCase() || 'U'}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="font-medium text-gray-900 text-sm">
+                              {profile?.name} {profile?.last_name}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {formatPostDate(post.created_at)}
+                            </span>
+                          </div>
+                          <div className="text-gray-700 text-sm whitespace-pre-line mb-2">
+                            {post.content}
+                          </div>
+                          
+                          {/* Media content */}
+                          {post.media_url && (
+                            <div className="mb-2">
+                              {post.media_type === 'photo' ? (
+                                <img 
+                                  src={post.media_url} 
+                                  alt="media" 
+                                  className="max-h-48 w-full object-cover rounded-lg" 
+                                />
+                              ) : post.media_type === 'video' ? (
+                                <video 
+                                  src={post.media_url} 
+                                  controls 
+                                  className="max-h-48 w-full rounded-lg" 
+                                />
+                              ) : post.media_type === 'document' ? (
+                                <a 
+                                  href={post.media_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="inline-flex items-center px-3 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                                >
+                                  <FileText size={14} className="mr-1" />
+                                  Переглянути документ
+                                </a>
+                              ) : null}
+                            </div>
+                          )}
+                          
+                          {/* Post stats */}
+                          <div className="flex items-center space-x-4 text-xs text-gray-500">
+                            <span>❤️ {post.likes_count || 0}</span>
+                            <span>💬 {post.comments_count || 0}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
