@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { FileUpload } from '../../components/FileUpload';
+import { PostCard } from '../../components/PostCard';
 import { supabase } from '../../lib/supabase';
 import { DatabaseService } from '../../lib/database';
-import { createPost, getAllPosts, deletePost } from '../../lib/postService';
+import { createPost, getAllPosts, deletePost, getUserPosts } from '../../lib/postService';
 import { 
   User, 
   Mail, 
@@ -80,8 +81,6 @@ export function Profile() {
   const [characterCount, setCharacterCount] = useState(0);
   const [userPosts, setUserPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
-  const [showPostMenu, setShowPostMenu] = useState<string | null>(null);
-  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   
   // Form states
   const [editForm, setEditForm] = useState({
@@ -493,15 +492,13 @@ export function Profile() {
     
     setLoadingPosts(true);
     try {
-      const { data, error } = await getAllPosts();
+      const { data, error } = await getUserPosts(profile.id);
       if (error) {
         console.error('Error fetching posts:', error);
         throw error;
       }
       
-      // Filter posts by current user's profile ID
-      const userPosts = (data || []).filter((post: any) => post.user_id === profile.id);
-      setUserPosts(userPosts);
+      setUserPosts(data || []);
     } catch (error) {
       console.error('Error loading user posts:', error);
     } finally {
@@ -509,30 +506,7 @@ export function Profile() {
     }
   };
 
-  const handleDeletePost = async (postId: string) => {
-    try {
-      const { error } = await deletePost(postId);
-      if (error) throw error;
-      
-      // Оновлюємо список постів після видалення
-      await loadUserPosts();
-      setSuccess('Пост успішно видалено');
-      setDeletingPostId(null);
-    } catch (error) {
-      console.error('Error deleting post:', error);
-      setError('Не вдалося видалити пост');
-      setDeletingPostId(null);
-    }
-  };
 
-  const handleDeleteClick = (postId: string) => {
-    setDeletingPostId(postId);
-    setShowPostMenu(null);
-  };
-
-  const handleDeleteCancel = () => {
-    setDeletingPostId(null);
-  };
 
   const formatPostDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -1134,21 +1108,23 @@ export function Profile() {
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Heart className="h-6 w-6 text-blue-600" />
               </div>
-              <div className="text-2xl font-bold text-gray-900">0</div>
+              <div className="text-2xl font-bold text-gray-900">
+                {userPosts.reduce((total, post: any) => total + (post.likes_count || 0), 0)}
+              </div>
               <div className="text-sm text-gray-600">Вподобань</div>
             </div>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <MessageCircle className="h-6 w-6 text-green-600" />
               </div>
-              <div className="text-2xl font-bold text-gray-900">0</div>
+              <div className="text-2xl font-bold text-gray-900">{userPosts.length}</div>
               <div className="text-sm text-gray-600">Постів</div>
             </div>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
               <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Users className="h-6 w-6 text-purple-600" />
               </div>
-              <div className="text-2xl font-bold text-gray-900">0</div>
+              <div className="text-2xl font-bold text-gray-900">{profile?.friends_count || 0}</div>
               <div className="text-sm text-gray-600">Друзів</div>
             </div>
           </div>
@@ -1287,88 +1263,49 @@ export function Profile() {
                   <p className="text-gray-600 text-sm">Створіть свій перший пост вище!</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {userPosts.map((post: any) => (
-                    <div key={post.id} className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                          {profile?.name?.charAt(0).toUpperCase() || 'U'}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center space-x-2">
-                              <span className="font-medium text-gray-900 text-sm">
-                                {profile?.name} {profile?.last_name}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {formatPostDate(post.created_at)}
-                              </span>
-                            </div>
-                            
-                            {/* Post menu */}
-                            <div className="relative">
-                              <button
-                                onClick={() => setShowPostMenu(showPostMenu === post.id ? null : post.id)}
-                                className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-full transition-colors"
-                              >
-                                <MoreHorizontal size={14} />
-                              </button>
-                              
-                              {showPostMenu === post.id && (
-                                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[100px]">
-                                  <button
-                                    onClick={() => handleDeleteClick(post.id)}
-                                    className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center"
-                                  >
-                                    <Trash2 size={12} className="mr-2" />
-                                    Видалити
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-gray-700 text-sm whitespace-pre-line mb-2">
-                            {post.content}
-                          </div>
-                          
-                          {/* Media content */}
-                          {post.media_url && (
-                            <div className="mb-2">
-                              {post.media_type === 'photo' ? (
-                                <img 
-                                  src={post.media_url} 
-                                  alt="media" 
-                                  className="max-h-48 w-full object-cover rounded-lg" 
-                                />
-                              ) : post.media_type === 'video' ? (
-                                <video 
-                                  src={post.media_url} 
-                                  controls 
-                                  className="max-h-48 w-full rounded-lg" 
-                                />
-                              ) : post.media_type === 'document' ? (
-                                <a 
-                                  href={post.media_url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer" 
-                                  className="inline-flex items-center px-3 py-1 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
-                                >
-                                  <FileText size={14} className="mr-1" />
-                                  Переглянути документ
-                                </a>
-                              ) : null}
-                            </div>
-                          )}
-                          
-                          {/* Post stats */}
-                          <div className="flex items-center space-x-4 text-xs text-gray-500">
-                            <span>❤️ {post.likes_count || 0}</span>
-                            <span>💬 {post.comments_count || 0}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="space-y-6">
+                  {userPosts.map((post: any) => {
+                    const postCardProps = {
+                      post: {
+                        id: post.id,
+                        content: post.content,
+                        media_url: post.media_url,
+                        media_type: post.media_type,
+                        created_at: post.created_at,
+                        likes_count: post.likes_count || 0,
+                        comments_count: post.comments_count || 0,
+                        isLiked: post.isLiked || false,
+                        author: {
+                          id: post.author?.id || '',
+                          name: post.author?.name || '',
+                          last_name: post.author?.last_name || '',
+                          avatar: post.author?.avatar || '',
+                          friends_count: post.author?.friends_count || 0
+                        }
+                      },
+                      currentUserId: currentUser?.id || '',
+                      currentUserProfileId: profile?.id,
+                      onDelete: (postId: string) => {
+                        setUserPosts(prev => prev.filter((p: any) => p.id !== postId));
+                      },
+                      onLike: (postId: string, isLiked: boolean) => {
+                        setUserPosts(prev => prev.map((p: any) => 
+                          p.id === postId 
+                            ? { ...p, isLiked, likes_count: isLiked ? p.likes_count + 1 : p.likes_count - 1 }
+                            : p
+                        ));
+                      },
+                      onUpdate: (postId: string, updates: any) => {
+                        setUserPosts(prev => prev.map((p: any) => 
+                          p.id === postId 
+                            ? { ...p, ...updates }
+                            : p
+                        ));
+                      }
+                    };
+                    
+                    return <PostCard key={post.id} {...postCardProps} />;
+                  })}
                 </div>
               )}
             </div>
@@ -1376,34 +1313,7 @@ export function Profile() {
         </div>
       </div>
 
-      {/* Delete confirmation dialog */}
-      {deletingPostId && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
-            <div className="text-center">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Trash2 className="h-6 w-6 text-red-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Видалити пост?</h3>
-              <p className="text-gray-600 mb-6">Цю дію неможливо скасувати. Пост буде видалено назавжди.</p>
-              <div className="flex space-x-3">
-                <button
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  onClick={handleDeleteCancel}
-                >
-                  Скасувати
-                </button>
-                <button
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  onClick={() => handleDeletePost(deletingPostId)}
-                >
-                  Видалити
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

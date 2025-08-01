@@ -215,3 +215,44 @@ export async function deletePost(post_id: string) {
     .delete()
     .eq('id', post_id);
 } 
+
+export async function getUserPosts(userProfileId: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  let query = supabase
+    .from('posts')
+    .select(`
+      *,
+      user_profiles!posts_user_id_fkey (
+        id, 
+        name, 
+        last_name, 
+        avatar, 
+        friends_count
+      ),
+      post_likes (id),
+      post_comments (id)
+    `)
+    .eq('user_id', userProfileId)
+    .order('created_at', { ascending: false });
+
+  const { data, error } = await query;
+
+  if (error) {
+    return { data: null, error };
+  }
+
+  // Обробляємо дані щоб додати кількість лайків, коментарів та перевірку лайку
+  const processedPosts = data?.map(post => ({
+    ...post,
+    likes_count: post.post_likes?.length || 0,
+    comments_count: post.post_comments?.length || 0,
+    isLiked: user ? post.post_likes?.some((like: any) => like.user_id === user.id) : false,
+    author: {
+      ...post.user_profiles,
+      friends_count: post.user_profiles?.friends_count || 0
+    }
+  })) || [];
+
+  return { data: processedPosts, error: null };
+} 
