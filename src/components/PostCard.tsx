@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Heart, 
   MessageCircle, 
@@ -13,9 +13,12 @@ import {
   FileText,
   Edit3,
   Send,
-  X
+  X,
+  Users,
+  Check
 } from 'lucide-react';
-import { likePost, unlikePost, deletePost, getCommentsForPost, addCommentToPost, updatePost } from '../lib/postService';
+import { likePost, unlikePost, deletePost, getCommentsForPost, addCommentToPost, updatePost, sharePostToChat } from '../lib/postService';
+import { supabase } from '../lib/supabase';
 
 interface Comment {
   id: string;
@@ -29,6 +32,14 @@ interface Comment {
     last_name: string;
     avatar?: string;
   };
+}
+
+interface Friend {
+  id: string;
+  name: string;
+  last_name: string;
+  avatar?: string;
+  auth_user_id: string;
 }
 
 interface PostCardProps {
@@ -84,6 +95,60 @@ export function PostCard({
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [isAddingComment, setIsAddingComment] = useState(false);
 
+  // Share state
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [selectedFriend, setSelectedFriend] = useState<string>('');
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
+
+  // Load friends for sharing
+  useEffect(() => {
+    if (showShareModal) {
+      loadFriends();
+    }
+  }, [showShareModal]);
+
+  const loadFriends = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!profile) return;
+
+      // Get user's friends with their auth_user_id for sharing
+      const { data: friendsData, error } = await supabase
+        .from('friendships')
+        .select(`
+          user_profiles!friendships_friend_id_fkey (
+            id,
+            name,
+            last_name,
+            avatar,
+            auth_user_id
+          )
+        `)
+        .eq('user_id', profile.id)
+        .eq('status', 'accepted');
+
+      if (error) {
+        console.error('Error loading friends:', error);
+        return;
+      }
+
+      const friendsList = friendsData?.map(f => f.user_profiles).filter(Boolean) || [];
+      setFriends(friendsList);
+    } catch (error) {
+      console.error('Error loading friends:', error);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -130,11 +195,12 @@ export function PostCard({
       setIsDeleting(true);
       await deletePost(post.id);
       onDelete?.(post.id);
+      setShowDeleteConfirm(false);
     } catch (error) {
       console.error('Error deleting post:', error);
+      alert('Помилка при видаленні поста. Спробуйте ще раз.');
     } finally {
       setIsDeleting(false);
-      setShowDeleteConfirm(false);
     }
   };
 
@@ -154,6 +220,7 @@ export function PostCard({
       });
     } catch (error) {
       console.error('Error updating post:', error);
+      alert('Помилка при оновленні поста. Спробуйте ще раз.');
     } finally {
       setIsSaving(false);
     }
@@ -175,6 +242,7 @@ export function PostCard({
         setComments(data || []);
       } catch (error) {
         console.error('Error loading comments:', error);
+        alert('Помилка при завантаженні коментарів. Спробуйте ще раз.');
       } finally {
         setIsLoadingComments(false);
       }
@@ -197,14 +265,40 @@ export function PostCard({
       setCommentInput('');
     } catch (error) {
       console.error('Error adding comment:', error);
+      alert('Помилка при додаванні коментаря. Спробуйте ще раз.');
     } finally {
       setIsAddingComment(false);
     }
   };
 
   const handleShare = () => {
-    // Тут можна додати логіку для пересилання в чат
-    console.log('Share post:', post.id);
+    setShowShareModal(true);
+  };
+
+  const handleShareToFriend = async () => {
+    if (!selectedFriend) return;
+
+    try {
+      setIsSharing(true);
+      // Find the selected friend's auth_user_id
+      const selectedFriendData = friends.find(f => f.id === selectedFriend);
+      if (!selectedFriendData?.auth_user_id) {
+        throw new Error('Friend not found');
+      }
+      
+      await sharePostToChat(post.id, selectedFriendData.auth_user_id);
+      setShareSuccess(true);
+      setTimeout(() => {
+        setShowShareModal(false);
+        setShareSuccess(false);
+        setSelectedFriend('');
+      }, 2000);
+    } catch (error) {
+      console.error('Error sharing post:', error);
+      alert('Помилка при пересиланні поста. Спробуйте ще раз.');
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   const renderMedia = () => {
@@ -488,6 +582,7 @@ export function PostCard({
                   value={commentInput}
                   onChange={e => setCommentInput(e.target.value)}
                   disabled={isAddingComment}
+                  onKeyPress={e => e.key === 'Enter' && handleAddComment()}
                 />
                 <button
                   className="px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
@@ -532,6 +627,71 @@ export function PostCard({
                   {isDeleting ? 'Видалення...' : 'Видалити'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Share2 className="h-6 w-6 text-green-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Переслати пост</h3>
+              <p className="text-gray-600 mb-4">Виберіть друга, якому хочете переслати цей пост</p>
+              
+              {shareSuccess ? (
+                <div className="text-center py-4">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Check className="h-6 w-6 text-green-600" />
+                  </div>
+                  <p className="text-green-600 font-medium">Пост успішно переслано!</p>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-4">
+                    <select
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={selectedFriend}
+                      onChange={e => setSelectedFriend(e.target.value)}
+                    >
+                      <option value="">Виберіть друга</option>
+                      {friends.map(friend => (
+                        <option key={friend.id} value={friend.id}>
+                          {friend.name} {friend.last_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {friends.length === 0 && (
+                    <p className="text-gray-500 text-sm mb-4">У вас поки немає друзів для пересилання</p>
+                  )}
+                  
+                  <div className="flex space-x-3">
+                    <button
+                      className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      onClick={() => {
+                        setShowShareModal(false);
+                        setSelectedFriend('');
+                      }}
+                      disabled={isSharing}
+                    >
+                      Скасувати
+                    </button>
+                    <button
+                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                      onClick={handleShareToFriend}
+                      disabled={isSharing || !selectedFriend}
+                    >
+                      {isSharing ? 'Пересилання...' : 'Переслати'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
