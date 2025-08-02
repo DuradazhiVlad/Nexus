@@ -12,6 +12,7 @@ import { Settings } from './src/pages/settings';
 import { Groups } from './src/pages/groups';
 import { GroupDetail } from './src/pages/group-detail';
 import { People } from './src/pages/people';
+import { UserDetailPage } from './src/pages/user-detail';
 import { Games } from './src/pages/games';
 import { TestDB } from './src/pages/test-db';
 import { Wall } from './src/pages/wall';
@@ -103,6 +104,7 @@ function App() {
         <Route path="/messages" element={<Messages />} />
         <Route path="/friends" element={<Friends />} />
         <Route path="/people" element={<People />} />
+        <Route path="/user/:userId" element={<UserDetailPage />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/groups" element={<Groups />} />
         <Route path="/groups/:groupId" element={<GroupDetail />} />
