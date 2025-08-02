@@ -33,22 +33,15 @@ interface Group {
   name: string;
   description?: string;
   avatar?: string;
-  cover?: string;
-  is_private: boolean;
+  cover_image?: string;
   created_by: string;
   created_at: string;
+  updated_at: string;
+  is_public: boolean;
   member_count: number;
   post_count: number;
-  category?: string;
-  tags?: string[];
-  location?: string;
-  website?: string;
-  rules?: string[];
-  contactemail?: string;
-  is_verified?: boolean;
-  is_active?: boolean;
-  last_activity?: string;
-  creator?: {
+  created_by_user?: {
+    id: string;
     name: string;
     last_name: string;
     avatar?: string;
@@ -168,56 +161,73 @@ export function Groups() {
     try {
       setLoading(true);
       
-      // Отримуємо всі групи без join до user_profiles
-      const { data: groupsData, error: groupsError } = await supabase
+      // Get current user's profile
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('No authenticated user');
+        return;
+      }
+
+      // Get user profile
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userProfile) {
+        console.error('User profile not found');
+        return;
+      }
+
+      // Fetch groups with membership info
+      const { data: groupsData, error } = await supabase
         .from('groups')
-        .select('*')
-        .eq('is_active', true)
-        .order('last_activity', { ascending: false });
+        .select(`
+          *,
+          created_by_user:user_profiles!groups_created_by_fkey (
+            id,
+            name,
+            last_name,
+            avatar
+          ),
+          user_membership:group_members!group_members_group_id_fkey (
+            role,
+            joined_at
+          )
+        `)
+        .eq('user_membership.user_id', userProfile.id)
+        .order('created_at', { ascending: false });
 
-      if (groupsError) throw groupsError;
-
-      // Отримуємо інформацію про створювачів груп окремо
-      let creatorsData = [];
-      if (groupsData && groupsData.length > 0) {
-        const creatorIds = [...new Set(groupsData.map(group => group.created_by))];
-        const { data: creators, error: creatorsError } = await supabase
-          .from('user_profiles')
-          .select('id, name, last_name, avatar')
-          .in('id', creatorIds);
-
-        if (!creatorsError && creators) {
-          creatorsData = creators;
-        }
+      if (error) {
+        console.error('Error fetching groups:', error);
+        return;
       }
 
-      // Отримуємо членство користувача в групах
-      let userMemberships = [];
-      if (currentUser) {
-        const { data: membershipsData, error: membershipsError } = await supabase
-          .from('group_members')
-          .select('group_id, role, joined_at')
-          .eq('user_id', currentUser.id);
+      // Also fetch public groups that user is not a member of
+      const { data: publicGroups, error: publicError } = await supabase
+        .from('groups')
+        .select(`
+          *,
+          created_by_user:user_profiles!groups_created_by_fkey (
+            id,
+            name,
+            last_name,
+            avatar
+          )
+        `)
+        .eq('is_public', true)
+        .not('id', 'in', `(${groupsData?.map(g => g.id).join(',') || 'null'})`)
+        .order('created_at', { ascending: false });
 
-        if (membershipsError) {
-          console.error('Error fetching memberships:', membershipsError);
-        } else {
-          userMemberships = membershipsData || [];
-        }
+      if (publicError) {
+        console.error('Error fetching public groups:', publicError);
+        return;
       }
 
-      // Додаємо інформацію про членство до груп
-      const groupsWithMembership = (groupsData || []).map(group => {
-        const membership = userMemberships.find(m => m.group_id === group.id);
-        const creator = creatorsData.find(c => c.id === group.created_by);
-        return {
-          ...group,
-          user_membership: membership || null,
-          creator: creator || null
-        };
-      });
-
-      setGroups(groupsWithMembership);
+      const allGroups = [...(groupsData || []), ...(publicGroups || [])];
+      setGroups(allGroups);
+      setFilteredGroups(allGroups);
     } catch (error) {
       console.error('Error fetching groups:', error);
       addNotification({
@@ -255,7 +265,7 @@ export function Groups() {
     // Фільтр по типу
     if (typeFilter !== 'all') {
       filtered = filtered.filter(group => 
-        typeFilter === 'public' ? !group.is_private : group.is_private
+        typeFilter === 'public' ? group.is_public : !group.is_public
       );
     }
 
@@ -314,17 +324,8 @@ export function Groups() {
         .insert([{
           name: createForm.name.trim(),
           description: createForm.description.trim(),
-          is_private: createForm.is_private,
+          is_public: !createForm.is_private,
           created_by: currentUser.id,
-          category: createForm.category || null,
-          location: createForm.location.trim() || null,
-          website: createForm.website.trim() || null,
-          contactemail: createForm.contactemail.trim() || null,
-          rules: createForm.rules.length > 0 ? createForm.rules : null,
-          member_count: 1,
-          post_count: 0,
-          is_active: true,
-          last_activity: new Date().toISOString()
         }])
         .select()
         .single();
@@ -511,13 +512,13 @@ export function Groups() {
       <div key={group.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
         {/* Group Cover */}
         <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600 relative">
-          {group.cover ? (
-            <img src={group.cover} alt={group.name} className="w-full h-full object-cover" />
+          {group.cover_image ? (
+            <img src={group.cover_image} alt={group.name} className="w-full h-full object-cover" />
           ) : (
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600"></div>
           )}
           <div className="absolute top-3 right-3">
-            {group.is_private ? (
+            {!group.is_public ? (
               <Lock size={16} className="text-white" />
             ) : (
               <Globe size={16} className="text-white" />
