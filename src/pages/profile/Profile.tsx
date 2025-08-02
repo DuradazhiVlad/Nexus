@@ -232,6 +232,12 @@ export function Profile() {
         });
       } else {
         console.log('✅ User profile loaded:', userProfile);
+        console.log('🔍 Hobbies:', userProfile.hobbies);
+        console.log('🔍 Languages:', userProfile.languages);
+        console.log('🔍 Hobbies type:', typeof userProfile.hobbies);
+        console.log('🔍 Languages type:', typeof userProfile.languages);
+        console.log('🔍 Hobbies length:', userProfile.hobbies?.length);
+        console.log('🔍 Languages length:', userProfile.languages?.length);
         setProfile(userProfile);
         setEditForm({
           name: userProfile.name,
@@ -338,6 +344,10 @@ export function Profile() {
         updated_at: new Date().toISOString()
       };
       
+      console.log('🔍 Saving profile with updates:', updates);
+      console.log('🔍 Hobbies being saved:', updates.hobbies);
+      console.log('🔍 Languages being saved:', updates.languages);
+      
       const { error } = await supabase
         .from('user_profiles')
         .update(updates)
@@ -345,6 +355,7 @@ export function Profile() {
         
       if (error) throw error;
       
+      console.log('✅ Profile saved successfully');
       setSuccess('Профіль успішно оновлено!');
       setIsEditing(false);
       await loadProfile(); // Перезавантажуємо профіль
@@ -797,6 +808,12 @@ export function Profile() {
                             </div>
                           )}
                         </div>
+                        
+                        {(() => {
+                          console.log('🔍 Rendering hobbies:', profile.hobbies);
+                          console.log('🔍 Rendering languages:', profile.languages);
+                          return null;
+                        })()}
                         
                         {profile.hobbies?.length > 0 && (
                           <div className="mt-4">

@@ -145,6 +145,8 @@ export class DatabaseService {
         .eq('auth_user_id', authUser.id)
         .single();
       
+      console.log('🔍 Raw profile data from database:', profile);
+      
       if (error) {
         if (error.code === 'PGRST116') {
           console.log('📝 Profile not found, creating new one...');

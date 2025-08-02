@@ -1,180 +1,135 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { getUserPosts, createPost } from '../../lib/postService';
+import { DatabaseService } from '../../lib/database';
 
 export function TestDB() {
   const [testResults, setTestResults] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const addResult = (message: string) => {
+  const addLog = (message: string) => {
     setTestResults(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
   };
 
-  const runTests = async () => {
-    setLoading(true);
-    setTestResults([]);
-    
+  const testHobbiesAndLanguages = async () => {
     try {
-      // Test 1: Check authentication
-      addResult('🔍 Testing authentication...');
+      setLoading(true);
+      addLog('🔍 Testing hobbies and languages...');
+
+      // Get current user
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError) {
-        addResult(`❌ Auth error: ${authError.message}`);
+        addLog(`❌ Auth error: ${authError.message}`);
         return;
       }
       if (!user) {
-        addResult('❌ No authenticated user');
+        addLog('❌ No authenticated user');
         return;
       }
-      addResult(`✅ User authenticated: ${user.email}`);
+      addLog(`✅ Authenticated user: ${user.email}`);
 
-      // Test 2: Check user profile
-      addResult('🔍 Testing user profile...');
+      // Get user profile
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('auth_user_id', user.id)
         .single();
-      
+
       if (profileError) {
-        addResult(`❌ Profile error: ${profileError.message}`);
+        addLog(`❌ Profile error: ${profileError.message}`);
         return;
       }
-      addResult(`✅ Profile found: ${profile.name} (ID: ${profile.id})`);
 
-      // Test 3: Check posts table structure
-      addResult('🔍 Testing posts table...');
-      const { data: posts, error: postsError } = await supabase
-        .from('posts')
+      addLog(`✅ Profile found: ${profile.id}`);
+      addLog(`🔍 Raw profile data: ${JSON.stringify(profile, null, 2)}`);
+      addLog(`🔍 Hobbies type: ${typeof profile.hobbies}`);
+      addLog(`🔍 Hobbies value: ${JSON.stringify(profile.hobbies)}`);
+      addLog(`🔍 Languages type: ${typeof profile.languages}`);
+      addLog(`🔍 Languages value: ${JSON.stringify(profile.languages)}`);
+
+      // Test updating hobbies and languages
+      const testHobbies = ['Програмування', 'Подорожі', 'Спорт'];
+      const testLanguages = ['Українська', 'Англійська', 'Німецька'];
+
+      addLog('🔄 Testing update with hobbies and languages...');
+      const { error: updateError } = await supabase
+        .from('user_profiles')
+        .update({
+          hobbies: testHobbies,
+          languages: testLanguages,
+          updated_at: new Date().toISOString()
+        })
+        .eq('auth_user_id', user.id);
+
+      if (updateError) {
+        addLog(`❌ Update error: ${updateError.message}`);
+        return;
+      }
+
+      addLog('✅ Update successful');
+
+      // Fetch updated profile
+      const { data: updatedProfile, error: fetchError } = await supabase
+        .from('user_profiles')
         .select('*')
-        .limit(5);
-      
-      if (postsError) {
-        addResult(`❌ Posts error: ${postsError.message}`);
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (fetchError) {
+        addLog(`❌ Fetch error: ${fetchError.message}`);
         return;
       }
-      addResult(`✅ Posts table accessible. Found ${posts?.length || 0} posts`);
 
-      // Test 4: Check user posts
-      addResult('🔍 Testing getUserPosts function...');
-      const { data: userPosts, error: userPostsError } = await getUserPosts(profile.id);
-      
-      if (userPostsError) {
-        addResult(`❌ getUserPosts error: ${userPostsError.message}`);
-        return;
-      }
-      addResult(`✅ getUserPosts successful. Found ${userPosts?.length || 0} user posts`);
-
-      // Test 5: Check posts with joins
-      addResult('🔍 Testing posts with user_profiles join...');
-      const { data: postsWithUsers, error: joinError } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          user_profiles!posts_user_id_fkey (
-            id, 
-            name, 
-            last_name, 
-            avatar
-          )
-        `)
-        .eq('user_id', profile.id)
-        .limit(5);
-      
-      if (joinError) {
-        addResult(`❌ Join error: ${joinError.message}`);
-        return;
-      }
-      addResult(`✅ Join successful. Found ${postsWithUsers?.length || 0} posts with user data`);
-
-      // Test 6: Check foreign key constraint
-      addResult('🔍 Testing foreign key constraint...');
-      const { data: constraintCheck, error: constraintError } = await supabase
-        .from('posts')
-        .select('user_id')
-        .eq('user_id', profile.id)
-        .limit(1);
-      
-      if (constraintError) {
-        addResult(`❌ Foreign key error: ${constraintError.message}`);
-        return;
-      }
-      addResult(`✅ Foreign key constraint working. User ID: ${profile.id}`);
-
-      addResult('✅ All tests completed successfully!');
+      addLog(`✅ Updated profile fetched`);
+      addLog(`🔍 Updated hobbies: ${JSON.stringify(updatedProfile.hobbies)}`);
+      addLog(`🔍 Updated languages: ${JSON.stringify(updatedProfile.languages)}`);
 
     } catch (error) {
-      addResult(`❌ Unexpected error: ${error}`);
+      addLog(`❌ Test error: ${error}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const createTestPost = async () => {
-    setLoading(true);
-    addResult('🔍 Creating test post...');
-    
-    try {
-      const { data, error } = await createPost({
-        content: 'This is a test post to verify the database is working correctly!',
-        media_url: undefined,
-        media_type: undefined
-      });
-      
-      if (error) {
-        addResult(`❌ Error creating test post: ${error.message}`);
-        return;
-      }
-      
-      addResult(`✅ Test post created successfully! Post ID: ${data?.[0]?.id}`);
-      
-      // Refresh the tests to see the new post
-      setTimeout(() => {
-        runTests();
-      }, 1000);
-      
-    } catch (error) {
-      addResult(`❌ Unexpected error creating test post: ${error}`);
-    } finally {
-      setLoading(false);
-    }
+  const clearResults = () => {
+    setTestResults([]);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Database Test Page</h1>
-        
-        <div className="flex gap-4 mb-6">
-          <button
-            onClick={runTests}
-            disabled={loading}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? 'Running Tests...' : 'Run Database Tests'}
-          </button>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">Database Test - Hobbies & Languages</h1>
           
-          <button
-            onClick={createTestPost}
-            disabled={loading}
-            className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-          >
-            {loading ? 'Creating Post...' : 'Create Test Post'}
-          </button>
-        </div>
+          <div className="space-y-4 mb-6">
+            <button
+              onClick={testHobbiesAndLanguages}
+              disabled={loading}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {loading ? 'Testing...' : 'Test Hobbies & Languages'}
+            </button>
+            
+            <button
+              onClick={clearResults}
+              className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 ml-2"
+            >
+              Clear Results
+            </button>
+          </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Test Results</h2>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {testResults.length === 0 ? (
-              <p className="text-gray-500">No tests run yet. Click the button above to start testing.</p>
-            ) : (
-              testResults.map((result, index) => (
-                <div key={index} className="text-sm font-mono">
-                  {result}
-                </div>
-              ))
-            )}
+          <div className="bg-gray-100 rounded-lg p-4">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Test Results:</h2>
+            <div className="space-y-1 max-h-96 overflow-y-auto">
+              {testResults.length === 0 ? (
+                <p className="text-gray-500">No test results yet. Click the test button above.</p>
+              ) : (
+                testResults.map((result, index) => (
+                  <div key={index} className="text-sm font-mono bg-white p-2 rounded border">
+                    {result}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
