@@ -26,14 +26,17 @@ export async function getAllPosts() {
       const { data: userProfile } = await supabase
         .from('user_profiles')
         .select('id, name, last_name, avatar')
-        .eq('auth_user_id', post.user_id)
+        .eq('id', post.user_id)
         .single();
 
       return {
         ...post,
         likes_count: post.post_likes?.length || 0,
         comments_count: post.post_comments?.length || 0,
-        isLiked: user ? post.post_likes?.some((like: any) => like.user_id === user.id) : false,
+        isLiked: user ? post.post_likes?.some((like: any) => {
+          // Перевіряємо чи лайк належить поточному користувачу
+          return like.user_id === userProfile?.id;
+        }) : false,
         author: {
           id: post.user_id,
           name: userProfile?.name || 'Користувач',
@@ -51,7 +54,7 @@ export async function getAllPosts() {
 export async function createPost(post: { content: string, media_url?: string, media_type?: string }) {
   console.log('🔍 Creating post with data:', post);
   
-  // Get the current user's ID directly
+  // Get the current user's profile ID
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('User not authenticated');
@@ -59,7 +62,21 @@ export async function createPost(post: { content: string, media_url?: string, me
 
   console.log('✅ User authenticated:', user.email);
 
-  const postData = { ...post, user_id: user.id };
+  // Get user profile
+  const { data: profile, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .single();
+
+  if (profileError || !profile) {
+    console.error('❌ Profile error:', profileError);
+    throw new Error('User profile not found');
+  }
+
+  console.log('✅ User profile found:', profile.id);
+
+  const postData = { ...post, user_id: profile.id };
   console.log('📝 Inserting post data:', postData);
 
   const result = await supabase
@@ -72,10 +89,21 @@ export async function createPost(post: { content: string, media_url?: string, me
 }
 
 export async function likePost(post_id: string) {
-  // Get the current user's ID
+  // Get the current user's profile ID
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('User not authenticated');
+  }
+
+  // Get user profile
+  const { data: profile, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .single();
+
+  if (profileError || !profile) {
+    throw new Error('User profile not found');
   }
 
   // Перевіряємо, чи користувач вже лайкнув цей пост
@@ -83,7 +111,7 @@ export async function likePost(post_id: string) {
     .from('post_likes')
     .select('id')
     .eq('post_id', post_id)
-    .eq('user_id', user.id)
+    .eq('user_id', profile.id)
     .single();
 
   if (existingLike) {
@@ -92,21 +120,32 @@ export async function likePost(post_id: string) {
 
   return supabase
     .from('post_likes')
-    .insert([{ post_id, user_id: user.id }]);
+    .insert([{ post_id, user_id: profile.id }]);
 }
 
 export async function unlikePost(post_id: string) {
-  // Get the current user's ID
+  // Get the current user's profile ID
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('User not authenticated');
+  }
+
+  // Get user profile
+  const { data: profile, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .single();
+
+  if (profileError || !profile) {
+    throw new Error('User profile not found');
   }
 
   return supabase
     .from('post_likes')
     .delete()
     .eq('post_id', post_id)
-    .eq('user_id', user.id);
+    .eq('user_id', profile.id);
 }
 
 export async function getCommentsForPost(post_id: string) {
@@ -129,7 +168,7 @@ export async function getCommentsForPost(post_id: string) {
       const { data: userProfile } = await supabase
         .from('user_profiles')
         .select('id, name, last_name, avatar')
-        .eq('auth_user_id', comment.user_id)
+        .eq('id', comment.user_id)
         .single();
 
       return {
@@ -151,11 +190,25 @@ export async function getCommentsForPost(post_id: string) {
 export async function addCommentToPost(post_id: string, content: string) {
   console.log('🔍 Adding comment to post:', post_id, 'Content:', content);
   
-  // Get the current user's ID
+  // Get the current user's profile ID
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  // Get user profile
+  const { data: profile, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .single();
+
+  if (profileError || !profile) {
+    console.error('❌ Profile error:', profileError);
+    throw new Error('User profile not found');
+  }
+
+  console.log('✅ User profile found:', profile.id);
 
   // Перевіряємо, чи існує пост
   const { data: post, error: postError } = await supabase
@@ -173,7 +226,7 @@ export async function addCommentToPost(post_id: string, content: string) {
 
   const commentData = {
     post_id,
-    user_id: user.id,
+    user_id: profile.id,
     content: content.trim()
   };
 
@@ -198,11 +251,25 @@ export async function updatePost(post_id: string, updates: { content?: string; m
 export async function deletePost(post_id: string) {
   console.log('🔍 Deleting post:', post_id);
   
-  // Get the current user's ID
+  // Get the current user's profile ID
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  // Get user profile
+  const { data: profile, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .single();
+
+  if (profileError || !profile) {
+    console.error('❌ Profile error:', profileError);
+    throw new Error('User profile not found');
+  }
+
+  console.log('✅ User profile found:', profile.id);
 
   // Перевіряємо чи користувач є автором поста
   const { data: post, error: postError } = await supabase
@@ -216,7 +283,7 @@ export async function deletePost(post_id: string) {
     throw new Error('Post not found');
   }
 
-  if (post.user_id !== user.id) {
+  if (post.user_id !== profile.id) {
     console.error('❌ User not authorized to delete this post');
     throw new Error('You can only delete your own posts');
   }
@@ -242,10 +309,21 @@ export async function deletePost(post_id: string) {
 export async function sharePostToChat(post_id: string, targetUserId: string) {
   console.log('🔍 Sharing post:', post_id, 'to user:', targetUserId);
   
-  // Get the current user's ID
+  // Get the current user's profile ID
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('User not authenticated');
+  }
+
+  // Get user profile
+  const { data: profile, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .single();
+
+  if (profileError || !profile) {
+    throw new Error('User profile not found');
   }
 
   // Get the post data
@@ -266,7 +344,7 @@ export async function sharePostToChat(post_id: string, targetUserId: string) {
   const { data: existingConversation, error: convError } = await supabase
     .from('conversations')
     .select('id')
-    .or(`and(participant1_id.eq.${user.id},participant2_id.eq.${targetUserId}),and(participant1_id.eq.${targetUserId},participant2_id.eq.${user.id})`)
+    .or(`and(participant1_id.eq.${profile.id},participant2_id.eq.${targetUserId}),and(participant1_id.eq.${targetUserId},participant2_id.eq.${profile.id})`)
     .single();
 
   if (existingConversation) {
@@ -276,7 +354,7 @@ export async function sharePostToChat(post_id: string, targetUserId: string) {
     const { data: newConversation, error: createError } = await supabase
       .from('conversations')
       .insert([{
-        participant1_id: user.id,
+        participant1_id: profile.id,
         participant2_id: targetUserId
       }])
       .select('id')
@@ -292,7 +370,7 @@ export async function sharePostToChat(post_id: string, targetUserId: string) {
   // Create a message with the shared post
   const messageData = {
     conversation_id: conversationId,
-    sender_id: user.id,
+    sender_id: profile.id,
     content: `Переслано: ${post.content}`,
     is_read: false
   };
@@ -335,7 +413,7 @@ export async function getUserPosts(userProfileId: string) {
     // Get the auth_user_id for this profile
     const authUserId = profileCheck.auth_user_id;
     
-    // Now fetch posts for this user using auth_user_id
+    // Now fetch posts for this user using profile ID
     const { data, error } = await supabase
       .from('posts')
       .select(`
@@ -343,7 +421,7 @@ export async function getUserPosts(userProfileId: string) {
         post_likes (id, user_id),
         post_comments (id)
       `)
-      .eq('user_id', authUserId)
+      .eq('user_id', userProfileId)
       .order('created_at', { ascending: false });
 
     if (error) {
