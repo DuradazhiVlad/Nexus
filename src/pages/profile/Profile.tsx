@@ -484,6 +484,8 @@ export function Profile() {
     if (!postContent.trim() || !currentUser || characterCount > MAX_CHARACTERS) return;
     
     console.log('🔍 Creating post:', { content: postContent, media_url: postMediaUrl, media_type: postMediaType });
+    console.log('🔍 Current user:', currentUser?.email);
+    console.log('🔍 Current profile:', profile?.id);
     setCreatingPost(true);
     try {
       const { data, error } = await createPost({
@@ -493,15 +495,18 @@ export function Profile() {
       });
       
       if (error) {
-        console.error('Error creating post:', error);
+        console.error('❌ Error creating post:', error);
         throw error;
       }
       
       console.log('✅ Post created successfully:', data);
+      console.log('✅ Post data structure:', JSON.stringify(data, null, 2));
       
       // Додаємо новий пост до списку без перезавантаження
       if (data && data[0]) {
         const newPost = data[0];
+        console.log('✅ New post from database:', newPost);
+        
         const processedPost = {
           ...newPost,
           likes_count: 0,
@@ -512,10 +517,18 @@ export function Profile() {
             name: profile?.name || '',
             last_name: profile?.last_name || '',
             avatar: profile?.avatar || '',
-            friends_count: profile?.friends_count || 0
+            friends_count: 0 // Default value since we removed it from queries
           }
         };
-        setUserPosts(prev => [processedPost, ...prev]);
+        console.log('✅ Processed post for UI:', processedPost);
+        
+        setUserPosts(prev => {
+          const newPosts = [processedPost, ...prev];
+          console.log('✅ Updated posts state:', newPosts.length, 'posts');
+          return newPosts;
+        });
+      } else {
+        console.warn('⚠️ No post data returned from createPost');
       }
       
       setPostContent('');
@@ -524,8 +537,15 @@ export function Profile() {
       setShowMediaInput(false);
       setShowEmojiPicker(false);
       setSuccess('Пост успішно створено!');
+      
+      // Force reload posts after a short delay to verify persistence
+      setTimeout(() => {
+        console.log('🔄 Reloading posts to verify persistence...');
+        loadUserPosts();
+      }, 1000);
+      
     } catch (e: any) {
-      console.error('Error creating post:', e);
+      console.error('❌ Error creating post:', e);
       setError('Не вдалося створити пост');
     } finally {
       setCreatingPost(false);

@@ -22,8 +22,7 @@ export async function getAllPosts() {
         id, 
         name, 
         last_name, 
-        avatar, 
-        friends_count
+        avatar
       ),
       post_likes (id, user_id),
       post_comments (id)
@@ -44,7 +43,7 @@ export async function getAllPosts() {
     isLiked: currentUserProfileId ? post.post_likes?.some((like: any) => like.user_id === currentUserProfileId) : false,
     author: {
       ...post.user_profiles,
-      friends_count: post.user_profiles?.friends_count || 0
+      friends_count: 0 // Default value since we're not selecting it
     }
   })) || [];
 
@@ -278,7 +277,7 @@ export async function getUserPosts(userProfileId: string) {
     
     console.log('✅ Profile found:', profileCheck);
     
-    // Now fetch posts for this user
+    // Now fetch posts for this user - without friends_count to avoid 400 error
     const { data, error } = await supabase
       .from('posts')
       .select(`
@@ -287,8 +286,7 @@ export async function getUserPosts(userProfileId: string) {
           id, 
           name, 
           last_name, 
-          avatar, 
-          friends_count
+          avatar
         ),
         post_likes (id, user_id),
         post_comments (id)
@@ -302,6 +300,7 @@ export async function getUserPosts(userProfileId: string) {
     }
 
     console.log('✅ Raw posts data:', data);
+    console.log('✅ Number of posts found:', data?.length || 0);
 
     // Обробляємо дані щоб додати кількість лайків, коментарів та перевірку лайку
     const processedPosts = data?.map(post => ({
@@ -311,11 +310,13 @@ export async function getUserPosts(userProfileId: string) {
       isLiked: currentUserProfileId ? post.post_likes?.some((like: any) => like.user_id === currentUserProfileId) : false,
       author: {
         ...post.user_profiles,
-        friends_count: post.user_profiles?.friends_count || 0
+        friends_count: 0 // Default value since we're not selecting it
       }
     })) || [];
 
     console.log('✅ Processed posts:', processedPosts);
+    console.log('✅ Number of processed posts:', processedPosts.length);
+    
     return { data: processedPosts, error: null };
   } catch (error) {
     console.error('❌ Unexpected error in getUserPosts:', error);
