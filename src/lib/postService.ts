@@ -3,22 +3,11 @@ import { supabase } from './supabase';
 export async function getAllPosts() {
   const { data: { user } } = await supabase.auth.getUser();
   
-  // Отримуємо ID профілю поточного користувача для перевірки лайків
-  let currentUserProfileId = null;
-  if (user) {
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('id')
-      .eq('auth_user_id', user.id)
-      .single();
-    currentUserProfileId = profile?.id;
-  }
-  
   let query = supabase
     .from('posts')
     .select(`
       *,
-      user_profiles!posts_user_id_fkey (
+      user_profiles!user_profiles_auth_user_id_fkey (
         id, 
         name, 
         last_name, 
@@ -41,7 +30,7 @@ export async function getAllPosts() {
     ...post,
     likes_count: post.post_likes?.length || 0,
     comments_count: post.post_comments?.length || 0,
-    isLiked: currentUserProfileId ? post.post_likes?.some((like: any) => like.user_id === currentUserProfileId) : false,
+    isLiked: user ? post.post_likes?.some((like: any) => like.user_id === user.id) : false,
     author: {
       ...post.user_profiles,
       friends_count: 0 // Default value since we're not selecting it
@@ -54,7 +43,7 @@ export async function getAllPosts() {
 export async function createPost(post: { content: string, media_url?: string, media_type?: string }) {
   console.log('🔍 Creating post with data:', post);
   
-  // Get the current user's profile ID
+  // Get the current user's ID directly
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('User not authenticated');
@@ -62,21 +51,7 @@ export async function createPost(post: { content: string, media_url?: string, me
 
   console.log('✅ User authenticated:', user.email);
 
-  // Get user profile
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single();
-
-  if (profileError || !profile) {
-    console.error('❌ Profile error:', profileError);
-    throw new Error('User profile not found');
-  }
-
-  console.log('✅ User profile found:', profile.id);
-
-  const postData = { ...post, user_id: profile.id };
+  const postData = { ...post, user_id: user.id };
   console.log('📝 Inserting post data:', postData);
 
   const result = await supabase
@@ -89,21 +64,10 @@ export async function createPost(post: { content: string, media_url?: string, me
 }
 
 export async function likePost(post_id: string) {
-  // Get the current user's profile ID
+  // Get the current user's ID
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('User not authenticated');
-  }
-
-  // Get user profile
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single();
-
-  if (profileError || !profile) {
-    throw new Error('User profile not found');
   }
 
   // Перевіряємо, чи користувач вже лайкнув цей пост
@@ -111,7 +75,7 @@ export async function likePost(post_id: string) {
     .from('post_likes')
     .select('id')
     .eq('post_id', post_id)
-    .eq('user_id', profile.id)
+    .eq('user_id', user.id)
     .single();
 
   if (existingLike) {
@@ -120,32 +84,21 @@ export async function likePost(post_id: string) {
 
   return supabase
     .from('post_likes')
-    .insert([{ post_id, user_id: profile.id }]);
+    .insert([{ post_id, user_id: user.id }]);
 }
 
 export async function unlikePost(post_id: string) {
-  // Get the current user's profile ID
+  // Get the current user's ID
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('User not authenticated');
-  }
-
-  // Get user profile
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single();
-
-  if (profileError || !profile) {
-    throw new Error('User profile not found');
   }
 
   return supabase
     .from('post_likes')
     .delete()
     .eq('post_id', post_id)
-    .eq('user_id', profile.id);
+    .eq('user_id', user.id);
 }
 
 export async function getCommentsForPost(post_id: string) {
@@ -155,7 +108,7 @@ export async function getCommentsForPost(post_id: string) {
     .from('post_comments')
     .select(`
       *,
-      user_profiles!post_comments_user_id_fkey (
+      user_profiles!user_profiles_auth_user_id_fkey (
         id, 
         name, 
         last_name, 
@@ -177,25 +130,11 @@ export async function getCommentsForPost(post_id: string) {
 export async function addCommentToPost(post_id: string, content: string) {
   console.log('🔍 Adding comment to post:', post_id, 'Content:', content);
   
-  // Get the current user's profile ID
+  // Get the current user's ID
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('User not authenticated');
   }
-
-  // Get user profile
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single();
-
-  if (profileError || !profile) {
-    console.error('❌ Profile error:', profileError);
-    throw new Error('User profile not found');
-  }
-
-  console.log('✅ User profile found:', profile.id);
 
   // Перевіряємо, чи існує пост
   const { data: post, error: postError } = await supabase
@@ -213,7 +152,7 @@ export async function addCommentToPost(post_id: string, content: string) {
 
   const commentData = {
     post_id,
-    user_id: profile.id,
+    user_id: user.id,
     content: content.trim()
   };
 
@@ -224,7 +163,7 @@ export async function addCommentToPost(post_id: string, content: string) {
     .insert([commentData])
     .select(`
       *,
-      user_profiles!post_comments_user_id_fkey (
+      user_profiles!user_profiles_auth_user_id_fkey (
         id, 
         name, 
         last_name, 
@@ -246,25 +185,11 @@ export async function updatePost(post_id: string, updates: { content?: string; m
 export async function deletePost(post_id: string) {
   console.log('🔍 Deleting post:', post_id);
   
-  // Get the current user's profile ID
+  // Get the current user's ID
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('User not authenticated');
   }
-
-  // Get user profile
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single();
-
-  if (profileError || !profile) {
-    console.error('❌ Profile error:', profileError);
-    throw new Error('User profile not found');
-  }
-
-  console.log('✅ User profile found:', profile.id);
 
   // Перевіряємо чи користувач є автором поста
   const { data: post, error: postError } = await supabase
@@ -278,7 +203,7 @@ export async function deletePost(post_id: string) {
     throw new Error('Post not found');
   }
 
-  if (post.user_id !== profile.id) {
+  if (post.user_id !== user.id) {
     console.error('❌ User not authorized to delete this post');
     throw new Error('You can only delete your own posts');
   }
@@ -304,21 +229,10 @@ export async function deletePost(post_id: string) {
 export async function sharePostToChat(post_id: string, targetUserId: string) {
   console.log('🔍 Sharing post:', post_id, 'to user:', targetUserId);
   
-  // Get the current user's profile ID
+  // Get the current user's ID
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('User not authenticated');
-  }
-
-  // Get user profile
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single();
-
-  if (profileError || !profile) {
-    throw new Error('User profile not found');
   }
 
   // Get the post data
@@ -326,7 +240,7 @@ export async function sharePostToChat(post_id: string, targetUserId: string) {
     .from('posts')
     .select(`
       *,
-      user_profiles!posts_user_id_fkey (
+      user_profiles!user_profiles_auth_user_id_fkey (
         id, 
         name, 
         last_name, 
@@ -398,18 +312,6 @@ export async function getUserPosts(userProfileId: string) {
   
   const { data: { user } } = await supabase.auth.getUser();
   
-  // Отримуємо ID профілю поточного користувача для перевірки лайків
-  let currentUserProfileId = null;
-  if (user) {
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('id')
-      .eq('auth_user_id', user.id)
-      .single();
-    currentUserProfileId = profile?.id;
-    console.log('✅ Current user profile ID:', currentUserProfileId);
-  }
-  
   try {
     // First, let's check if the user profile exists
     const { data: profileCheck, error: profileError } = await supabase
@@ -425,12 +327,15 @@ export async function getUserPosts(userProfileId: string) {
     
     console.log('✅ Profile found:', profileCheck);
     
-    // Now fetch posts for this user - without friends_count to avoid 400 error
+    // Get the auth_user_id for this profile
+    const authUserId = profileCheck.auth_user_id;
+    
+    // Now fetch posts for this user using auth_user_id
     const { data, error } = await supabase
       .from('posts')
       .select(`
         *,
-        user_profiles!posts_user_id_fkey (
+        user_profiles!user_profiles_auth_user_id_fkey (
           id, 
           name, 
           last_name, 
@@ -439,7 +344,7 @@ export async function getUserPosts(userProfileId: string) {
         post_likes (id, user_id),
         post_comments (id)
       `)
-      .eq('user_id', userProfileId)
+      .eq('user_id', authUserId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -455,7 +360,7 @@ export async function getUserPosts(userProfileId: string) {
       ...post,
       likes_count: post.post_likes?.length || 0,
       comments_count: post.post_comments?.length || 0,
-      isLiked: currentUserProfileId ? post.post_likes?.some((like: any) => like.user_id === currentUserProfileId) : false,
+      isLiked: user ? post.post_likes?.some((like: any) => like.user_id === user.id) : false,
       author: {
         ...post.user_profiles,
         friends_count: 0 // Default value since we're not selecting it
