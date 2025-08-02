@@ -141,6 +141,15 @@ export const useProfile = () => {
       } else {
         console.log('✅ User profile loaded:', userProfile);
         setProfile(userProfile);
+        
+        // Debug hobbies and languages
+        console.log('🔍 Profile hobbies in useProfile:', userProfile.hobbies);
+        console.log('🔍 Profile languages in useProfile:', userProfile.languages);
+        console.log('🔍 Hobbies type:', typeof userProfile.hobbies);
+        console.log('🔍 Languages type:', typeof userProfile.languages);
+        console.log('🔍 Hobbies is array:', Array.isArray(userProfile.hobbies));
+        console.log('🔍 Languages is array:', Array.isArray(userProfile.languages));
+        
         setEditForm({
           name: userProfile.name,
           last_name: userProfile.last_name || '',
@@ -151,11 +160,11 @@ export const useProfile = () => {
           avatar: userProfile.avatar || '',
           education: userProfile.education || '',
           phone: userProfile.phone || '',
-          hobbies: userProfile.hobbies || [],
+          hobbies: Array.isArray(userProfile.hobbies) ? userProfile.hobbies : [],
           relationship_status: userProfile.relationship_status || '',
           work: userProfile.work || '',
           website: userProfile.website || '',
-          languages: userProfile.languages || [],
+          languages: Array.isArray(userProfile.languages) ? userProfile.languages : [],
           newHobby: '',
           newLanguage: '',
           notifications: userProfile.notifications || {

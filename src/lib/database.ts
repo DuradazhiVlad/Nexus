@@ -166,6 +166,16 @@ export class DatabaseService {
       console.log('🔍 Hobbies length:', profile.hobbies?.length);
       console.log('🔍 Languages length:', profile.languages?.length);
       
+      // Ensure hobbies and languages are arrays
+      if (!Array.isArray(profile.hobbies)) {
+        console.log('⚠️ Hobbies is not an array, converting...');
+        profile.hobbies = [];
+      }
+      if (!Array.isArray(profile.languages)) {
+        console.log('⚠️ Languages is not an array, converting...');
+        profile.languages = [];
+      }
+      
       return profile;
     } catch (error) {
       console.error('❌ Error getting current user profile:', error);
