@@ -20,6 +20,7 @@ export function Friends() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [authUser, setAuthUser] = useState(null); // auth user
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null); // users table id
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -31,11 +32,11 @@ export function Friends() {
   }, [location.key]);
 
   useEffect(() => {
-    if (authUser) {
+    if (authUser && currentUserId) {
       fetchFriends();
       fetchRequests();
     }
-  }, [authUser]);
+  }, [authUser, currentUserId]);
 
   async function loadAuthUser() {
     try {
@@ -49,6 +50,25 @@ export function Friends() {
         return;
       }
       setAuthUser(user);
+      
+      // Отримуємо ID користувача з таблиці users
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+        
+      if (profileError) {
+        console.error('Error getting user profile:', profileError);
+        addNotification({
+          type: 'error',
+          title: 'Помилка завантаження',
+          message: 'Не вдалося отримати профіль користувача'
+        });
+        return;
+      }
+      
+      setCurrentUserId(userProfile.id);
     } catch (error) {
       console.error('Error loading auth user:', error);
       addNotification({
@@ -62,7 +82,7 @@ export function Friends() {
 
   const fetchFriends = async () => {
     try {
-      if (!authUser) {
+      if (!currentUserId) {
         addNotification({
           type: 'warning',
           title: 'Не авторизовано',
@@ -71,26 +91,26 @@ export function Friends() {
         return;
       }
       
-      console.log('🔍 Fetching friends for auth user:', authUser.id);
+      console.log('🔍 Fetching friends for user ID:', currentUserId);
       
       // Отримуємо друзів через friendships
       const { data, error } = await supabase
         .from('friendships')
         .select('*')
-        .or(`user1_id.eq.${authUser.id},user2_id.eq.${authUser.id}`);
+        .or(`user1_id.eq.${currentUserId},user2_id.eq.${currentUserId}`);
         
       if (error) throw error;
       
       console.log('🔍 Friendships data:', data);
       
-      // Отримуємо ID друзів (це auth.users.id)
-      const friendAuthIds = (data || []).map(f => 
-        f.user1_id === authUser.id ? f.user2_id : f.user1_id
+      // Отримуємо ID друзів (це users.id)
+      const friendIds = (data || []).map(f => 
+        f.user1_id === currentUserId ? f.user2_id : f.user1_id
       );
       
-      console.log('🔍 Friend auth IDs:', friendAuthIds);
+      console.log('🔍 Friend IDs:', friendIds);
       
-      if (friendAuthIds.length === 0) {
+      if (friendIds.length === 0) {
         setFriends([]);
         return;
       }
@@ -99,7 +119,7 @@ export function Friends() {
       const { data: profiles, error: profilesError } = await supabase
         .from('users')
         .select('id, name, lastname, avatar, auth_user_id')
-        .in('auth_user_id', friendAuthIds);
+        .in('id', friendIds);
         
       if (profilesError) throw profilesError;
       
@@ -123,17 +143,17 @@ export function Friends() {
 
   const fetchRequests = async () => {
     try {
-      if (!authUser) {
+      if (!currentUserId) {
         setRequests([]);
         return;
       }
       
-      console.log('🔍 Fetching friend requests for auth user:', authUser.id);
+      console.log('🔍 Fetching friend requests for user ID:', currentUserId);
       
       const { data, error } = await supabase
         .from('friend_requests')
         .select('*')
-        .eq('receiver_id', authUser.id)
+        .eq('receiver_id', currentUserId)
         .eq('status', 'pending');
         
       if (error) throw error;
@@ -147,7 +167,7 @@ export function Friends() {
         const { data: profiles, error: profilesError } = await supabase
           .from('users')
           .select('id, name, lastname, avatar, auth_user_id')
-          .in('auth_user_id', senderIds);
+          .in('id', senderIds);
           
         if (profilesError) throw profilesError;
         
@@ -155,7 +175,7 @@ export function Friends() {
         
         // Додаємо профілі до запитів
         const requestsWithProfiles = (data || []).map(req => {
-          const sender = profiles.find(p => p.auth_user_id === req.sender_id);
+          const sender = profiles.find(p => p.id === req.sender_id);
           return { ...req, sender };
         });
         
@@ -266,7 +286,7 @@ export function Friends() {
 
   const addFriend = async (friendId: string) => {
     try {
-      if (!authUser) {
+      if (!currentUserId) {
         addNotification({
           type: 'warning',
           title: 'Не авторизовано',
@@ -275,13 +295,13 @@ export function Friends() {
         return;
       }
 
-      console.log('🔍 Adding friend request:', { sender_id: authUser.id, receiver_id: friendId });
+      console.log('🔍 Adding friend request:', { sender_id: currentUserId, receiver_id: friendId });
 
       // Створюємо запит на дружбу
       const { error } = await supabase
         .from('friend_requests')
         .insert([
-          { sender_id: authUser.id, receiver_id: friendId, status: 'pending' }
+          { sender_id: currentUserId, receiver_id: friendId, status: 'pending' }
         ]);
 
       if (error) throw error;
@@ -364,7 +384,7 @@ export function Friends() {
                         </div>
                       </div>
                       <button
-                        onClick={() => addFriend(user.auth_user_id)}
+                        onClick={() => addFriend(user.id)}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                       >
                         <UserPlus className="w-4 h-4 mr-2 inline" />
@@ -442,9 +462,9 @@ export function Friends() {
                         {friend.avatar ? (
                           <img src={friend.avatar} alt={friend.name} className="w-full h-full rounded-full object-cover" />
                         ) : (
-                                                      <span className="text-gray-600 font-semibold">
-                              {friend.name?.[0]}{friend.lastname?.[0]}
-                            </span>
+                          <span className="text-gray-600 font-semibold">
+                            {friend.name?.[0]}{friend.lastname?.[0]}
+                          </span>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">

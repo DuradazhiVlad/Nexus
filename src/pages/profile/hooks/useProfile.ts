@@ -338,6 +338,13 @@ export const useProfile = () => {
     }));
   };
 
+  const handleAvatarChange = (avatarUrl: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      avatar: avatarUrl
+    }));
+  };
+
   useEffect(() => {
     loadProfile();
   }, [location.key]);
@@ -355,6 +362,7 @@ export const useProfile = () => {
     setIsEditing,
     handleSaveProfile,
     handleCancelEdit,
+    handleAvatarChange,
     addHobby,
     removeHobby,
     addLanguage,

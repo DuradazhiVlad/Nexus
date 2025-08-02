@@ -64,7 +64,7 @@ export function UserCard({
     return user.privacy?.profileVisibility === 'public';
   };
 
-  const friendStatus = getFriendStatus(user.auth_user_id);
+  const friendStatus = getFriendStatus(user.id);
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
@@ -133,19 +133,19 @@ export function UserCard({
         <div className="flex flex-col space-y-2">
           {friendStatus === 'not_friends' && (
             <div className="flex space-x-2">
-                             <button
-                 onClick={() => onAddFriend(user.id)}
-                 className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-               >
+              <button
+                onClick={() => onAddFriend(user.id)}
+                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              >
                 <UserPlus className="w-4 h-4 mr-2" />
                 Додати в друзі
               </button>
               
               {canSendMessage(user) && (
-                                 <button
-                   onClick={() => navigate(`/messages?user=${user.id}`)}
-                   className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                 >
+                <button
+                  onClick={() => navigate(`/messages?user=${user.id}`)}
+                  className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                >
                   <MessageCircle className="w-4 h-4 mr-2" />
                   Повідомлення
                 </button>
@@ -162,23 +162,23 @@ export function UserCard({
           
           {friendStatus === 'received' && (
             <div className="flex space-x-2">
-                             <button
-                 onClick={() => {
-                   const request = friendRequests.find(req => req.user_id === user.id);
-                   if (request) onAcceptFriendRequest(request.id);
-                 }}
-                 className="flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-               >
+              <button
+                onClick={() => {
+                  const request = friendRequests.find(req => req.friend_id === user.id);
+                  if (request) onAcceptFriendRequest(request.id);
+                }}
+                className="flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+              >
                 <UserCheck className="w-4 h-4 mr-1" />
                 Прийняти
               </button>
-                             <button
-                 onClick={() => {
-                   const request = friendRequests.find(req => req.user_id === user.id);
-                   if (request) onRejectFriendRequest(request.id);
-                 }}
-                 className="flex items-center justify-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
-               >
+              <button
+                onClick={() => {
+                  const request = friendRequests.find(req => req.friend_id === user.id);
+                  if (request) onRejectFriendRequest(request.id);
+                }}
+                className="flex items-center justify-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+              >
                 <UserX className="w-4 h-4 mr-1" />
                 Відхилити
               </button>

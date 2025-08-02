@@ -1,6 +1,8 @@
 import React from 'react';
-import { Send, Smile, Image as ImageIcon } from 'lucide-react';
+import { Send, Smile, Image as ImageIcon, X } from 'lucide-react';
 import { UserProfile } from '../types';
+import { MediaUpload } from '../../../components/MediaUpload';
+import { MediaUploadResult } from '../../../lib/mediaService';
 
 interface CreatePostFormProps {
   profile: UserProfile;
@@ -41,6 +43,21 @@ export const CreatePostForm: React.FC<CreatePostFormProps> = ({
   addEmoji,
   handleCreatePost
 }) => {
+  const [uploadedMedia, setUploadedMedia] = React.useState<MediaUploadResult | null>(null);
+
+  const handleMediaUpload = (result: MediaUploadResult) => {
+    setUploadedMedia(result);
+    setPostMediaUrl(result.url);
+    setPostMediaType(result.type);
+    setShowMediaInput(false);
+  };
+
+  const handleMediaCancel = () => {
+    setUploadedMedia(null);
+    setPostMediaUrl('');
+    setPostMediaType('');
+    setShowMediaInput(false);
+  };
   return (
     <div className="mb-6">
       <div className="bg-gray-50 rounded-xl p-4">
@@ -116,26 +133,41 @@ export const CreatePostForm: React.FC<CreatePostFormProps> = ({
               </div>
             )}
             
-            {/* Media input */}
+            {/* Media upload */}
             {showMediaInput && (
-              <div className="mt-3 space-y-3">
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  placeholder="Посилання на медіа (необов'язково)"
-                  value={postMediaUrl}
-                  onChange={e => setPostMediaUrl(e.target.value)}
+              <div className="mt-3">
+                <MediaUpload
+                  onUpload={handleMediaUpload}
+                  onCancel={handleMediaCancel}
+                  accept="both"
+                  maxSize={50}
+                  placeholder="Перетягніть фото або відео сюди"
                 />
-                <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  value={postMediaType}
-                  onChange={e => setPostMediaType(e.target.value)}
-                >
-                  <option value="">Тип медіа</option>
-                  <option value="photo">Фото</option>
-                  <option value="video">Відео</option>
-                  <option value="document">Документ</option>
-                </select>
+              </div>
+            )}
+
+            {/* Прев'ю завантаженого медіа */}
+            {uploadedMedia && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <ImageIcon className="w-5 h-5 text-blue-500" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">
+                        Медіа додано до посту
+                      </p>
+                      <p className="text-xs text-blue-600">
+                        {uploadedMedia.filename.split('/').pop()}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleMediaCancel}
+                    className="p-1 text-blue-600 hover:text-blue-800 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
             )}
           </div>

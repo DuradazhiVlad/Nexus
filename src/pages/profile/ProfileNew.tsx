@@ -25,6 +25,7 @@ export function ProfileNew() {
     setIsEditing,
     handleSaveProfile,
     handleCancelEdit,
+    handleAvatarChange,
     addHobby,
     removeHobby,
     addLanguage,
@@ -164,6 +165,7 @@ export function ProfileNew() {
             onEdit={() => setIsEditing(true)}
             onSave={handleSaveProfile}
             onCancel={handleCancelEdit}
+            onAvatarChange={handleAvatarChange}
           />
 
           {/* Profile Info (when not editing) */}

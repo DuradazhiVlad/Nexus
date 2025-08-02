@@ -37,10 +37,22 @@ export class PeopleService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
 
+      // Отримуємо ID користувача з таблиці users
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('❌ PeopleService: Error getting user profile:', profileError);
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('friend_requests')
         .select('*')
-        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
+        .or(`user_id.eq.${userProfile.id},friend_id.eq.${userProfile.id}`)
         .eq('status', 'pending');
 
       if (error) {
@@ -66,10 +78,22 @@ export class PeopleService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      // Отримуємо ID користувача з таблиці users
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('❌ PeopleService: Error getting user profile:', profileError);
+        throw profileError;
+      }
+
       const { error } = await supabase
         .from('friend_requests')
         .insert([{
-          user_id: user.id,
+          user_id: userProfile.id,
           friend_id: friendId,
           status: 'pending'
         }]);
@@ -172,12 +196,24 @@ export class PeopleService {
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
+
+      // Отримуємо ID користувача з таблиці users
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('❌ PeopleService: Error getting user profile:', profileError);
+        throw profileError;
+      }
       
       // Видаляємо дружбу
       const { error } = await supabase
         .from('friendships')
         .delete()
-        .or(`and(user1_id.eq.${user.id},user2_id.eq.${friendId}),and(user1_id.eq.${friendId},user2_id.eq.${user.id})`);
+        .or(`and(user1_id.eq.${userProfile.id},user2_id.eq.${friendId}),and(user1_id.eq.${friendId},user2_id.eq.${userProfile.id})`);
 
       if (error) {
         console.error('❌ PeopleService: Error removing friend:', error);

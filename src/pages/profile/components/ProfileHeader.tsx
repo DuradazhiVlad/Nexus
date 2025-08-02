@@ -2,6 +2,7 @@ import React from 'react';
 import { User, Mail, MapPin, Calendar, Edit3, Camera, Save, X, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { UserProfile } from '../types';
+import { ProfileImageUpload } from '../../../components/ProfileImageUpload';
 
 interface ProfileHeaderProps {
   profile: UserProfile;
@@ -10,6 +11,7 @@ interface ProfileHeaderProps {
   onEdit: () => void;
   onSave: () => void;
   onCancel: () => void;
+  onAvatarChange?: (avatarUrl: string) => void;
 }
 
 export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -18,7 +20,8 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   saving,
   onEdit,
   onSave,
-  onCancel
+  onCancel,
+  onAvatarChange
 }) => {
   const navigate = useNavigate();
 
@@ -50,23 +53,26 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         <div className="flex items-end justify-between -mt-16 mb-4">
           <div className="flex items-end space-x-6">
             <div className="relative">
-              <div className="w-32 h-32 bg-white rounded-full p-2 shadow-lg">
-                {profile.avatar ? (
-                  <img
-                    src={profile.avatar}
-                    alt={profile.name}
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-                    {getInitials(profile.name, profile.last_name)}
-                  </div>
-                )}
-              </div>
-              {isEditing && (
-                <button className="absolute bottom-2 right-2 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors">
-                  <Camera size={16} />
-                </button>
+              {isEditing ? (
+                <ProfileImageUpload
+                  currentAvatar={profile.avatar}
+                  onUpload={onAvatarChange || (() => {})}
+                  className="w-32 h-32 mx-auto"
+                />
+              ) : (
+                <div className="w-32 h-32 bg-white rounded-full p-2 shadow-lg">
+                  {profile.avatar ? (
+                    <img
+                      src={profile.avatar}
+                      alt={profile.name}
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+                      {getInitials(profile.name, profile.last_name)}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
