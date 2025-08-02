@@ -15,7 +15,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   onUpload,
   onCancel,
   accept = 'both',
-  maxSize = 50,
+  maxSize = 500,
   className = '',
   placeholder = 'Перетягніть файл сюди або клікніть для вибору'
 }) => {

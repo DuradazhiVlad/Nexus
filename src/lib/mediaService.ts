@@ -81,9 +81,9 @@ export class MediaService {
         throw new Error('Підтримуються тільки зображення');
       }
 
-      // Перевіряємо розмір файлу (максимум 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        throw new Error('Розмір файлу не може перевищувати 5MB');
+      // Перевіряємо розмір файлу (максимум 20MB)
+      if (file.size > 20 * 1024 * 1024) {
+        throw new Error('Розмір файлу не може перевищувати 20MB');
       }
 
       const result = await this.uploadFile(file, 'avatars', 'profile');
@@ -105,9 +105,9 @@ export class MediaService {
         throw new Error('Підтримуються тільки зображення');
       }
 
-      // Перевіряємо розмір файлу (максимум 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        throw new Error('Розмір файлу не може перевищувати 10MB');
+      // Перевіряємо розмір файлу (максимум 20MB)
+      if (file.size > 20 * 1024 * 1024) {
+        throw new Error('Розмір файлу не може перевищувати 20MB');
       }
 
       const result = await this.uploadFile(file, 'covers', 'profile');
@@ -125,14 +125,32 @@ export class MediaService {
     try {
       console.log('🔍 Uploading post media:', file.name);
 
-      // Перевіряємо розмір файлу (максимум 50MB для відео, 10MB для зображень)
-      const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+      // Перевіряємо розмір файлу (максимум 500MB для відео, 50MB для зображень)
+      const maxSize = file.type.startsWith('video/') ? 500 * 1024 * 1024 : 50 * 1024 * 1024;
       if (file.size > maxSize) {
         const maxSizeMB = maxSize / (1024 * 1024);
         throw new Error(`Розмір файлу не може перевищувати ${maxSizeMB}MB`);
       }
 
-      return await this.uploadFile(file, 'posts', 'media');
+      const result = await this.uploadFile(file, 'posts', 'media');
+      
+      // Отримуємо поточного користувача
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Користувач не аутентифікований');
+      }
+
+      // Зберігаємо медіа в базі даних
+      await addMediaToDatabase({
+        user_id: user.id,
+        type: result.type === 'image' ? 'photo' : 'video',
+        url: result.url,
+        original_name: file.name,
+        size: file.size,
+        is_public: true // Медіа постів за замовчуванням публічні
+      });
+
+      return result;
     } catch (error) {
       console.error('❌ Post media upload error:', error);
       throw error;
@@ -207,9 +225,9 @@ export async function getUserMedia(user_id: string, type?: 'photo' | 'video') {
 }
 
 // Видалення медіа (з БД і з Supabase Storage)
-export async function deleteMedia(mediaId: string, filePath: string) {
+export async function deleteMedia(mediaId: string, filePath: string, bucket: string = 'media') {
   // Видалити з Storage
-  const { error: storageError } = await supabase.storage.from('media').remove([filePath]);
+  const { error: storageError } = await supabase.storage.from(bucket).remove([filePath]);
   if (storageError) throw storageError;
   // Видалити з БД
   const { error: dbError } = await supabase.from('media').delete().eq('id', mediaId);
@@ -222,4 +240,67 @@ export async function updateMediaDescription(mediaId: string, description: strin
   const { error } = await supabase.from('media').update({ description }).eq('id', mediaId);
   if (error) throw error;
   return true;
+}
+
+// Додати медіа до бази даних
+export async function addMediaToDatabase(mediaData: {
+  user_id: string;
+  type: 'photo' | 'video';
+  url: string;
+  original_name?: string;
+  size?: number;
+  description?: string;
+  thumbnail_url?: string;
+  album_id?: string;
+  is_public?: boolean;
+}) {
+  const { data, error } = await supabase
+    .from('media')
+    .insert([mediaData])
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return data;
+}
+
+// Отримати альбоми користувача
+export async function getUserAlbums(user_id: string) {
+  const { data, error } = await supabase
+    .from('albums')
+    .select('*')
+    .eq('user_id', user_id)
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  return data;
+}
+
+// Створити альбом
+export async function createAlbum(albumData: {
+  user_id: string;
+  name: string;
+  description?: string;
+  is_public?: boolean;
+}) {
+  const { data, error } = await supabase
+    .from('albums')
+    .insert([albumData])
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return data;
+}
+
+// Отримати медіа з альбому
+export async function getAlbumMedia(album_id: string) {
+  const { data, error } = await supabase
+    .from('media')
+    .select('*')
+    .eq('album_id', album_id)
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  return data;
 } 
