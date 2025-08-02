@@ -159,6 +159,13 @@ export class DatabaseService {
       }
       
       console.log('✅ User profile found:', profile.id);
+      console.log('🔍 Hobbies from database:', profile.hobbies);
+      console.log('🔍 Languages from database:', profile.languages);
+      console.log('🔍 Hobbies type:', typeof profile.hobbies);
+      console.log('🔍 Languages type:', typeof profile.languages);
+      console.log('🔍 Hobbies length:', profile.hobbies?.length);
+      console.log('🔍 Languages length:', profile.languages?.length);
+      
       return profile;
     } catch (error) {
       console.error('❌ Error getting current user profile:', error);
@@ -177,6 +184,8 @@ export class DatabaseService {
         name: authUser.user_metadata?.name || authUser.user_metadata?.full_name?.split(' ')[0] || authUser.email?.split('@')[0] || 'User',
         last_name: authUser.user_metadata?.lastname || authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
         email: authUser.email,
+        hobbies: [] as string[],
+        languages: [] as string[],
         notifications: { email: true, messages: true, friendRequests: true },
         privacy: { profileVisibility: 'public', showBirthDate: true, showEmail: false }
       };
@@ -195,6 +204,8 @@ export class DatabaseService {
       }
       
       console.log('✅ New profile created:', newProfile.id);
+      console.log('🔍 New profile hobbies:', newProfile.hobbies);
+      console.log('🔍 New profile languages:', newProfile.languages);
       return newProfile;
     } catch (error) {
       console.error('❌ Error creating user profile:', error);

@@ -133,6 +133,17 @@ export function Profile() {
     setCharacterCount(postContent.length);
   }, [postContent]);
 
+  // Monitor profile state changes
+  useEffect(() => {
+    if (profile) {
+      console.log('🔄 Profile state updated:');
+      console.log('🔍 Profile hobbies:', profile.hobbies);
+      console.log('🔍 Profile languages:', profile.languages);
+      console.log('🔍 Profile hobbies length:', profile.hobbies?.length);
+      console.log('🔍 Profile languages length:', profile.languages?.length);
+    }
+  }, [profile]);
+
   const loadProfile = async () => {
     try {
       setLoading(true);
@@ -238,6 +249,7 @@ export function Profile() {
         console.log('🔍 Languages type:', typeof userProfile.languages);
         console.log('🔍 Hobbies length:', userProfile.hobbies?.length);
         console.log('🔍 Languages length:', userProfile.languages?.length);
+        console.log('🔍 Raw userProfile object:', JSON.stringify(userProfile, null, 2));
         setProfile(userProfile);
         setEditForm({
           name: userProfile.name,
@@ -267,6 +279,8 @@ export function Profile() {
             showEmail: false
           }
         });
+        console.log('🔍 EditForm hobbies after setEditForm:', userProfile.hobbies || []);
+        console.log('🔍 EditForm languages after setEditForm:', userProfile.languages || []);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -645,6 +659,19 @@ export function Profile() {
             <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center">
               <AlertCircle className="h-5 w-5 mr-2" />
               {error}
+            </div>
+          )}
+
+          {/* Debug Information */}
+          {process.env.NODE_ENV === 'development' && profile && (
+            <div className="mb-6 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-lg">
+              <h3 className="font-semibold mb-2">Debug Info (Development Only):</h3>
+              <div className="text-sm space-y-1">
+                <div>Hobbies: {JSON.stringify(profile.hobbies)} (length: {profile.hobbies?.length || 0})</div>
+                <div>Languages: {JSON.stringify(profile.languages)} (length: {profile.languages?.length || 0})</div>
+                <div>Hobbies type: {typeof profile.hobbies}</div>
+                <div>Languages type: {typeof profile.languages}</div>
+              </div>
             </div>
           )}
 
