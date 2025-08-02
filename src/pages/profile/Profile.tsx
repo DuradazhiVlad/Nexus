@@ -123,6 +123,7 @@ export function Profile() {
   }, [location.key]);
 
   useEffect(() => {
+    console.log('🔄 Profile useEffect triggered:', { currentUser: !!currentUser, profile: !!profile, profileId: profile?.id });
     if (currentUser && profile) {
       loadUserPosts();
     }
@@ -513,18 +514,27 @@ export function Profile() {
     }
     
     console.log('🔍 Loading user posts for profile:', profile.id);
+    console.log('🔍 Profile details:', { id: profile.id, name: profile.name, auth_user_id: profile.auth_user_id });
     setLoadingPosts(true);
     try {
       const { data, error } = await getUserPosts(profile.id);
+      console.log('🔍 getUserPosts result:', { data: data?.length || 0, error: error?.message });
+      
       if (error) {
         console.error('Error fetching posts:', error);
-        throw error;
+        // Don't throw error, just set empty array
+        setUserPosts([]);
+        return;
       }
       
       console.log('✅ Posts loaded:', data?.length || 0, 'posts');
+      if (data && data.length > 0) {
+        console.log('📄 First post sample:', data[0]);
+      }
       setUserPosts(data || []);
     } catch (error) {
       console.error('Error loading user posts:', error);
+      setUserPosts([]);
     } finally {
       setLoadingPosts(false);
     }
@@ -1289,8 +1299,15 @@ export function Profile() {
               ) : (
                 <div className="space-y-6">
                   {console.log('📝 Rendering posts:', userPosts.length, 'posts')}
-                  {userPosts.map((post: any) => {
-                    console.log('📄 Rendering post:', post.id, post.content?.substring(0, 50));
+                  {userPosts.map((post: any, index: number) => {
+                    console.log(`📄 Rendering post ${index + 1}:`, post.id, post.content?.substring(0, 50));
+                    
+                    // Validate post data
+                    if (!post.id || !post.content) {
+                      console.error('❌ Invalid post data:', post);
+                      return null;
+                    }
+                    
                     const postCardProps = {
                       post: {
                         id: post.id,
@@ -1330,7 +1347,7 @@ export function Profile() {
                       }
                     };
                     
-                    return <PostCard key={post.id} {...postCardProps} />;
+                    return <PostCard {...postCardProps} />;
                   })}
                 </div>
               )}

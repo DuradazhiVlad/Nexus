@@ -82,7 +82,7 @@ export async function createPost(post: { content: string, media_url?: string, me
   const result = await supabase
     .from('posts')
     .insert([postData])
-    .select();
+    .select('*');
 
   console.log('✅ Post creation result:', result);
   return result;
@@ -244,6 +244,11 @@ export async function deletePost(post_id: string) {
 export async function getUserPosts(userProfileId: string) {
   console.log('🔍 Getting user posts for profile ID:', userProfileId);
   
+  if (!userProfileId) {
+    console.error('❌ No userProfileId provided');
+    return { data: [], error: new Error('No userProfileId provided') };
+  }
+  
   const { data: { user } } = await supabase.auth.getUser();
   
   // Отримуємо ID профілю поточного користувача для перевірки лайків
@@ -258,44 +263,62 @@ export async function getUserPosts(userProfileId: string) {
     console.log('✅ Current user profile ID:', currentUserProfileId);
   }
   
-  let query = supabase
-    .from('posts')
-    .select(`
-      *,
-      user_profiles!posts_user_id_fkey (
-        id, 
-        name, 
-        last_name, 
-        avatar, 
-        friends_count
-      ),
-      post_likes (id, user_id),
-      post_comments (id)
-    `)
-    .eq('user_id', userProfileId)
-    .order('created_at', { ascending: false });
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('❌ Error fetching posts:', error);
-    return { data: null, error };
-  }
-
-  console.log('✅ Raw posts data:', data);
-
-  // Обробляємо дані щоб додати кількість лайків, коментарів та перевірку лайку
-  const processedPosts = data?.map(post => ({
-    ...post,
-    likes_count: post.post_likes?.length || 0,
-    comments_count: post.post_comments?.length || 0,
-    isLiked: currentUserProfileId ? post.post_likes?.some((like: any) => like.user_id === currentUserProfileId) : false,
-    author: {
-      ...post.user_profiles,
-      friends_count: post.user_profiles?.friends_count || 0
+  try {
+    // First, let's check if the user profile exists
+    const { data: profileCheck, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('id, name, last_name, avatar')
+      .eq('id', userProfileId)
+      .single();
+    
+    if (profileError) {
+      console.error('❌ Profile not found:', profileError);
+      return { data: [], error: profileError };
     }
-  })) || [];
+    
+    console.log('✅ Profile found:', profileCheck);
+    
+    // Now fetch posts for this user
+    const { data, error } = await supabase
+      .from('posts')
+      .select(`
+        *,
+        user_profiles!posts_user_id_fkey (
+          id, 
+          name, 
+          last_name, 
+          avatar, 
+          friends_count
+        ),
+        post_likes (id, user_id),
+        post_comments (id)
+      `)
+      .eq('user_id', userProfileId)
+      .order('created_at', { ascending: false });
 
-  console.log('✅ Processed posts:', processedPosts);
-  return { data: processedPosts, error: null };
+    if (error) {
+      console.error('❌ Error fetching posts:', error);
+      return { data: [], error };
+    }
+
+    console.log('✅ Raw posts data:', data);
+
+    // Обробляємо дані щоб додати кількість лайків, коментарів та перевірку лайку
+    const processedPosts = data?.map(post => ({
+      ...post,
+      likes_count: post.post_likes?.length || 0,
+      comments_count: post.post_comments?.length || 0,
+      isLiked: currentUserProfileId ? post.post_likes?.some((like: any) => like.user_id === currentUserProfileId) : false,
+      author: {
+        ...post.user_profiles,
+        friends_count: post.user_profiles?.friends_count || 0
+      }
+    })) || [];
+
+    console.log('✅ Processed posts:', processedPosts);
+    return { data: processedPosts, error: null };
+  } catch (error) {
+    console.error('❌ Unexpected error in getUserPosts:', error);
+    return { data: [], error: error instanceof Error ? error : new Error('Unknown error') };
+  }
 } 
