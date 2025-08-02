@@ -168,17 +168,28 @@ export function Groups() {
     try {
       setLoading(true);
       
-      // Отримуємо всі групи
+      // Отримуємо всі групи без join до user_profiles
       const { data: groupsData, error: groupsError } = await supabase
         .from('groups')
-        .select(`
-          *,
-          creator:user_profiles!groups_created_by_fkey(name, last_name, avatar)
-        `)
+        .select('*')
         .eq('is_active', true)
         .order('last_activity', { ascending: false });
 
       if (groupsError) throw groupsError;
+
+      // Отримуємо інформацію про створювачів груп окремо
+      let creatorsData = [];
+      if (groupsData && groupsData.length > 0) {
+        const creatorIds = [...new Set(groupsData.map(group => group.created_by))];
+        const { data: creators, error: creatorsError } = await supabase
+          .from('user_profiles')
+          .select('id, name, last_name, avatar')
+          .in('id', creatorIds);
+
+        if (!creatorsError && creators) {
+          creatorsData = creators;
+        }
+      }
 
       // Отримуємо членство користувача в групах
       let userMemberships = [];
@@ -198,9 +209,11 @@ export function Groups() {
       // Додаємо інформацію про членство до груп
       const groupsWithMembership = (groupsData || []).map(group => {
         const membership = userMemberships.find(m => m.group_id === group.id);
+        const creator = creatorsData.find(c => c.id === group.created_by);
         return {
           ...group,
-          user_membership: membership || null
+          user_membership: membership || null,
+          creator: creator || null
         };
       });
 
