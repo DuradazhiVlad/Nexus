@@ -1,96 +1,181 @@
-/*
-  # Виправлення нескінченної рекурсії в RLS політиці group_members
-  
-  Проблема: infinite recursion detected in policy for relation "group_members"
-  Рішення: Виправити RLS політики щоб уникнути рекурсії
-*/
+-- Fix infinite recursion in group RLS policies
+-- This script creates SECURITY DEFINER functions to break circular dependencies
 
--- 1. Перевіримо поточні RLS політики
-SELECT 
-    schemaname,
-    tablename,
-    policyname,
-    permissive,
-    roles,
-    cmd,
-    qual,
-    with_check
-FROM pg_policies
-WHERE tablename IN ('groups', 'group_members')
-ORDER BY tablename, policyname;
+-- Drop existing policies first
+DROP POLICY IF EXISTS "Enable read access for group members" ON public.groups;
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.groups;
+DROP POLICY IF EXISTS "Enable update for group creators and admins" ON public.groups;
+DROP POLICY IF EXISTS "Enable delete for group creators" ON public.groups;
 
--- 2. Видалимо всі існуючі RLS політики для group_members
-DROP POLICY IF EXISTS "Users can view group memberships" ON group_members;
-DROP POLICY IF EXISTS "Users can join groups" ON group_members;
-DROP POLICY IF EXISTS "Users can leave groups" ON group_members;
-DROP POLICY IF EXISTS "Group members can view group memberships" ON group_members;
-DROP POLICY IF EXISTS "Group creators can manage members" ON group_members;
+DROP POLICY IF EXISTS "Enable read access for group members" ON public.group_members;
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON public.group_members;
+DROP POLICY IF EXISTS "Enable update for group admins and self" ON public.group_members;
+DROP POLICY IF EXISTS "Enable delete for group admins and self" ON public.group_members;
 
--- 3. Видалимо всі існуючі RLS політики для groups
-DROP POLICY IF EXISTS "Anyone can view public groups" ON groups;
-DROP POLICY IF EXISTS "Group members can view private groups" ON groups;
-DROP POLICY IF EXISTS "Authenticated users can create groups" ON groups;
-DROP POLICY IF EXISTS "Group creators can update groups" ON groups;
+DROP POLICY IF EXISTS "Enable read access for group members" ON public.group_posts;
+DROP POLICY IF EXISTS "Enable insert for group members" ON public.group_posts;
+DROP POLICY IF EXISTS "Enable update for post authors and group admins" ON public.group_posts;
+DROP POLICY IF EXISTS "Enable delete for post authors and group admins" ON public.group_posts;
 
--- 4. Створимо прості RLS політики без рекурсії
+DROP POLICY IF EXISTS "Enable read access for group members" ON public.group_post_media;
+DROP POLICY IF EXISTS "Enable insert for group members" ON public.group_post_media;
+DROP POLICY IF EXISTS "Enable update for post authors and group admins" ON public.group_post_media;
+DROP POLICY IF EXISTS "Enable delete for post authors and group admins" ON public.group_post_media;
 
--- Для groups таблиці
-CREATE POLICY "Enable read access for all users" ON groups
-    FOR SELECT USING (true);
+-- Create SECURITY DEFINER functions to bypass RLS for membership checks
+CREATE OR REPLACE FUNCTION public.is_user_group_member(group_id uuid, user_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.group_members 
+    WHERE group_members.group_id = is_user_group_member.group_id 
+    AND group_members.user_id = is_user_group_member.user_id
+    AND group_members.is_active = true
+  );
+END;
+$$;
 
-CREATE POLICY "Enable insert for authenticated users" ON groups
-    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE OR REPLACE FUNCTION public.get_user_group_role(group_id uuid, user_id uuid)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN (
+    SELECT role FROM public.group_members 
+    WHERE group_members.group_id = get_user_group_role.group_id 
+    AND group_members.user_id = get_user_group_role.user_id
+    AND group_members.is_active = true
+  );
+END;
+$$;
 
-CREATE POLICY "Enable update for group creators" ON groups
-    FOR UPDATE USING (auth.uid() = created_by);
+CREATE OR REPLACE FUNCTION public.is_group_creator(group_id uuid, user_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.groups 
+    WHERE groups.id = is_group_creator.group_id 
+    AND groups.created_by = is_group_creator.user_id
+  );
+END;
+$$;
 
-CREATE POLICY "Enable delete for group creators" ON groups
-    FOR DELETE USING (auth.uid() = created_by);
+-- Create new RLS policies using the SECURITY DEFINER functions
 
--- Для group_members таблиці
-CREATE POLICY "Enable read access for all users" ON group_members
-    FOR SELECT USING (true);
+-- Groups table policies
+CREATE POLICY "Enable read access for all users" ON public.groups
+FOR SELECT USING (
+  is_public = true 
+  OR public.is_user_group_member(id, (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid()))
+  OR public.is_group_creator(id, (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid()))
+);
 
-CREATE POLICY "Enable insert for authenticated users" ON group_members
-    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Enable insert for authenticated users" ON public.groups
+FOR INSERT WITH CHECK (
+  auth.uid() IS NOT NULL
+);
 
-CREATE POLICY "Enable update for group members" ON group_members
-    FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Enable update for group creators and admins" ON public.groups
+FOR UPDATE USING (
+  public.is_group_creator(id, (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid()))
+  OR public.get_user_group_role(id, (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid())) = 'admin'
+);
 
-CREATE POLICY "Enable delete for group members" ON group_members
-    FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "Enable delete for group creators" ON public.groups
+FOR DELETE USING (
+  public.is_group_creator(id, (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid()))
+);
 
--- 5. Переконаємося що RLS увімкнено
-ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
-ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
+-- Group members table policies
+CREATE POLICY "Enable read access for group members" ON public.group_members
+FOR SELECT USING (
+  public.is_user_group_member(group_id, (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid()))
+  OR public.is_group_creator(group_id, (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid()))
+);
 
--- 6. Перевіримо результат
-SELECT 
-    schemaname,
-    tablename,
-    policyname,
-    permissive,
-    roles,
-    cmd,
-    qual,
-    with_check
-FROM pg_policies
-WHERE tablename IN ('groups', 'group_members')
-ORDER BY tablename, policyname;
+CREATE POLICY "Enable insert for authenticated users" ON public.group_members
+FOR INSERT WITH CHECK (
+  auth.uid() IS NOT NULL
+);
 
--- 7. Тестовий запит для перевірки
-SELECT 
-    g.id,
-    g.name,
-    g.description,
-    g.is_private,
-    g.member_count,
-    g.created_at
-FROM groups g
-WHERE g.is_active = true
-ORDER BY g.last_activity DESC
-LIMIT 5;
+CREATE POLICY "Enable update for group admins and self" ON public.group_members
+FOR UPDATE USING (
+  public.get_user_group_role(group_id, (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid())) = 'admin'
+  OR user_id = (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid())
+);
 
--- 8. Перевіримо чи є дані в таблицях
-SELECT COUNT(*) as groups_count FROM groups;
-SELECT COUNT(*) as members_count FROM group_members; 
+CREATE POLICY "Enable delete for group admins and self" ON public.group_members
+FOR DELETE USING (
+  public.get_user_group_role(group_id, (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid())) = 'admin'
+  OR user_id = (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid())
+);
+
+-- Group posts table policies
+CREATE POLICY "Enable read access for group members" ON public.group_posts
+FOR SELECT USING (
+  public.is_user_group_member(group_id, (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid()))
+);
+
+CREATE POLICY "Enable insert for group members" ON public.group_posts
+FOR INSERT WITH CHECK (
+  public.is_user_group_member(group_id, (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid()))
+);
+
+CREATE POLICY "Enable update for post authors and group admins" ON public.group_posts
+FOR UPDATE USING (
+  author_id = (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid())
+  OR public.get_user_group_role(group_id, (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid())) = 'admin'
+);
+
+CREATE POLICY "Enable delete for post authors and group admins" ON public.group_posts
+FOR DELETE USING (
+  author_id = (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid())
+  OR public.get_user_group_role(group_id, (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid())) = 'admin'
+);
+
+-- Group post media table policies
+CREATE POLICY "Enable read access for group members" ON public.group_post_media
+FOR SELECT USING (
+  public.is_user_group_member(
+    (SELECT group_id FROM public.group_posts WHERE id = group_post_media.post_id), 
+    (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid())
+  )
+);
+
+CREATE POLICY "Enable insert for group members" ON public.group_post_media
+FOR INSERT WITH CHECK (
+  public.is_user_group_member(
+    (SELECT group_id FROM public.group_posts WHERE id = group_post_media.post_id), 
+    (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid())
+  )
+);
+
+CREATE POLICY "Enable update for post authors and group admins" ON public.group_post_media
+FOR UPDATE USING (
+  (SELECT author_id FROM public.group_posts WHERE id = group_post_media.post_id) = (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid())
+  OR public.get_user_group_role(
+    (SELECT group_id FROM public.group_posts WHERE id = group_post_media.post_id), 
+    (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid())
+  ) = 'admin'
+);
+
+CREATE POLICY "Enable delete for post authors and group admins" ON public.group_post_media
+FOR DELETE USING (
+  (SELECT author_id FROM public.group_posts WHERE id = group_post_media.post_id) = (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid())
+  OR public.get_user_group_role(
+    (SELECT group_id FROM public.group_posts WHERE id = group_post_media.post_id), 
+    (SELECT id FROM user_profiles WHERE auth_user_id = auth.uid())
+  ) = 'admin'
+);
+
+-- Grant necessary permissions
+GRANT EXECUTE ON FUNCTION public.is_user_group_member(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_user_group_role(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_group_creator(uuid, uuid) TO authenticated; 

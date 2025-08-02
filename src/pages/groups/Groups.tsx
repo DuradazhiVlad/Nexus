@@ -180,32 +180,8 @@ export function Groups() {
         return;
       }
 
-      // Fetch groups with membership info
-      const { data: groupsData, error } = await supabase
-        .from('groups')
-        .select(`
-          *,
-          created_by_user:user_profiles!groups_created_by_fkey (
-            id,
-            name,
-            last_name,
-            avatar
-          ),
-          user_membership:group_members!group_members_group_id_fkey (
-            role,
-            joined_at
-          )
-        `)
-        .eq('user_membership.user_id', userProfile.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching groups:', error);
-        return;
-      }
-
-      // Also fetch public groups that user is not a member of
-      const { data: publicGroups, error: publicError } = await supabase
+      // First, get all public groups
+      const { data: allPublicGroups, error: publicError } = await supabase
         .from('groups')
         .select(`
           *,
@@ -217,7 +193,6 @@ export function Groups() {
           )
         `)
         .eq('is_public', true)
-        .not('id', 'in', `(${groupsData?.map(g => g.id).join(',') || 'null'})`)
         .order('created_at', { ascending: false });
 
       if (publicError) {
@@ -225,7 +200,37 @@ export function Groups() {
         return;
       }
 
-      const allGroups = [...(groupsData || []), ...(publicGroups || [])];
+      // Then, get user's group memberships
+      const { data: userMemberships, error: membershipError } = await supabase
+        .from('group_members')
+        .select(`
+          group_id,
+          role,
+          joined_at
+        `)
+        .eq('user_id', userProfile.id)
+        .eq('is_active', true);
+
+      if (membershipError) {
+        console.error('Error fetching user memberships:', membershipError);
+        return;
+      }
+
+      // Create a map of user's group memberships
+      const userGroupMap = new Map();
+      userMemberships?.forEach(membership => {
+        userGroupMap.set(membership.group_id, {
+          role: membership.role,
+          joined_at: membership.joined_at
+        });
+      });
+
+      // Combine the data
+      const allGroups = allPublicGroups?.map(group => ({
+        ...group,
+        user_membership: userGroupMap.get(group.id) || null
+      })) || [];
+
       setGroups(allGroups);
       setFilteredGroups(allGroups);
     } catch (error) {
