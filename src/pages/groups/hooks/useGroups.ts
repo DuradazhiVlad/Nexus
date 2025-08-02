@@ -13,7 +13,7 @@ export function useGroups() {
 
   const fetchCurrentUser = async () => {
     try {
-      const user = await DatabaseService.getCurrentUserProfile();
+      const user = await DatabaseService.getCurrentUser();
       setCurrentUser(user);
     } catch (error) {
       console.error('Error fetching current user:', error);
@@ -27,7 +27,7 @@ export function useGroups() {
       setError(null);
 
       // Get current user first
-      const user = await DatabaseService.getCurrentUserProfile();
+      const user = await DatabaseService.getCurrentUser();
       if (!user) {
         setError('User not authenticated');
         return;
@@ -35,30 +35,21 @@ export function useGroups() {
 
       console.log('🔍 useGroups: Fetching groups for user:', user.id);
 
-      // Fetch all groups
-      const groupsData = await GroupsService.getAllGroups();
-      console.log('✅ useGroups: Raw groups data:', groupsData);
-
-      // Get unique creator IDs
-      const creatorIds = [...new Set(groupsData.map(group => group.created_by))];
-      console.log('🔍 useGroups: Creator IDs:', creatorIds);
-
-      // Fetch creators information
-      const creatorsMap = await GroupsService.getGroupCreators(creatorIds);
-      console.log('✅ useGroups: Creators map:', creatorsMap);
+      // Use the new method that doesn't rely on foreign key relationships
+      const groupsWithCreators = await GroupsService.getGroupsWithCreators();
+      console.log('✅ useGroups: Groups with creators:', groupsWithCreators);
 
       // Fetch user memberships
       const membershipsMap = await GroupsService.getUserMemberships(user.id);
       console.log('✅ useGroups: Memberships map:', membershipsMap);
 
-      // Process groups data and add creator and membership info
-      const processedGroups = groupsData.map(group => ({
+      // Add membership info to groups
+      const processedGroups = groupsWithCreators.map(group => ({
         ...group,
-        creator: creatorsMap[group.created_by] || null,
         user_membership: membershipsMap[group.id] || null
       }));
 
-      console.log('✅ useGroups: Processed groups:', processedGroups);
+      console.log('✅ useGroups: Final processed groups:', processedGroups);
       setGroups(processedGroups);
       setFilteredGroups(processedGroups);
     } catch (error) {
@@ -76,7 +67,7 @@ export function useGroups() {
 
   const joinGroup = async (groupId: string) => {
     try {
-      const user = await DatabaseService.getCurrentUserProfile();
+      const user = await DatabaseService.getCurrentUser();
       if (!user) {
         setError('User not authenticated');
         return false;
@@ -96,7 +87,7 @@ export function useGroups() {
 
   const leaveGroup = async (groupId: string) => {
     try {
-      const user = await DatabaseService.getCurrentUserProfile();
+      const user = await DatabaseService.getCurrentUser();
       if (!user) {
         setError('User not authenticated');
         return false;
@@ -125,28 +116,23 @@ export function useGroups() {
     rules: string[];
   }) => {
     try {
-      const user = await DatabaseService.getCurrentUserProfile();
+      const user = await DatabaseService.getCurrentUser();
       if (!user) {
         setError('User not authenticated');
         return null;
       }
 
-      const group = await GroupsService.createGroup({
+      const newGroup = await GroupsService.createGroup({
         ...groupData,
         created_by: user.id
       });
 
-      // Add creator as admin member
-      try {
-        await GroupsService.joinGroup(group.id, user.id);
-      } catch (memberError) {
-        console.error('❌ useGroups: Error adding creator as member:', memberError);
-        // Group was created but member wasn't added - this is still a partial success
+      if (newGroup) {
+        // Refresh groups
+        await fetchGroups();
       }
 
-      // Refresh groups
-      await fetchGroups();
-      return group;
+      return newGroup;
     } catch (error) {
       console.error('❌ useGroups: Error creating group:', error);
       setError('Failed to create group');

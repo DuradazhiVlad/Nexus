@@ -29,17 +29,81 @@ export class GroupsService {
   }
 
   /**
-   * Отримати інформацію про створників груп
+   * Отримати групи з інформацією про створника (використовуючи users таблицю)
+   */
+  static async getGroupsWithCreators(): Promise<Group[]> {
+    try {
+      console.log('🔍 GroupsService: Fetching groups with creators from users table...');
+      
+      // Спочатку отримуємо всі групи
+      const { data: groups, error: groupsError } = await supabase
+        .from('groups')
+        .select('*')
+        .eq('is_active', true)
+        .order('last_activity', { ascending: false });
+
+      if (groupsError) {
+        console.error('❌ GroupsService: Error fetching groups:', groupsError);
+        throw groupsError;
+      }
+
+      if (!groups || groups.length === 0) {
+        console.log('✅ GroupsService: No groups found');
+        return [];
+      }
+
+      // Отримуємо унікальні ID створників
+      const creatorIds = [...new Set(groups.map(group => group.created_by))];
+      console.log('🔍 GroupsService: Creator IDs:', creatorIds);
+
+      // Отримуємо інформацію про створників з таблиці users
+      const { data: creators, error: creatorsError } = await supabase
+        .from('users')
+        .select('id, name, lastname, avatar')
+        .in('id', creatorIds);
+
+      if (creatorsError) {
+        console.error('❌ GroupsService: Error fetching creators:', creatorsError);
+        // Повертаємо групи без інформації про створників
+        return groups;
+      }
+
+      // Створюємо мапу створників
+      const creatorsMap = (creators || []).reduce((acc, creator) => {
+        acc[creator.id] = {
+          name: creator.name,
+          last_name: creator.lastname || '',
+          avatar: creator.avatar
+        };
+        return acc;
+      }, {} as Record<string, any>);
+
+      // Додаємо інформацію про створника до кожної групи
+      const groupsWithCreators = groups.map(group => ({
+        ...group,
+        creator: creatorsMap[group.created_by] || null
+      }));
+
+      console.log('✅ GroupsService: Groups with creators:', groupsWithCreators);
+      return groupsWithCreators;
+    } catch (error) {
+      console.error('❌ GroupsService: Error in getGroupsWithCreators:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Отримати інформацію про створників груп (використовуючи users таблицю)
    */
   static async getGroupCreators(groupIds: string[]): Promise<Record<string, any>> {
     if (groupIds.length === 0) return {};
 
     try {
-      console.log('🔍 GroupsService: Fetching creators for groups:', groupIds);
+      console.log('🔍 GroupsService: Fetching creators for groups from users table:', groupIds);
       
       const { data, error } = await supabase
-        .from('user_profiles')
-        .select('id, name, last_name, avatar')
+        .from('users')
+        .select('id, name, lastname, avatar')
         .in('id', groupIds);
 
       if (error) {
@@ -48,7 +112,11 @@ export class GroupsService {
       }
 
       const creatorsMap = (data || []).reduce((acc, creator) => {
-        acc[creator.id] = creator;
+        acc[creator.id] = {
+          name: creator.name,
+          last_name: creator.lastname || '',
+          avatar: creator.avatar
+        };
         return acc;
       }, {} as Record<string, any>);
 

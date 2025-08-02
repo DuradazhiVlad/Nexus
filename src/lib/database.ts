@@ -173,6 +173,81 @@ export class DatabaseService {
     }
   }
 
+  /**
+   * Отримати поточного користувача з таблиці users
+   */
+  static async getCurrentUser(): Promise<DatabaseUser | null> {
+    try {
+      console.log('🔍 Getting current user from users table...');
+      const authUser = await this.ensureAuthenticated();
+      console.log('✅ User authenticated:', authUser.email);
+      
+      // Look for user in users table by auth_user_id
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_user_id', authUser.id)
+        .single();
+      
+      console.log('🔍 Raw user data from database:', user);
+      
+      if (error) {
+        if (error.code === 'PGRST116') {
+          console.log('📝 User not found in users table, creating new one...');
+          // User doesn't exist, create new user
+          return await this.createUser(authUser);
+        } else {
+          console.error('❌ Error fetching user:', error);
+          throw new Error(`Failed to fetch user: ${error.message}`);
+        }
+      }
+      
+      console.log('✅ User found:', user.id);
+      return user;
+    } catch (error) {
+      console.error('❌ Error getting current user:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Створити нового користувача в таблиці users
+   */
+  private static async createUser(authUser: any): Promise<DatabaseUser | null> {
+    try {
+      console.log('📝 Creating new user in users table for:', authUser.email);
+      
+      const newUserData = {
+        id: authUser.id, // Use auth user ID as the primary key
+        email: authUser.email,
+        name: authUser.user_metadata?.name || authUser.user_metadata?.full_name?.split(' ')[0] || authUser.email?.split('@')[0] || 'User',
+        lastname: authUser.user_metadata?.lastname || authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+        avatar: authUser.user_metadata?.avatar || null,
+        auth_user_id: authUser.id,
+        notifications: { email: true, messages: true, friendRequests: true },
+        privacy: { profileVisibility: 'public', showBirthDate: true, showEmail: false }
+      };
+      
+      console.log('📋 New user data:', newUserData);
+      
+      const { data: newUser, error } = await supabase
+        .from('users')
+        .insert([newUserData])
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('❌ Error creating user:', error);
+        throw new Error(`Failed to create user: ${error.message}`);
+      }
+      
+      console.log('✅ New user created:', newUser.id);
+      return newUser;
+    } catch (error) {
+      console.error('❌ Error creating user:', error);
+      throw error;
+    }
+  }
 
   // Create new user profile
   private static async createUserProfile(authUser: any): Promise<UserProfile | null> {
