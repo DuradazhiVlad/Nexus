@@ -7,12 +7,6 @@ export async function getAllPosts() {
     .from('posts')
     .select(`
       *,
-      user_profiles!user_profiles_auth_user_id_fkey (
-        id, 
-        name, 
-        last_name, 
-        avatar
-      ),
       post_likes (id, user_id),
       post_comments (id)
     `)
@@ -26,16 +20,30 @@ export async function getAllPosts() {
   }
 
   // Обробляємо дані щоб додати кількість лайків, коментарів та перевірку лайку
-  const processedPosts = data?.map(post => ({
-    ...post,
-    likes_count: post.post_likes?.length || 0,
-    comments_count: post.post_comments?.length || 0,
-    isLiked: user ? post.post_likes?.some((like: any) => like.user_id === user.id) : false,
-    author: {
-      ...post.user_profiles,
-      friends_count: 0 // Default value since we're not selecting it
-    }
-  })) || [];
+  const processedPosts = await Promise.all(
+    data?.map(async (post) => {
+      // Отримуємо інформацію про користувача
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('id, name, last_name, avatar')
+        .eq('auth_user_id', post.user_id)
+        .single();
+
+      return {
+        ...post,
+        likes_count: post.post_likes?.length || 0,
+        comments_count: post.post_comments?.length || 0,
+        isLiked: user ? post.post_likes?.some((like: any) => like.user_id === user.id) : false,
+        author: {
+          id: post.user_id,
+          name: userProfile?.name || 'Користувач',
+          last_name: userProfile?.last_name || '',
+          avatar: userProfile?.avatar || null,
+          friends_count: 0
+        }
+      };
+    }) || []
+  );
 
   return { data: processedPosts, error: null };
 }
@@ -106,15 +114,7 @@ export async function getCommentsForPost(post_id: string) {
   
   const { data, error } = await supabase
     .from('post_comments')
-    .select(`
-      *,
-      user_profiles!user_profiles_auth_user_id_fkey (
-        id, 
-        name, 
-        last_name, 
-        avatar
-      )
-    `)
+    .select('*')
     .eq('post_id', post_id)
     .order('created_at', { ascending: true });
 
@@ -123,8 +123,29 @@ export async function getCommentsForPost(post_id: string) {
     return { data: null, error };
   }
 
-  console.log('✅ Comments fetched:', data);
-  return { data, error: null };
+  // Додаємо інформацію про користувачів для кожного коментаря
+  const commentsWithUsers = await Promise.all(
+    data?.map(async (comment) => {
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('id, name, last_name, avatar')
+        .eq('auth_user_id', comment.user_id)
+        .single();
+
+      return {
+        ...comment,
+        user_profiles: userProfile || {
+          id: comment.user_id,
+          name: 'Користувач',
+          last_name: '',
+          avatar: null
+        }
+      };
+    }) || []
+  );
+
+  console.log('✅ Comments fetched:', commentsWithUsers);
+  return { data: commentsWithUsers, error: null };
 }
 
 export async function addCommentToPost(post_id: string, content: string) {
@@ -161,15 +182,7 @@ export async function addCommentToPost(post_id: string, content: string) {
   const result = await supabase
     .from('post_comments')
     .insert([commentData])
-    .select(`
-      *,
-      user_profiles!user_profiles_auth_user_id_fkey (
-        id, 
-        name, 
-        last_name, 
-        avatar
-      )
-    `);
+    .select('*');
 
   console.log('✅ Comment creation result:', result);
   return result;
@@ -238,15 +251,7 @@ export async function sharePostToChat(post_id: string, targetUserId: string) {
   // Get the post data
   const { data: post, error: postError } = await supabase
     .from('posts')
-    .select(`
-      *,
-      user_profiles!user_profiles_auth_user_id_fkey (
-        id, 
-        name, 
-        last_name, 
-        avatar
-      )
-    `)
+    .select('*')
     .eq('id', post_id)
     .single();
 
@@ -335,12 +340,6 @@ export async function getUserPosts(userProfileId: string) {
       .from('posts')
       .select(`
         *,
-        user_profiles!user_profiles_auth_user_id_fkey (
-          id, 
-          name, 
-          last_name, 
-          avatar
-        ),
         post_likes (id, user_id),
         post_comments (id)
       `)
@@ -362,8 +361,11 @@ export async function getUserPosts(userProfileId: string) {
       comments_count: post.post_comments?.length || 0,
       isLiked: user ? post.post_likes?.some((like: any) => like.user_id === user.id) : false,
       author: {
-        ...post.user_profiles,
-        friends_count: 0 // Default value since we're not selecting it
+        id: post.user_id,
+        name: profileCheck.name || 'Користувач',
+        last_name: profileCheck.last_name || '',
+        avatar: profileCheck.avatar,
+        friends_count: 0
       }
     })) || [];
 
