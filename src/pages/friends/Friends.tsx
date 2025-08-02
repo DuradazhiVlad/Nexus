@@ -8,8 +8,9 @@ import { ErrorNotification, useErrorNotifications } from '../../components/Error
 interface Friend {
   id: string;
   name: string;
-  last_name: string;
+  lastname?: string;
   avatar?: string;
+  auth_user_id: string;
 }
 
 export function Friends() {
@@ -70,6 +71,8 @@ export function Friends() {
         return;
       }
       
+      console.log('🔍 Fetching friends for auth user:', authUser.id);
+      
       // Отримуємо друзів через friendships
       const { data, error } = await supabase
         .from('friendships')
@@ -78,19 +81,29 @@ export function Friends() {
         
       if (error) throw error;
       
-      // Отримуємо ID друзів
-      const friendIds = (data || []).map(f => 
+      console.log('🔍 Friendships data:', data);
+      
+      // Отримуємо ID друзів (це auth.users.id)
+      const friendAuthIds = (data || []).map(f => 
         f.user1_id === authUser.id ? f.user2_id : f.user1_id
       );
       
-      // Отримуємо профілі друзів
+      console.log('🔍 Friend auth IDs:', friendAuthIds);
+      
+      if (friendAuthIds.length === 0) {
+        setFriends([]);
+        return;
+      }
+      
+      // Отримуємо профілі друзів з таблиці users
       const { data: profiles, error: profilesError } = await supabase
-        .from('user_profiles')
-        .select('id, name, last_name, avatar, auth_user_id')
-        .in('auth_user_id', friendIds);
+        .from('users')
+        .select('id, name, lastname, avatar, auth_user_id')
+        .in('auth_user_id', friendAuthIds);
         
       if (profilesError) throw profilesError;
       
+      console.log('✅ Friends profiles:', profiles);
       setFriends(profiles || []);
     } catch (error) {
       console.error('Error fetching friends:', error);
@@ -115,6 +128,8 @@ export function Friends() {
         return;
       }
       
+      console.log('🔍 Fetching friend requests for auth user:', authUser.id);
+      
       const { data, error } = await supabase
         .from('friend_requests')
         .select('*')
@@ -123,16 +138,20 @@ export function Friends() {
         
       if (error) throw error;
       
-      // Отримуємо профілі відправників
+      console.log('🔍 Friend requests data:', data);
+      
+      // Отримуємо профілі відправників з таблиці users
       const senderIds = (data || []).map(req => req.sender_id);
       
       if (senderIds.length > 0) {
         const { data: profiles, error: profilesError } = await supabase
-          .from('user_profiles')
-          .select('id, name, last_name, avatar, auth_user_id')
+          .from('users')
+          .select('id, name, lastname, avatar, auth_user_id')
           .in('auth_user_id', senderIds);
           
         if (profilesError) throw profilesError;
+        
+        console.log('🔍 Sender profiles:', profiles);
         
         // Додаємо профілі до запитів
         const requestsWithProfiles = (data || []).map(req => {
@@ -140,6 +159,7 @@ export function Friends() {
           return { ...req, sender };
         });
         
+        console.log('✅ Requests with profiles:', requestsWithProfiles);
         setRequests(requestsWithProfiles);
       } else {
         setRequests([]);
@@ -227,9 +247,9 @@ export function Friends() {
     }
     try {
       const { data, error } = await supabase
-        .from('user_profiles')
-        .select('id, name, last_name, avatar, auth_user_id')
-        .or(`name.ilike.%${query}%,last_name.ilike.%${query}%`)
+        .from('users')
+        .select('id, name, lastname, avatar, auth_user_id')
+        .or(`name.ilike.%${query}%,lastname.ilike.%${query}%`)
         .limit(10);
       if (error) throw error;
       setSearchResults(data || []);
@@ -254,6 +274,8 @@ export function Friends() {
         });
         return;
       }
+
+      console.log('🔍 Adding friend request:', { sender_id: authUser.id, receiver_id: friendId });
 
       // Створюємо запит на дружбу
       const { error } = await supabase
@@ -333,16 +355,16 @@ export function Friends() {
                             <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" />
                           ) : (
                             <span className="text-gray-600 font-semibold">
-                              {user.name?.[0]}{user.last_name?.[0]}
+                              {user.name?.[0]}{user.lastname?.[0]}
                             </span>
                           )}
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">{user.name} {user.last_name}</p>
+                          <p className="font-medium text-gray-900">{user.name} {user.lastname}</p>
                         </div>
                       </div>
                       <button
-                        onClick={() => addFriend(user.id)}
+                        onClick={() => addFriend(user.auth_user_id)}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                       >
                         <UserPlus className="w-4 h-4 mr-2 inline" />
@@ -368,12 +390,12 @@ export function Friends() {
                           <img src={request.sender.avatar} alt={request.sender.name} className="w-full h-full rounded-full object-cover" />
                         ) : (
                           <span className="text-gray-600 font-semibold">
-                            {request.sender?.name?.[0]}{request.sender?.last_name?.[0]}
+                            {request.sender?.name?.[0]}{request.sender?.lastname?.[0]}
                           </span>
                         )}
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{request.sender?.name} {request.sender?.last_name}</p>
+                        <p className="font-medium text-gray-900">{request.sender?.name} {request.sender?.lastname}</p>
                         <p className="text-sm text-gray-500">Надіслав запит на дружбу</p>
                       </div>
                     </div>
@@ -420,30 +442,30 @@ export function Friends() {
                         {friend.avatar ? (
                           <img src={friend.avatar} alt={friend.name} className="w-full h-full rounded-full object-cover" />
                         ) : (
-                          <span className="text-gray-600 font-semibold">
-                            {friend.name?.[0]}{friend.last_name?.[0]}
-                          </span>
+                                                      <span className="text-gray-600 font-semibold">
+                              {friend.name?.[0]}{friend.lastname?.[0]}
+                            </span>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div 
                           className="cursor-pointer hover:text-blue-600 transition-colors"
-                          onClick={() => navigate(`/profile/${friend.auth_user_id}`)}
+                          onClick={() => navigate(`/user/${friend.id}`)}
                         >
-                          <p className="font-medium text-gray-900 truncate">{friend.name} {friend.last_name}</p>
+                          <p className="font-medium text-gray-900 truncate">{friend.name} {friend.lastname}</p>
                         </div>
                       </div>
                     </div>
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => navigate(`/messages?user=${friend.auth_user_id}`)}
+                        onClick={() => navigate(`/messages?user=${friend.id}`)}
                         className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                       >
                         <MessageCircle className="w-4 h-4 mr-1" />
                         Повідомлення
                       </button>
                       <button
-                        onClick={() => navigate(`/profile/${friend.auth_user_id}`)}
+                        onClick={() => navigate(`/user/${friend.id}`)}
                         className="flex items-center justify-center px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                         title="Переглянути профіль"
                       >
