@@ -36,7 +36,7 @@ export async function upsertUserProfile({ auth_user_id, name, last_name, email, 
   [key: string]: any;
 }) {
   console.log('📝 upsertUserProfile called with:', { auth_user_id, name, last_name, email });
-  
+
   // Підготовка даних профілю з значеннями за замовчуванням
   const profileData: any = {
     auth_user_id,
@@ -71,7 +71,7 @@ export async function upsertUserProfile({ auth_user_id, name, last_name, email, 
       .select('id')
       .eq('auth_user_id', auth_user_id)
       .maybeSingle();
-      
+
     if (selectError) {
       console.error('❌ Error checking existing profile:', selectError);
       return { error: selectError };
@@ -85,12 +85,12 @@ export async function upsertUserProfile({ auth_user_id, name, last_name, email, 
         .insert([profileData])
         .select()
         .single();
-        
+
       if (error) {
         console.error('❌ Error creating profile:', error);
         return { error };
       }
-      
+
       console.log('✅ New profile created:', data);
       return { data, error: null };
     } else {
@@ -102,12 +102,12 @@ export async function upsertUserProfile({ auth_user_id, name, last_name, email, 
         .eq('auth_user_id', auth_user_id)
         .select()
         .single();
-        
+
       if (error) {
         console.error('❌ Error updating profile:', error);
         return { error };
       }
-      
+
       console.log('✅ Profile updated:', data);
       return { data, error: null };
     }
@@ -115,4 +115,33 @@ export async function upsertUserProfile({ auth_user_id, name, last_name, email, 
     console.error('❌ Unexpected error in upsertUserProfile:', error);
     return { error };
   }
+}
+
+// Додаткова функція для створення профілю через RPC (якщо потрібно)
+export async function createUserProfileRPC(profileData: any) {
+  const { data, error } = await supabase.rpc('create_user_profile', profileData);
+  return { data, error };
+}
+
+// Функція для отримання всіх профілів (для адміністраторів)
+export async function getAllUserProfiles() {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
+  return data;
+}
+
+// Функція для пошуку профілів за іменем
+export async function searchUserProfiles(searchTerm: string) {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .or(`name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%`)
+    .order('name', { ascending: true });
+  
+  if (error) throw error;
+  return data;
 } 
