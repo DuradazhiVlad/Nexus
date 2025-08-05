@@ -4,11 +4,11 @@ export interface DatabaseUser {
   id: string;
   email: string;
   name: string;
-  lastname?: string;
+  last_name?: string;
   avatar?: string;
   bio?: string;
   city?: string;
-  birthdate?: string;
+  birth_date?: string;
   created_at?: string;
   notifications?: {
     email: boolean;
@@ -94,8 +94,8 @@ export interface Friendship {
 
 export interface FriendRequest {
   id: string;
-  sender_id: string;
-  receiver_id: string;
+  user_id: string;
+  friend_id: string;
   status: 'pending' | 'accepted' | 'rejected';
   created_at: string;
   updated_at: string;
@@ -110,35 +110,27 @@ export interface Conversation {
 }
 
 export class DatabaseService {
-  // Перевірка чи користувач аутентифікований
+  /**
+   * Перевірити авторизацію користувача
+   */
   private static async ensureAuthenticated() {
-    try {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      
-      if (error) {
-        console.error('Auth check failed:', error.message);
-        throw new Error(`Authentication failed: ${error.message}`);
-      }
-      
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-      
-      return user;
-    } catch (error) {
-      console.error('Authentication error:', error);
-      throw error;
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      throw new Error('User not authenticated');
     }
+    return user;
   }
 
-  // Get current user profile or create if doesn't exist
+  /**
+   * Отримати профіль поточного користувача
+   */
   static async getCurrentUserProfile(): Promise<UserProfile | null> {
     try {
       console.log('🔍 Getting current user profile...');
       const authUser = await this.ensureAuthenticated();
       console.log('✅ User authenticated:', authUser.email);
       
-      // Look for user profile by auth_user_id
+      // Look for user in user_profiles table by auth_user_id
       const { data: profile, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -149,8 +141,8 @@ export class DatabaseService {
       
       if (error) {
         if (error.code === 'PGRST116') {
-          console.log('📝 Profile not found, creating new one...');
-          // Profile doesn't exist, create new profile
+          console.log('📝 User profile not found, creating new one...');
+          // User doesn't exist, create new profile
           return await this.createUserProfile(authUser);
         } else {
           console.error('❌ Error fetching user profile:', error);
@@ -159,23 +151,6 @@ export class DatabaseService {
       }
       
       console.log('✅ User profile found:', profile.id);
-      console.log('🔍 Hobbies from database:', profile.hobbies);
-      console.log('🔍 Languages from database:', profile.languages);
-      console.log('🔍 Hobbies type:', typeof profile.hobbies);
-      console.log('🔍 Languages type:', typeof profile.languages);
-      console.log('🔍 Hobbies length:', profile.hobbies?.length);
-      console.log('🔍 Languages length:', profile.languages?.length);
-      
-      // Ensure hobbies and languages are arrays
-      if (!Array.isArray(profile.hobbies)) {
-        console.log('⚠️ Hobbies is not an array, converting...');
-        profile.hobbies = [];
-      }
-      if (!Array.isArray(profile.languages)) {
-        console.log('⚠️ Languages is not an array, converting...');
-        profile.languages = [];
-      }
-      
       return profile;
     } catch (error) {
       console.error('❌ Error getting current user profile:', error);
@@ -184,17 +159,17 @@ export class DatabaseService {
   }
 
   /**
-   * Отримати поточного користувача з таблиці users
+   * Отримати поточного користувача з таблиці user_profiles
    */
   static async getCurrentUser(): Promise<DatabaseUser | null> {
     try {
-      console.log('🔍 Getting current user from users table...');
+      console.log('🔍 Getting current user from user_profiles table...');
       const authUser = await this.ensureAuthenticated();
       console.log('✅ User authenticated:', authUser.email);
       
-      // Look for user in users table by auth_user_id
+      // Look for user in user_profiles table by auth_user_id
       const { data: user, error } = await supabase
-        .from('users')
+        .from('user_profiles')
         .select('*')
         .eq('auth_user_id', authUser.id)
         .single();
@@ -203,7 +178,7 @@ export class DatabaseService {
       
       if (error) {
         if (error.code === 'PGRST116') {
-          console.log('📝 User not found in users table, creating new one...');
+          console.log('📝 User not found in user_profiles table, creating new one...');
           // User doesn't exist, create new user
           return await this.createUser(authUser);
         } else {
@@ -221,19 +196,20 @@ export class DatabaseService {
   }
 
   /**
-   * Створити нового користувача в таблиці users
+   * Створити нового користувача в таблиці user_profiles
    */
   private static async createUser(authUser: any): Promise<DatabaseUser | null> {
     try {
-      console.log('📝 Creating new user in users table for:', authUser.email);
+      console.log('📝 Creating new user in user_profiles table for:', authUser.email);
       
       const newUserData = {
-        id: authUser.id, // Use auth user ID as the primary key
+        auth_user_id: authUser.id,
         email: authUser.email,
         name: authUser.user_metadata?.name || authUser.user_metadata?.full_name?.split(' ')[0] || authUser.email?.split('@')[0] || 'User',
-        lastname: authUser.user_metadata?.lastname || authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+        last_name: authUser.user_metadata?.lastname || authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
         avatar: authUser.user_metadata?.avatar || null,
-        auth_user_id: authUser.id,
+        hobbies: [] as string[],
+        languages: [] as string[],
         notifications: { email: true, messages: true, friendRequests: true },
         privacy: { profileVisibility: 'public', showBirthDate: true, showEmail: false }
       };
@@ -241,7 +217,7 @@ export class DatabaseService {
       console.log('📋 New user data:', newUserData);
       
       const { data: newUser, error } = await supabase
-        .from('users')
+        .from('user_profiles')
         .insert([newUserData])
         .select()
         .single();
@@ -288,9 +264,7 @@ export class DatabaseService {
         throw new Error(`Failed to create user profile: ${error.message}`);
       }
       
-      console.log('✅ New profile created:', newProfile.id);
-      console.log('🔍 New profile hobbies:', newProfile.hobbies);
-      console.log('🔍 New profile languages:', newProfile.languages);
+      console.log('✅ New user profile created:', newProfile.id);
       return newProfile;
     } catch (error) {
       console.error('❌ Error creating user profile:', error);
@@ -298,289 +272,356 @@ export class DatabaseService {
     }
   }
 
-  // Search users by name
+  /**
+   * Пошук користувачів
+   */
   static async searchUsers(query: string): Promise<UserProfile[]> {
     try {
-      if (query.length < 2) {
-        return [];
-      }
-      await this.ensureAuthenticated();
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('auth_user_id, name, last_name, avatar, email')
-        .or(`name.ilike.%${query}%,last_name.ilike.%${query}%`)
-        .limit(10);
-      if (error) {
-        console.error('Error searching user_profiles:', error);
-        throw new Error(`Search failed: ${error.message}`);
-      }
-      return data || [];
-    } catch (error) {
-      console.error('Error searching user_profiles:', error);
-      return [];
-    }
-  }
-
-  // Get all users (profiles)
-  static async getAllUsers({ limit = 100, offset = 0 } = {}): Promise<UserProfile[]> {
-    try {
-      console.log('🔍 DatabaseService.getAllUsers called with:', { limit, offset });
+      console.log('🔍 Searching users with query:', query);
       
-      await this.ensureAuthenticated();
-      
-      console.log('📡 Executing Supabase query...');
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
+        .or(`name.ilike.%${query}%,last_name.ilike.%${query}%`)
+        .limit(20);
         
-      console.log('📊 Supabase response:', { data, error });
-      
       if (error) {
-        console.error('❌ Error fetching all user_profiles:', error);
-        throw new Error(`Failed to fetch user_profiles: ${error.message}`);
+        console.error('❌ Error searching users:', error);
+        throw error;
       }
       
-      const validProfiles = (data || []).filter(profile => 
-        profile && profile.auth_user_id && profile.name && profile.email && profile.name.trim() !== '' && profile.email.trim() !== ''
-      );
-      
-      console.log('✅ Valid profiles found:', validProfiles.length);
-      console.log('📋 Sample profile:', validProfiles[0]);
-      
-      return validProfiles;
+      console.log('✅ Users found:', data?.length || 0);
+      return data || [];
     } catch (error) {
-      console.error('❌ Error fetching all user_profiles:', error);
+      console.error('❌ Error searching users:', error);
       return [];
     }
   }
 
-  // Get user posts
+  /**
+   * Отримати всіх користувачів
+   */
+  static async getAllUsers({ limit = 100, offset = 0 } = {}): Promise<UserProfile[]> {
+    try {
+      console.log('🔍 Getting all users...');
+      
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .range(offset, offset + limit - 1)
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error('❌ Error getting all users:', error);
+        throw error;
+      }
+      
+      console.log('✅ All users fetched:', data?.length || 0);
+      return data || [];
+    } catch (error) {
+      console.error('❌ Error getting all users:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Отримати пости користувача
+   */
   static async getUserPosts(userId: string): Promise<Post[]> {
     try {
+      console.log('🔍 Getting posts for user:', userId);
+      
       const { data, error } = await supabase
         .from('posts')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
-
+        
       if (error) {
+        console.error('❌ Error getting user posts:', error);
         throw error;
       }
-
+      
+      console.log('✅ User posts fetched:', data?.length || 0);
       return data || [];
     } catch (error) {
-      console.error('Error fetching user posts:', error);
+      console.error('❌ Error getting user posts:', error);
       return [];
     }
   }
 
-  // Get user media
+  /**
+   * Отримати медіа користувача
+   */
   static async getUserMedia(userId: string): Promise<Media[]> {
     try {
+      console.log('🔍 Getting media for user:', userId);
+      
       const { data, error } = await supabase
         .from('media')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
-
+        
       if (error) {
+        console.error('❌ Error getting user media:', error);
         throw error;
       }
-
+      
+      console.log('✅ User media fetched:', data?.length || 0);
       return data || [];
     } catch (error) {
-      console.error('Error fetching user media:', error);
+      console.error('❌ Error getting user media:', error);
       return [];
     }
   }
 
-  // Update user profile
+  /**
+   * Оновити профіль користувача
+   */
   static async updateUserProfile(updates: Partial<UserProfile>): Promise<UserProfile | null> {
     try {
+      console.log('🔍 Updating user profile...');
       const authUser = await this.ensureAuthenticated();
-
-      // Remove non-database fields
-      const { id, ...safeUpdates } = updates;
-
-      console.log('Updating user profile with:', safeUpdates);
+      
       const { data, error } = await supabase
         .from('user_profiles')
-        .update(safeUpdates)
+        .update(updates)
         .eq('auth_user_id', authUser.id)
         .select()
         .single();
+        
       if (error) {
-        console.error('Error updating user profile:', error);
-        throw new Error(`Failed to update profile: ${error.message}`);
+        console.error('❌ Error updating user profile:', error);
+        throw error;
       }
-
-      console.log('Successfully updated user profile:', data);
+      
+      console.log('✅ User profile updated:', data.id);
       return data;
     } catch (error) {
-      console.error('Error updating user profile:', error);
+      console.error('❌ Error updating user profile:', error);
       throw error;
     }
   }
 
-  // Create new post
+  /**
+   * Створити пост
+   */
   static async createPost(content: string, mediaUrl?: string, mediaType?: 'photo' | 'video' | 'document'): Promise<Post | null> {
     try {
-      const currentUser = await this.getCurrentUserProfile();
-      if (!currentUser) {
-        throw new Error('User not authenticated');
+      console.log('🔍 Creating post...');
+      const authUser = await this.ensureAuthenticated();
+      
+      // Get user profile ID
+      const { data: userProfile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('auth_user_id', authUser.id)
+        .single();
+        
+      if (profileError) {
+        console.error('❌ Error getting user profile:', profileError);
+        throw profileError;
       }
-
-      const postData = {
-        user_id: currentUser.auth_user_id,
-        content,
-        media_url: mediaUrl,
-        media_type: mediaType,
-      };
-
+      
       const { data, error } = await supabase
         .from('posts')
-        .insert([postData])
+        .insert([{
+          user_id: userProfile.id,
+          content,
+          media_url: mediaUrl,
+          media_type: mediaType,
+          likes_count: 0,
+          comments_count: 0
+        }])
         .select()
         .single();
-
+        
       if (error) {
+        console.error('❌ Error creating post:', error);
         throw error;
       }
-
+      
+      console.log('✅ Post created:', data.id);
       return data;
     } catch (error) {
-      console.error('Error creating post:', error);
-      return null;
+      console.error('❌ Error creating post:', error);
+      throw error;
     }
   }
 
-  // Get user groups
+  /**
+   * Отримати групи користувача
+   */
   static async getUserGroups(userId: string): Promise<Group[]> {
     try {
+      console.log('🔍 Getting groups for user:', userId);
+      
       const { data, error } = await supabase
         .from('group_members')
-        .select(`
-          groups:group_id (
-            id,
-            name,
-            description,
-            avatar,
-            is_private,
-            created_by,
-            created_at,
-            member_count
-          )
-        `)
+        .select('group_id')
         .eq('user_id', userId);
-
+        
       if (error) {
+        console.error('❌ Error getting user groups:', error);
         throw error;
       }
-
-      return data?.map(item => item.groups).filter(Boolean) || [];
+      
+      if (!data || data.length === 0) {
+        return [];
+      }
+      
+      const groupIds = data.map(member => member.group_id);
+      
+      const { data: groups, error: groupsError } = await supabase
+        .from('groups')
+        .select('*')
+        .in('id', groupIds);
+        
+      if (groupsError) {
+        console.error('❌ Error getting groups:', groupsError);
+        throw groupsError;
+      }
+      
+      console.log('✅ User groups fetched:', groups?.length || 0);
+      return groups || [];
     } catch (error) {
-      console.error('Error fetching user groups:', error);
+      console.error('❌ Error getting user groups:', error);
       return [];
     }
   }
 
-  // Get user friends
+  /**
+   * Отримати друзів користувача
+   */
   static async getUserFriends(userId: string): Promise<DatabaseUser[]> {
     try {
-      const { data, error } = await supabase
+      console.log('🔍 Getting friends for user:', userId);
+      
+      // Get friendships where user is user1
+      const { data: friendships1, error: error1 } = await supabase
         .from('friendships')
-        .select('*')
-        .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
-
-      if (error) {
-        throw error;
+        .select('user2_id')
+        .eq('user1_id', userId);
+        
+      // Get friendships where user is user2
+      const { data: friendships2, error: error2 } = await supabase
+        .from('friendships')
+        .select('user1_id')
+        .eq('user2_id', userId);
+        
+      if (error1 || error2) {
+        console.error('❌ Error getting friendships:', error1 || error2);
+        throw error1 || error2;
       }
-
-      // Отримуємо ID друзів
-      const friendIds = (data || []).map(f => 
-        f.user1_id === userId ? f.user2_id : f.user1_id
-      );
-
+      
+      // Collect all friend IDs
+      const friendIds = [
+        ...(friendships1 || []).map(f => f.user2_id),
+        ...(friendships2 || []).map(f => f.user1_id)
+      ];
+      
       if (friendIds.length === 0) {
         return [];
       }
-
-      // Отримуємо профілі друзів
-      const { data: profiles, error: profilesError } = await supabase
+      
+      // Get friend profiles
+      const { data: friends, error: friendsError } = await supabase
         .from('user_profiles')
-        .select('id, name, lastname, avatar, email')
-        .in('auth_user_id', friendIds);
-
-      if (profilesError) {
-        throw profilesError;
+        .select('*')
+        .in('id', friendIds);
+        
+      if (friendsError) {
+        console.error('❌ Error getting friends:', friendsError);
+        throw friendsError;
       }
-
-      return profiles || [];
+      
+      console.log('✅ User friends fetched:', friends?.length || 0);
+      return friends || [];
     } catch (error) {
-      console.error('Error fetching user friends:', error);
+      console.error('❌ Error getting user friends:', error);
       return [];
     }
   }
 
-  // Send friend request
+  /**
+   * Відправити запит на дружбу
+   */
   static async sendFriendRequest(receiverId: string): Promise<boolean> {
     try {
-      const currentUser = await this.getCurrentUserProfile();
-      if (!currentUser) {
-        throw new Error('User not authenticated');
+      console.log('🔍 Sending friend request to:', receiverId);
+      const authUser = await this.ensureAuthenticated();
+      
+      // Get user profile ID
+      const { data: userProfile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('auth_user_id', authUser.id)
+        .single();
+        
+      if (profileError) {
+        console.error('❌ Error getting user profile:', profileError);
+        throw profileError;
       }
-
+      
       const { error } = await supabase
         .from('friend_requests')
         .insert([{
-          sender_id: currentUser.auth_user_id,
-          receiver_id: receiverId,
+          user_id: userProfile.id,
+          friend_id: receiverId,
           status: 'pending'
         }]);
-
+        
       if (error) {
+        console.error('❌ Error sending friend request:', error);
         throw error;
       }
-
+      
+      console.log('✅ Friend request sent successfully');
       return true;
     } catch (error) {
-      console.error('Error sending friend request:', error);
-      return false;
+      console.error('❌ Error sending friend request:', error);
+      throw error;
     }
   }
 
-
-
-  // Add friend
+  /**
+   * Додати друга
+   */
   static async addFriend(friendId: string): Promise<boolean> {
     try {
-      const currentUser = await this.getCurrentUserProfile();
-      if (!currentUser) {
-        return false;
+      console.log('🔍 Adding friend:', friendId);
+      const authUser = await this.ensureAuthenticated();
+      
+      // Get user profile ID
+      const { data: userProfile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('auth_user_id', authUser.id)
+        .single();
+        
+      if (profileError) {
+        console.error('❌ Error getting user profile:', profileError);
+        throw profileError;
       }
-
+      
       const { error } = await supabase
-        .from('friends')
-        .insert([
-          { user_id: currentUser.auth_user_id, friend_id: friendId }
-        ]);
-
+        .from('friendships')
+        .insert([{
+          user1_id: userProfile.id,
+          user2_id: friendId
+        }]);
+        
       if (error) {
+        console.error('❌ Error adding friend:', error);
         throw error;
       }
-
+      
+      console.log('✅ Friend added successfully');
       return true;
     } catch (error) {
-      console.error('Error adding friend:', error);
-      return false;
+      console.error('❌ Error adding friend:', error);
+      throw error;
     }
   }
-
-
-
-
-
-
 }

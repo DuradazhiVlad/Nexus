@@ -10,7 +10,7 @@ export class PeopleService {
       console.log('🔍 PeopleService: Fetching all users');
       
       const { data, error } = await supabase
-        .from('users')
+        .from('user_profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -37,9 +37,9 @@ export class PeopleService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
 
-      // Отримуємо ID користувача з таблиці users
+      // Отримуємо ID користувача з таблиці user_profiles
       const { data: userProfile, error: profileError } = await supabase
-        .from('users')
+        .from('user_profiles')
         .select('id')
         .eq('auth_user_id', user.id)
         .single();
@@ -78,9 +78,9 @@ export class PeopleService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Отримуємо ID користувача з таблиці users
+      // Отримуємо ID користувача з таблиці user_profiles
       const { data: userProfile, error: profileError } = await supabase
-        .from('users')
+        .from('user_profiles')
         .select('id')
         .eq('auth_user_id', user.id)
         .single();
@@ -197,9 +197,9 @@ export class PeopleService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Отримуємо ID користувача з таблиці users
+      // Отримуємо ID користувача з таблиці user_profiles
       const { data: userProfile, error: profileError } = await supabase
-        .from('users')
+        .from('user_profiles')
         .select('id')
         .eq('auth_user_id', user.id)
         .single();

@@ -10,9 +10,9 @@ export class UserService {
       console.log('🔍 UserService: Fetching user detail for:', userId);
       
       const { data, error } = await supabase
-        .from('users')
+        .from('user_profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('auth_user_id', userId)
         .single();
 
       if (error) {
@@ -90,9 +90,9 @@ export class UserService {
 
       // Отримуємо інформацію про друзів
       const { data: friends, error: friendsError } = await supabase
-        .from('users')
+        .from('user_profiles')
         .select('*')
-        .in('id', friendIds);
+        .in('auth_user_id', friendIds);
 
       if (friendsError) {
         console.error('❌ UserService: Error fetching friends:', friendsError);

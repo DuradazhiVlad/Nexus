@@ -1,47 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
-import { Search, UserPlus, UserCheck, Users, MessageCircle, User } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { ErrorNotification, useErrorNotifications } from '../../components/ErrorNotification';
+import { UserPlus, UserMinus, Users, UserCheck, UserX, Search, Filter } from 'lucide-react';
+import { useNotifications } from '../../components/ErrorNotification';
 
 interface Friend {
   id: string;
   name: string;
-  lastname?: string;
+  last_name?: string;
   avatar?: string;
   auth_user_id: string;
 }
 
+interface FriendRequest {
+  id: string;
+  user_id: string;
+  friend_id: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  created_at: string;
+  user: Friend;
+  friend: Friend;
+}
+
 export function Friends() {
   const [friends, setFriends] = useState<Friend[]>([]);
-  const [requests, setRequests] = useState<any[]>([]); // friend_requests
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [authUser, setAuthUser] = useState(null); // auth user
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null); // users table id
-  const location = useLocation();
-  const navigate = useNavigate();
-  
-  // Modern error handling
-  const { notifications, addNotification, removeNotification } = useErrorNotifications();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState<'all' | 'online' | 'recent'>('all');
+  const [authUser, setAuthUser] = useState<any>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { addNotification } = useNotifications();
 
   useEffect(() => {
     loadAuthUser();
-  }, [location.key]);
+  }, []);
 
   useEffect(() => {
-    if (authUser && currentUserId) {
+    if (currentUserId) {
       fetchFriends();
       fetchRequests();
     }
-  }, [authUser, currentUserId]);
+  }, [currentUserId]);
 
   async function loadAuthUser() {
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error || !user) {
+        console.error('Error getting auth user:', error);
         addNotification({
           type: 'error',
           title: 'Помилка авторизації',
@@ -51,9 +56,9 @@ export function Friends() {
       }
       setAuthUser(user);
       
-      // Отримуємо ID користувача з таблиці users
+      // Отримуємо ID користувача з таблиці user_profiles
       const { data: userProfile, error: profileError } = await supabase
-        .from('users')
+        .from('user_profiles')
         .select('id')
         .eq('auth_user_id', user.id)
         .single();
@@ -103,7 +108,7 @@ export function Friends() {
       
       console.log('🔍 Friendships data:', data);
       
-      // Отримуємо ID друзів (це users.id)
+      // Отримуємо ID друзів (це user_profiles.id)
       const friendIds = (data || []).map(f => 
         f.user1_id === currentUserId ? f.user2_id : f.user1_id
       );
@@ -115,10 +120,10 @@ export function Friends() {
         return;
       }
       
-      // Отримуємо профілі друзів з таблиці users
+      // Отримуємо профілі друзів з таблиці user_profiles
       const { data: profiles, error: profilesError } = await supabase
-        .from('users')
-        .select('id, name, lastname, avatar, auth_user_id')
+        .from('user_profiles')
+        .select('id, name, last_name, avatar, auth_user_id')
         .in('id', friendIds);
         
       if (profilesError) throw profilesError;
@@ -150,42 +155,50 @@ export function Friends() {
       
       console.log('🔍 Fetching friend requests for user ID:', currentUserId);
       
+      // Отримуємо запити на дружбу
       const { data, error } = await supabase
         .from('friend_requests')
         .select('*')
-        .eq('receiver_id', currentUserId)
+        .or(`user_id.eq.${currentUserId},friend_id.eq.${currentUserId}`)
         .eq('status', 'pending');
         
       if (error) throw error;
       
       console.log('🔍 Friend requests data:', data);
       
-      // Отримуємо профілі відправників з таблиці users
-      const senderIds = (data || []).map(req => req.sender_id);
-      
-      if (senderIds.length > 0) {
-        const { data: profiles, error: profilesError } = await supabase
-          .from('users')
-          .select('id, name, lastname, avatar, auth_user_id')
-          .in('id', senderIds);
-          
-        if (profilesError) throw profilesError;
-        
-        console.log('🔍 Sender profiles:', profiles);
-        
-        // Додаємо профілі до запитів
-        const requestsWithProfiles = (data || []).map(req => {
-          const sender = profiles.find(p => p.id === req.sender_id);
-          return { ...req, sender };
-        });
-        
-        console.log('✅ Requests with profiles:', requestsWithProfiles);
-        setRequests(requestsWithProfiles);
-      } else {
+      if (!data || data.length === 0) {
         setRequests([]);
+        return;
       }
+      
+      // Отримуємо ID користувачів для запитів
+      const userIds = [...new Set(data.flatMap(req => [req.user_id, req.friend_id]))];
+      
+      // Отримуємо профілі користувачів з таблиці user_profiles
+      const { data: profiles, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('id, name, last_name, avatar, auth_user_id')
+        .in('id', userIds);
+        
+      if (profilesError) throw profilesError;
+      
+      // Створюємо мапу профілів
+      const profilesMap = (profiles || []).reduce((acc, profile) => {
+        acc[profile.id] = profile;
+        return acc;
+      }, {} as Record<string, any>);
+      
+      // Додаємо профілі до запитів
+      const requestsWithProfiles = data.map(request => ({
+        ...request,
+        user: profilesMap[request.user_id],
+        friend: profilesMap[request.friend_id]
+      }));
+      
+      console.log('✅ Friend requests with profiles:', requestsWithProfiles);
+      setRequests(requestsWithProfiles);
     } catch (error) {
-      console.error('Error fetching requests:', error);
+      console.error('Error fetching friend requests:', error);
       addNotification({
         type: 'error',
         title: 'Помилка завантаження',
@@ -198,38 +211,61 @@ export function Friends() {
 
   const acceptRequest = async (requestId: string) => {
     try {
-      const { error } = await supabase
+      console.log('🔍 Accepting friend request:', requestId);
+      
+      // Отримуємо запит
+      const { data: request, error: getError } = await supabase
+        .from('friend_requests')
+        .select('*')
+        .eq('id', requestId)
+        .single();
+        
+      if (getError) throw getError;
+      
+      // Оновлюємо статус запиту
+      const { error: updateError } = await supabase
         .from('friend_requests')
         .update({ status: 'accepted' })
         .eq('id', requestId);
         
-      if (error) throw error;
+      if (updateError) throw updateError;
+      
+      // Створюємо дружбу
+      const { error: friendshipError } = await supabase
+        .from('friendships')
+        .insert([{
+          user1_id: request.user_id,
+          user2_id: request.friend_id
+        }]);
+        
+      if (friendshipError) throw friendshipError;
+      
+      console.log('✅ Friend request accepted successfully');
       
       addNotification({
         type: 'success',
-        title: 'Успішно!',
-        message: 'Запит на дружбу прийнято!',
-        autoClose: true,
-        duration: 3000
+        title: 'Запит прийнято',
+        message: 'Тепер ви друзі!'
       });
       
+      // Оновлюємо дані
       fetchFriends();
       fetchRequests();
     } catch (error) {
-      console.error('Error accepting request:', error);
+      console.error('Error accepting friend request:', error);
       addNotification({
         type: 'error',
         title: 'Помилка',
         message: 'Не вдалося прийняти запит на дружбу',
-        details: error instanceof Error ? error.message : 'Невідома помилка',
-        showRetry: true,
-        onRetry: () => acceptRequest(requestId)
+        details: error instanceof Error ? error.message : 'Невідома помилка'
       });
     }
   };
 
   const rejectRequest = async (requestId: string) => {
     try {
+      console.log('🔍 Rejecting friend request:', requestId);
+      
       const { error } = await supabase
         .from('friend_requests')
         .update({ status: 'rejected' })
@@ -237,48 +273,51 @@ export function Friends() {
         
       if (error) throw error;
       
+      console.log('✅ Friend request rejected successfully');
+      
       addNotification({
         type: 'success',
-        title: 'Успішно!',
-        message: 'Запит на дружбу відхилено!',
-        autoClose: true,
-        duration: 3000
+        title: 'Запит відхилено',
+        message: 'Запит на дружбу було відхилено'
       });
       
+      // Оновлюємо дані
       fetchRequests();
     } catch (error) {
-      console.error('Error rejecting request:', error);
+      console.error('Error rejecting friend request:', error);
       addNotification({
         type: 'error',
         title: 'Помилка',
         message: 'Не вдалося відхилити запит на дружбу',
-        details: error instanceof Error ? error.message : 'Невідома помилка',
-        showRetry: true,
-        onRetry: () => rejectRequest(requestId)
+        details: error instanceof Error ? error.message : 'Невідома помилка'
       });
     }
   };
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    if (query.length < 2) {
-      setSearchResults([]);
+    
+    if (!query.trim()) {
+      fetchFriends();
       return;
     }
+    
     try {
       const { data, error } = await supabase
-        .from('users')
-        .select('id, name, lastname, avatar, auth_user_id')
-        .or(`name.ilike.%${query}%,lastname.ilike.%${query}%`)
+        .from('user_profiles')
+        .select('id, name, last_name, avatar, auth_user_id')
+        .or(`name.ilike.%${query}%,last_name.ilike.%${query}%`)
         .limit(10);
+        
       if (error) throw error;
-      setSearchResults(data || []);
+      
+      setFriends(data || []);
     } catch (error) {
-      console.error('Error searching users:', error);
+      console.error('Error searching friends:', error);
       addNotification({
         type: 'error',
         title: 'Помилка пошуку',
-        message: 'Не вдалося виконати пошук користувачів',
+        message: 'Не вдалося виконати пошук',
         details: error instanceof Error ? error.message : 'Невідома помилка'
       });
     }
@@ -286,216 +325,231 @@ export function Friends() {
 
   const addFriend = async (friendId: string) => {
     try {
-      if (!currentUserId) {
-        addNotification({
-          type: 'warning',
-          title: 'Не авторизовано',
-          message: 'Для додавання в друзі потрібно авторизуватися'
-        });
-        return;
-      }
-
-      console.log('🔍 Adding friend request:', { sender_id: currentUserId, receiver_id: friendId });
-
-      // Створюємо запит на дружбу
+      console.log('🔍 Sending friend request to:', friendId);
+      
       const { error } = await supabase
         .from('friend_requests')
-        .insert([
-          { sender_id: currentUserId, receiver_id: friendId, status: 'pending' }
-        ]);
-
+        .insert([{
+          user_id: currentUserId,
+          friend_id: friendId,
+          status: 'pending'
+        }]);
+        
       if (error) throw error;
-
+      
+      console.log('✅ Friend request sent successfully');
+      
       addNotification({
         type: 'success',
-        title: 'Успішно!',
-        message: 'Запит на дружбу надіслано!',
-        autoClose: true,
-        duration: 3000
+        title: 'Запит відправлено',
+        message: 'Запит на дружбу було відправлено'
       });
-
-      await fetchFriends();
     } catch (error) {
-      console.error('Error adding friend:', error);
+      console.error('Error sending friend request:', error);
       addNotification({
         type: 'error',
         title: 'Помилка',
-        message: 'Не вдалося надіслати запит на дружбу',
-        details: error instanceof Error ? error.message : 'Невідома помилка',
-        showRetry: true,
-        onRetry: () => addFriend(friendId)
+        message: 'Не вдалося відправити запит на дружбу',
+        details: error instanceof Error ? error.message : 'Невідома помилка'
       });
     }
   };
 
-  return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex-1 ml-64 p-8">
-        {/* Error Notifications */}
-        {notifications.map((notification) => (
-          <ErrorNotification
-            key={notification.id}
-            {...notification}
-            onClose={() => removeNotification(notification.id)}
-          />
-        ))}
+  const removeFriend = async (friendId: string) => {
+    try {
+      console.log('🔍 Removing friend:', friendId);
+      
+      const { error } = await supabase
+        .from('friendships')
+        .delete()
+        .or(`and(user1_id.eq.${currentUserId},user2_id.eq.${friendId}),and(user1_id.eq.${friendId},user2_id.eq.${currentUserId})`);
         
-        <div className="max-w-3xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Друзі</h1>
-            <p className="text-gray-600">Керуйте своїми друзями та запитами на дружбу</p>
-          </div>
+      if (error) throw error;
+      
+      console.log('✅ Friend removed successfully');
+      
+      addNotification({
+        type: 'success',
+        title: 'Друга видалено',
+        message: 'Користувача було видалено з друзів'
+      });
+      
+      // Оновлюємо список друзів
+      fetchFriends();
+    } catch (error) {
+      console.error('Error removing friend:', error);
+      addNotification({
+        type: 'error',
+        title: 'Помилка',
+        message: 'Не вдалося видалити друга',
+        details: error instanceof Error ? error.message : 'Невідома помилка'
+      });
+    }
+  };
 
-          {/* Search Section */}
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Знайти користувачів</h2>
-            <div className="flex space-x-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Пошук за ім'ям або прізвищем..."
-                  value={searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+  const filteredFriends = friends.filter(friend => {
+    const matchesSearch = !searchQuery || 
+      friend.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (friend.last_name && friend.last_name.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    // Тут можна додати фільтрацію за статусом (онлайн, останній раз тощо)
+    return matchesSearch;
+  });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Завантаження друзів...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-lg shadow-sm">
+          {/* Header */}
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Users className="h-6 w-6 text-blue-600" />
+                <h1 className="text-2xl font-bold text-gray-900">Друзі</h1>
+                <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
+                  {friends.length}
+                </span>
+              </div>
+              
+              <div className="flex items-center space-x-4">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <input
+                    type="text"
+                    placeholder="Пошук друзів..."
+                    value={searchQuery}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                {/* Filter */}
+                <div className="relative">
+                  <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value as 'all' | 'online' | 'recent')}
+                    className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                  >
+                    <option value="all">Всі друзі</option>
+                    <option value="online">Онлайн</option>
+                    <option value="recent">Останні</option>
+                  </select>
+                </div>
               </div>
             </div>
-            
-            {searchResults.length > 0 && (
-              <div className="mt-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Результати пошуку:</h3>
-                <div className="space-y-2">
-                  {searchResults.map((user) => (
-                    <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          </div>
+
+          {/* Content */}
+          <div className="p-6">
+            {/* Friend Requests */}
+            {requests.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <UserPlus className="h-5 w-5 text-orange-500 mr-2" />
+                  Запити на дружбу ({requests.length})
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {requests.map((request) => (
+                    <div key={request.id} className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                          {user.avatar ? (
-                            <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" />
-                          ) : (
-                            <span className="text-gray-600 font-semibold">
-                              {user.name?.[0]}{user.lastname?.[0]}
-                            </span>
-                          )}
+                        <div className="flex-shrink-0">
+                          <img
+                            src={request.user.avatar || '/default-avatar.png'}
+                            alt={request.user.name}
+                            className="h-10 w-10 rounded-full"
+                          />
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{user.name} {user.lastname}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">
+                            {request.user.name} {request.user.last_name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Хоче додати вас у друзі
+                          </p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => addFriend(user.id)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                      >
-                        <UserPlus className="w-4 h-4 mr-2 inline" />
-                        Додати
-                      </button>
+                      <div className="mt-3 flex space-x-2">
+                        <button
+                          onClick={() => acceptRequest(request.id)}
+                          className="flex-1 bg-green-600 text-white text-xs px-3 py-1.5 rounded-md hover:bg-green-700 transition-colors flex items-center justify-center"
+                        >
+                          <UserCheck className="h-3 w-3 mr-1" />
+                          Прийняти
+                        </button>
+                        <button
+                          onClick={() => rejectRequest(request.id)}
+                          className="flex-1 bg-red-600 text-white text-xs px-3 py-1.5 rounded-md hover:bg-red-700 transition-colors flex items-center justify-center"
+                        >
+                          <UserX className="h-3 w-3 mr-1" />
+                          Відхилити
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-          </div>
 
-          {/* Friend Requests */}
-          {requests.length > 0 && (
-            <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Запити на дружбу</h2>
-              <div className="space-y-4">
-                {requests.map((request) => (
-                  <div key={request.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
-                        {request.sender?.avatar ? (
-                          <img src={request.sender.avatar} alt={request.sender.name} className="w-full h-full rounded-full object-cover" />
-                        ) : (
-                          <span className="text-gray-600 font-semibold">
-                            {request.sender?.name?.[0]}{request.sender?.lastname?.[0]}
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{request.sender?.name} {request.sender?.lastname}</p>
-                        <p className="text-sm text-gray-500">Надіслав запит на дружбу</p>
-                      </div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => acceptRequest(request.id)}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                      >
-                        Прийняти
-                      </button>
-                      <button
-                        onClick={() => rejectRequest(request.id)}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
-                      >
-                        Відхилити
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Friends List */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Мої друзі ({friends.length})</h2>
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-gray-500 mt-2">Завантаження...</p>
-              </div>
-            ) : friends.length === 0 ? (
-              <div className="text-center py-8">
-                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">У вас поки немає друзів</p>
-                <p className="text-sm text-gray-400 mt-1">Знайдіть друзів через пошук вище</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {friends.map((friend) => (
-                  <div key={friend.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
-                        {friend.avatar ? (
-                          <img src={friend.avatar} alt={friend.name} className="w-full h-full rounded-full object-cover" />
-                        ) : (
-                          <span className="text-gray-600 font-semibold">
-                            {friend.name?.[0]}{friend.lastname?.[0]}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div 
-                          className="cursor-pointer hover:text-blue-600 transition-colors"
-                          onClick={() => navigate(`/user/${friend.id}`)}
-                        >
-                          <p className="font-medium text-gray-900 truncate">{friend.name} {friend.lastname}</p>
+            {/* Friends List */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Users className="h-5 w-5 text-blue-500 mr-2" />
+                Мої друзі
+              </h2>
+              
+              {filteredFriends.length === 0 ? (
+                <div className="text-center py-12">
+                  <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">
+                    {searchQuery ? 'Друзів не знайдено' : 'У вас поки немає друзів'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredFriends.map((friend) => (
+                    <div key={friend.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex-shrink-0">
+                          <img
+                            src={friend.avatar || '/default-avatar.png'}
+                            alt={friend.name}
+                            className="h-10 w-10 rounded-full"
+                          />
                         </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">
+                            {friend.name} {friend.last_name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Онлайн
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => removeFriend(friend.id)}
+                          className="text-red-600 hover:text-red-800 transition-colors"
+                          title="Видалити друга"
+                        >
+                          <UserMinus className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => navigate(`/messages?user=${friend.id}`)}
-                        className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                      >
-                        <MessageCircle className="w-4 h-4 mr-1" />
-                        Повідомлення
-                      </button>
-                      <button
-                        onClick={() => navigate(`/user/${friend.id}`)}
-                        className="flex items-center justify-center px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                        title="Переглянути профіль"
-                      >
-                        <User className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -29,11 +29,11 @@ export class GroupsService {
   }
 
   /**
-   * Отримати групи з інформацією про створника (використовуючи users таблицю)
+   * Отримати групи з інформацією про створника (використовуючи user_profiles таблицю)
    */
   static async getGroupsWithCreators(): Promise<Group[]> {
     try {
-      console.log('🔍 GroupsService: Fetching groups with creators from users table...');
+      console.log('🔍 GroupsService: Fetching groups with creators from user_profiles table...');
       
       // Спочатку отримуємо всі групи
       const { data: groups, error: groupsError } = await supabase
@@ -56,11 +56,11 @@ export class GroupsService {
       const creatorIds = [...new Set(groups.map(group => group.created_by))];
       console.log('🔍 GroupsService: Creator IDs:', creatorIds);
 
-      // Отримуємо інформацію про створників з таблиці users
+      // Отримуємо інформацію про створників з таблиці user_profiles
       const { data: creators, error: creatorsError } = await supabase
-        .from('users')
-        .select('id, name, lastname, avatar')
-        .in('id', creatorIds);
+        .from('user_profiles')
+        .select('auth_user_id, name, last_name, avatar')
+        .in('auth_user_id', creatorIds);
 
       if (creatorsError) {
         console.error('❌ GroupsService: Error fetching creators:', creatorsError);
@@ -70,9 +70,9 @@ export class GroupsService {
 
       // Створюємо мапу створників
       const creatorsMap = (creators || []).reduce((acc, creator) => {
-        acc[creator.id] = {
+        acc[creator.auth_user_id] = {
           name: creator.name,
-          last_name: creator.lastname || '',
+          last_name: creator.last_name || '',
           avatar: creator.avatar
         };
         return acc;
@@ -93,18 +93,18 @@ export class GroupsService {
   }
 
   /**
-   * Отримати інформацію про створників груп (використовуючи users таблицю)
+   * Отримати інформацію про створників груп (використовуючи user_profiles таблицю)
    */
   static async getGroupCreators(groupIds: string[]): Promise<Record<string, any>> {
     if (groupIds.length === 0) return {};
 
     try {
-      console.log('🔍 GroupsService: Fetching creators for groups from users table:', groupIds);
+      console.log('🔍 GroupsService: Fetching creators for groups from user_profiles table:', groupIds);
       
       const { data, error } = await supabase
-        .from('users')
-        .select('id, name, lastname, avatar')
-        .in('id', groupIds);
+        .from('user_profiles')
+        .select('auth_user_id, name, last_name, avatar')
+        .in('auth_user_id', groupIds);
 
       if (error) {
         console.error('❌ GroupsService: Error fetching creators:', error);
@@ -112,9 +112,9 @@ export class GroupsService {
       }
 
       const creatorsMap = (data || []).reduce((acc, creator) => {
-        acc[creator.id] = {
+        acc[creator.auth_user_id] = {
           name: creator.name,
-          last_name: creator.lastname || '',
+          last_name: creator.last_name || '',
           avatar: creator.avatar
         };
         return acc;
