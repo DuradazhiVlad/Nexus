@@ -47,9 +47,11 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile }) => {
       {profile.hobbies?.length > 0 && (
         <div className="mt-4">
           <span className="text-sm font-medium text-gray-600">Хобі:</span>
-          <div className="text-xs text-gray-400 mt-1">
-            Debug: {JSON.stringify(profile.hobbies)} (length: {profile.hobbies?.length || 0})
-          </div>
+          {process.env.NODE_ENV === 'development' && (
+            <div className="text-xs text-gray-400 mt-1">
+              Debug: {JSON.stringify(profile.hobbies)} (length: {profile.hobbies?.length || 0})
+            </div>
+          )}
           <div className="flex flex-wrap gap-2 mt-1">
             {profile.hobbies.map((hobby, index) => (
               <span key={index} className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
@@ -63,9 +65,11 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile }) => {
       {profile.languages?.length > 0 && (
         <div className="mt-4">
           <span className="text-sm font-medium text-gray-600">Мови:</span>
-          <div className="text-xs text-gray-400 mt-1">
-            Debug: {JSON.stringify(profile.languages)} (length: {profile.languages?.length || 0})
-          </div>
+          {process.env.NODE_ENV === 'development' && (
+            <div className="text-xs text-gray-400 mt-1">
+              Debug: {JSON.stringify(profile.languages)} (length: {profile.languages?.length || 0})
+            </div>
+          )}
           <div className="flex flex-wrap gap-2 mt-1">
             {profile.languages.map((language, index) => (
               <span key={index} className="bg-purple-100 text-purple-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
