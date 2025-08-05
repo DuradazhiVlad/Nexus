@@ -1,79 +1,70 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, Github } from 'lucide-react';
+import { Mail, Lock, Github, Eye, EyeOff } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-// Додаємо тип для resend (тимчасово, бо в supabase-js v2 немає прямої функції)
 
 async function resendConfirmationEmail(email: string) {
-  // Використовуємо RPC або REST, якщо supabase-js не має прямої функції
-  // Але у v2.39+ є supabase.auth.resend({ type: 'signup', email })
-  // @ts-expect-error
   return await supabase.auth.resend({ type: 'signup', email });
 }
 
 export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showResend, setShowResend] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState(false);
   const navigate = useNavigate();
 
-//   useEffect(() => {
-//   const { data: authListener } = supabase.auth.onAuthStateChange(
-//     async (event, session) => {
-//       if (session) {
-//         const {
-//           data: { user },
-//         } = await supabase.auth.getUser();
-
-//         if (user) {
-//           navigate('/profile');
-//         }
-//       }
-//     }
-//   );
-
-//   return () => {
-//     authListener.subscription.unsubscribe();
-//   };
-// }, [navigate]);
-
-
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError('');
-  setLoading(true);
-  setShowResend(false);
-  setResendSuccess(false);
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    setShowResend(false);
+    setResendSuccess(false);
+    setShowForgotPassword(false);
+    setForgotPasswordSuccess(false);
 
-  try {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      console.log('🚀 Starting login process...');
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      // Якщо email не підтверджено
-      if (error.message && error.message.toLowerCase().includes('email not confirmed')) {
-        setError('Електронна пошта не підтверджена. Будь ласка, підтвердіть email.');
-        setShowResend(true);
+      if (error) {
+        console.error('❌ Login error:', error);
+        
+        // Обробка специфічних помилок
+        if (error.message && error.message.toLowerCase().includes('email not confirmed')) {
+          setError('Електронна пошта не підтверджена. Будь ласка, підтвердіть email.');
+          setShowResend(true);
+          return;
+        } else if (error.message.includes('Invalid login credentials')) {
+          setError('Неправильний email або пароль. Перевірте ваші дані та спробуйте ще раз.');
+        } else if (error.message.includes('Too many requests')) {
+          setError('Забагато спроб входу. Спробуйте пізніше.');
+        } else {
+          setError(error.message || 'Помилка входу');
+        }
         return;
       }
-      throw error;
-    }
 
-    // Успішний вхід
-    navigate('/profile');
-  } catch (err: any) {
-    console.error('Login error:', err);
-    setError(err.message || 'Помилка входу');
-  } finally {
-    setLoading(false);
-  }
-};
+      console.log('✅ Login successful:', data.user?.email);
+      navigate('/profile');
+    } catch (err: any) {
+      console.error('❌ Unexpected login error:', err);
+      setError(err.message || 'Помилка входу');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleResend = async () => {
     setResendLoading(true);
@@ -89,28 +80,57 @@ export function Login() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Будь ласка, введіть email для відновлення пароля');
+      return;
+    }
+
+    setForgotPasswordLoading(true);
+    setError('');
+
+    try {
+      console.log('📧 Sending password reset email...');
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) {
+        console.error('❌ Password reset error:', error);
+        throw error;
+      }
+
+      console.log('✅ Password reset email sent');
+      setForgotPasswordSuccess(true);
+      setShowForgotPassword(false);
+    } catch (err: any) {
+      console.error('❌ Password reset error:', err);
+      setError('Помилка відправки листа для відновлення пароля: ' + (err.message || err));
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
 
   const handleGitHubLogin = async () => {
-  try {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: {
-        redirectTo: `${window.location.origin}/profile`,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: `${window.location.origin}/profile`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
-      },
-    });
+      });
 
-    if (error) throw error;
-
-    // OAuth перенаправить автоматично
-  } catch (err: any) {
-    console.error('GitHub login error:', err);
-    setError(err.message || 'Помилка входу через GitHub');
-  }
-};
+      if (error) throw error;
+    } catch (err: any) {
+      console.error('GitHub login error:', err);
+      setError(err.message || 'Помилка входу через GitHub');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -148,6 +168,12 @@ export function Login() {
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {forgotPasswordSuccess && (
+            <div className="mb-4 bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-lg">
+              Лист для відновлення пароля відправлено на вашу пошту!
             </div>
           )}
 
@@ -203,15 +229,48 @@ export function Login() {
                 <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
                 <input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-10 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="appearance-none block w-full px-10 pr-12 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Введіть пароль"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
+
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(!showForgotPassword)}
+                className="text-sm text-blue-600 hover:text-blue-500"
+              >
+                Забули пароль?
+              </button>
+            </div>
+
+            {showForgotPassword && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800 mb-3">
+                  Введіть ваш email для відновлення пароля
+                </p>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={forgotPasswordLoading || !email}
+                  className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {forgotPasswordLoading ? 'Відправка...' : 'Відправити лист для відновлення'}
+                </button>
+              </div>
+            )}
 
             <div>
               <button

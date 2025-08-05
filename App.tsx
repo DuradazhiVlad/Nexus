@@ -4,6 +4,7 @@ import { Users as UsersIcon } from 'lucide-react';
 import { AuthService } from './src/lib/auth';
 import { Login } from './src/pages/login';
 import { Register } from './src/pages/register';
+import { ResetPassword } from './src/pages/reset-password';
 import { Profile } from './src/pages/profile/Profile';
 import { Reels } from './src/pages/reels';
 import { Messages } from './src/pages/messages';
@@ -99,6 +100,7 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/reels" element={<Reels />} />
         <Route path="/messages" element={<Messages />} />
