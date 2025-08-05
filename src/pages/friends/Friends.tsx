@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { UserPlus, UserMinus, Users, UserCheck, UserX, Search, Filter } from 'lucide-react';
-import { useNotifications } from '../../components/ErrorNotification';
+import { useErrorNotifications } from '../../components/ErrorNotification';
 
 interface Friend {
   id: string;
@@ -29,7 +29,7 @@ export function Friends() {
   const [filter, setFilter] = useState<'all' | 'online' | 'recent'>('all');
   const [authUser, setAuthUser] = useState<any>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const { addNotification } = useNotifications();
+  const { addNotification } = useErrorNotifications();
 
   useEffect(() => {
     loadAuthUser();
