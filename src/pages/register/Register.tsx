@@ -22,6 +22,12 @@ export function Register() {
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: undefined,
+          data: {
+            email_confirm: false
+          }
+        }
       });
 
       if (signUpError) throw signUpError;
