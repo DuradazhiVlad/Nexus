@@ -3,19 +3,12 @@ import { Mail, Lock, Github, Eye, EyeOff } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
-async function resendConfirmationEmail(email: string) {
-  return await supabase.auth.resend({ type: 'signup', email });
-}
-
 export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showResend, setShowResend] = useState(false);
-  const [resendLoading, setResendLoading] = useState(false);
-  const [resendSuccess, setResendSuccess] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState(false);
@@ -25,8 +18,6 @@ export function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    setShowResend(false);
-    setResendSuccess(false);
     setShowForgotPassword(false);
     setForgotPasswordSuccess(false);
 
@@ -42,11 +33,7 @@ export function Login() {
         console.error('❌ Login error:', error);
         
         // Обробка специфічних помилок
-        if (error.message && error.message.toLowerCase().includes('email not confirmed')) {
-          setError('Електронна пошта не підтверджена. Будь ласка, підтвердіть email.');
-          setShowResend(true);
-          return;
-        } else if (error.message.includes('Invalid login credentials')) {
+         if (error.message.includes('Invalid login credentials')) {
           setError('Неправильний email або пароль. Перевірте ваші дані та спробуйте ще раз.');
         } else if (error.message.includes('Too many requests')) {
           setError('Забагато спроб входу. Спробуйте пізніше.');
@@ -63,20 +50,6 @@ export function Login() {
       setError(err.message || 'Помилка входу');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    setResendLoading(true);
-    setResendSuccess(false);
-    try {
-      const { error } = await resendConfirmationEmail(email);
-      if (error) throw error;
-      setResendSuccess(true);
-    } catch (err: any) {
-      setError('Не вдалося надіслати листа. ' + (err.message || err));
-    } finally {
-      setResendLoading(false);
     }
   };
 
@@ -154,20 +127,6 @@ export function Login() {
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
               {error}
-              {showResend && (
-                <div className="mt-2">
-                  <button
-                    onClick={handleResend}
-                    disabled={resendLoading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 mt-2"
-                  >
-                    {resendLoading ? 'Відправка...' : 'Відправити лист повторно'}
-                  </button>
-                  {resendSuccess && (
-                    <div className="text-green-600 mt-2">Лист для підтвердження відправлено!</div>
-                  )}
-                </div>
-              )}
             </div>
           )}
 

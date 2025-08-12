@@ -33,12 +33,10 @@ export function LoginForm({ onClose }: LoginFormProps) {
         console.error('❌ Login error:', error);
         
         // Обробка специфічних помилок
-        if (error.message.includes('Email not confirmed')) {
-          setError('Електронна пошта не підтверджена. Будь ласка, перевірте вашу пошту та підтвердіть email.');
-        } else if (error.message.includes('Invalid login credentials')) {
+        if (error.message.includes('Invalid login credentials')) {
           setError('Неправильний email або пароль. Перевірте ваші дані та спробуйте ще раз.');
         } else if (error.message.includes('Too many requests')) {
-          setError('Забагато спроб входу. Спробуйте пізніше.');
+          setError('Забагато спроб входу. Спробуйте ��ізніше.');
         } else {
           setError(error.message || 'Помилка входу');
         }
