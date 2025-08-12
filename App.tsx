@@ -2,8 +2,6 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import { Users as UsersIcon } from 'lucide-react';
 import { AuthService } from './src/lib/auth';
-import { Login } from './src/pages/login';
-import { Register } from './src/pages/register';
 import { ResetPassword } from './src/pages/reset-password';
 import { Profile } from './src/pages/profile/Profile';
 import { Reels } from './src/pages/reels';
@@ -17,6 +15,7 @@ import { UserDetailPage } from './src/pages/user-detail';
 import { Games } from './src/pages/games';
 import { TestDB } from './src/pages/test-db';
 import { Wall } from './src/pages/wall';
+import { AuthPage } from './src/components/auth/AuthPage';
 
 // Auth initialization component
 function AuthInitializer() {
@@ -41,13 +40,13 @@ function LandingPage() {
             </div>
             <div className="flex space-x-4">
               <Link
-                to="/login"
+                to="/auth"
                 className="px-4 py-2 text-gray-700 hover:text-gray-900"
               >
                 Вхід
               </Link>
               <Link
-                to="/register"
+                to="/auth"
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200"
               >
                 Реєстрація
@@ -80,7 +79,7 @@ function LandingPage() {
               </p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow-sm">
-              <h3 className="text-xl font-semibold mb-4">Приватність</h3>
+              <h3 className="text-xl font-semibold mb-4">П��иватність</h3>
               <p className="text-gray-600">
                 Повний контроль над вашими даними та приватністю
               </p>
@@ -98,8 +97,7 @@ function App() {
       <AuthInitializer />
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/auth" element={<AuthPage />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/reels" element={<Reels />} />
@@ -119,3 +117,4 @@ function App() {
 }
 
 export default App;
+
