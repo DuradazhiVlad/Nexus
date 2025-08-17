@@ -73,8 +73,17 @@ export const supabase = createSupabaseClient();
 
 // Допоміжні функції для роботи з аутентифікацією
 export const auth = {
-  signUp: (email: string, password: string, options?: any) => 
-    supabase.auth.signUp({ email, password, options }),
+  signUp: (email: string, password: string, options?: any) => {
+    console.log('🔍 Auth signUp called with:', { email, options });
+    return supabase.auth.signUp({ 
+      email, 
+      password, 
+      options: {
+        ...options,
+        emailRedirectTo: undefined // Вимикаємо email підтвердження
+      }
+    });
+  },
   
   signIn: (email: string, password: string) => 
     supabase.auth.signInWithPassword({ email, password }),

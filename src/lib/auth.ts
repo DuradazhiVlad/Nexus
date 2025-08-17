@@ -116,14 +116,14 @@ export class AuthService {
   }
 
   // Sign up with email and password
-  static async signUp(email: string, password: string, userData: { name: string; lastname?: string }) {
+  static async signUp(email: string, password: string, userData: { name: string; last_name?: string }) {
     try {
       this.updateState({ ...this.currentState, loading: true, error: null });
       
       const { data, error } = await auth.signUp(email, password, {
         data: {
           name: userData.name,
-          lastname: userData.lastname || '',
+          last_name: userData.last_name || '',
         }
       });
 

@@ -205,13 +205,14 @@ export class DatabaseService {
       const newUserData = {
         auth_user_id: authUser.id,
         email: authUser.email,
-        name: authUser.user_metadata?.name || authUser.user_metadata?.full_name?.split(' ')[0] || authUser.email?.split('@')[0] || 'User',
-        last_name: authUser.user_metadata?.lastname || authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+        name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+        last_name: authUser.user_metadata?.last_name || '',
         avatar: authUser.user_metadata?.avatar || null,
         hobbies: [] as string[],
         languages: [] as string[],
         notifications: { email: true, messages: true, friendRequests: true },
-        privacy: { profileVisibility: 'public', showBirthDate: true, showEmail: false }
+        privacy: { profileVisibility: 'public', showBirthDate: true, showEmail: false },
+        email_verified: authUser.email_confirmed_at ? true : false
       };
       
       console.log('📋 New user data:', newUserData);
@@ -242,13 +243,14 @@ export class DatabaseService {
       
       const newProfileData = {
         auth_user_id: authUser.id,
-        name: authUser.user_metadata?.name || authUser.user_metadata?.full_name?.split(' ')[0] || authUser.email?.split('@')[0] || 'User',
-        last_name: authUser.user_metadata?.lastname || authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+        name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+        last_name: authUser.user_metadata?.last_name || '',
         email: authUser.email,
         hobbies: [] as string[],
         languages: [] as string[],
         notifications: { email: true, messages: true, friendRequests: true },
-        privacy: { profileVisibility: 'public', showBirthDate: true, showEmail: false }
+        privacy: { profileVisibility: 'public', showBirthDate: true, showEmail: false },
+        email_verified: authUser.email_confirmed_at ? true : false
       };
       
       console.log('📋 New profile data:', newProfileData);

@@ -55,16 +55,15 @@ export function Register() {
       console.log('🚀 Starting registration process...');
       console.log('📝 Registration data:', { name, lastName, email });
 
-      // Реєстрація користувача в Supabase Auth БЕЗ підтвердження email
+      // Реєстрація користувача в Supabase Auth
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password: password,
         options: {
-          emailRedirectTo: undefined, // Вимикаємо email redirect
+          emailRedirectTo: undefined,
           data: {
             name: name.trim(),
             last_name: lastName.trim(),
-            email_confirm: false // Явно вимикаємо підтвердження email
           }
         }
       });
@@ -87,57 +86,19 @@ export function Register() {
 
       console.log('✅ Auth signup successful:', authData.user?.id);
 
-      if (authData.user) {
-        console.log('📝 Creating user profile...');
-        
-        // Створення профілю користувача в таблиці user_profiles
-        const { data: profileData, error: profileError } = await supabase
-          .from('user_profiles')
-          .insert([{
-            auth_user_id: authData.user.id,
-            name: name.trim(),
-            last_name: lastName.trim(),
-            email: email.trim(),
-            hobbies: [],
-            languages: [],
-            notifications: {
-              email: true,
-              messages: true,
-              friendRequests: true
-            },
-            privacy: {
-              profileVisibility: 'public',
-              showBirthDate: true,
-              showEmail: false
-            },
-            email_verified: true, // Встановлюємо як підтверджений
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }])
-          .select()
-          .single();
-
-        if (profileError) {
-          console.error('❌ Profile creation error:', profileError);
-          
-          // Якщо профіль не створився, видаляємо користувача з auth
-          await supabase.auth.admin.deleteUser(authData.user.id);
-          
-          if (profileError.code === '23505') {
-            setError('Профіль з таким email вже існує');
-          } else {
-            setError('Помилка створення профілю: ' + profileError.message);
-          }
-          return;
-        }
-
-        console.log('✅ User profile created successfully:', profileData);
-        
+      if (authData.user && authData.session) {
+        console.log('✅ User registered and logged in successfully');
         setSuccess(true);
         
         // Автоматично входимо користувача після реєстрації
         setTimeout(() => {
           navigate('/profile');
+        }, 2000);
+      } else {
+        console.log('⚠️ User registered but not logged in, redirecting to login');
+        setSuccess(true);
+        setTimeout(() => {
+          navigate('/login');
         }, 2000);
       }
     } catch (err: any) {
