@@ -80,13 +80,44 @@ export const auth = {
       password, 
       options: {
         ...options,
-        emailRedirectTo: undefined // Вимикаємо email підтвердження
+        emailRedirectTo: undefined, // Вимикаємо email підтвердження
+        data: {
+          name: options?.data?.name || email.split('@')[0]
+        }
       }
     });
   },
   
-  signIn: (email: string, password: string) => 
-    supabase.auth.signInWithPassword({ email, password }),
+  signIn: async (email: string, password: string) => {
+    try {
+      const result = await supabase.auth.signInWithPassword({ email, password });
+      
+      // Якщо вхід успішний, перевіряємо чи існує профіль
+      if (result.data.user && !result.error) {
+        const { data: profile, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('auth_user_id', result.data.user.id)
+          .single();
+          
+        // Якщо профіль не існує, створюємо його
+        if (profileError && profileError.code === 'PGRST116') {
+          console.log('📝 Creating missing profile...');
+          await supabase.from('user_profiles').insert({
+            auth_user_id: result.data.user.id,
+            name: result.data.user.user_metadata?.name || email.split('@')[0],
+            email: email,
+            avatar: result.data.user.user_metadata?.avatar_url
+          });
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Sign in error:', error);
+      throw error;
+    }
+  },
   
   signOut: () => supabase.auth.signOut(),
   

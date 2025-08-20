@@ -24,17 +24,16 @@ export function Login() {
     try {
       console.log('🚀 Starting login process...');
       
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error } = await supabase.auth.signIn(email, password);
 
       if (error) {
         console.error('❌ Login error:', error);
         
         // Обробка специфічних помилок
-         if (error.message.includes('Invalid login credentials')) {
+        if (error.message.includes('Invalid login credentials')) {
           setError('Неправильний email або пароль. Перевірте ваші дані та спробуйте ще раз.');
+        } else if (error.message.includes('Database error granting user')) {
+          setError('Помилка сервера. Спробуйте ще раз через кілька хвилин.');
         } else if (error.message.includes('Email not confirmed')) {
           setError('Email не підтверджено. Перевірте вашу пошту та підтвердіть email.');
         } else if (error.message.includes('Too many requests')) {
@@ -46,18 +45,6 @@ export function Login() {
       }
 
       console.log('✅ Login successful:', data.user?.email);
-      
-      // Перевіряємо чи існує профіль користувача
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('auth_user_id', data.user.id)
-        .single();
-        
-      if (profileError && profileError.code === 'PGRST116') {
-        console.log('📝 Profile not found, will be created automatically');
-      }
-      
       navigate('/profile');
     } catch (err: any) {
       console.error('❌ Unexpected login error:', err);
