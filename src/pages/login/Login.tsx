@@ -24,7 +24,10 @@ export function Login() {
     try {
       console.log('🚀 Starting login process...');
       
-      const { data, error } = await supabase.auth.signIn(email, password);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
       if (error) {
         console.error('❌ Login error:', error);

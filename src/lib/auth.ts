@@ -24,7 +24,7 @@ export class AuthService {
       console.log('Initializing AuthService...');
       
       // Get current session
-      const { data: { session }, error } = await auth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
         console.error('Error getting session:', error.message);
@@ -100,7 +100,10 @@ export class AuthService {
     try {
       this.updateState({ ...this.currentState, loading: true, error: null });
       
-      const { data, error } = await auth.signIn(email, password);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
       if (error) {
         this.updateState({ ...this.currentState, loading: false, error: error.message });
@@ -120,10 +123,14 @@ export class AuthService {
     try {
       this.updateState({ ...this.currentState, loading: true, error: null });
       
-      const { data, error } = await auth.signUp(email, password, {
-        data: {
-          name: userData.name,
-          last_name: userData.last_name || '',
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: userData.name,
+            last_name: userData.last_name || '',
+          }
         }
       });
 
@@ -143,7 +150,7 @@ export class AuthService {
   // Sign out
   static async signOut() {
     try {
-      const { error } = await auth.signOut();
+      const { error } = await supabase.auth.signOut();
       
       if (error) {
         console.error('Error signing out:', error.message);
