@@ -12,7 +12,8 @@
 
 -- Видаляємо старий тригер якщо існує
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP FUNCTION IF EXISTS public.handle_new_user();
+DROP TRIGGER IF EXISTS on_auth_user_confirmed ON auth.users;
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 
 -- Створюємо нову функцію для обробки нових користувачів
 CREATE OR REPLACE FUNCTION public.handle_new_user()

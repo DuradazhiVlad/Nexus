@@ -1,11 +1,11 @@
 import React from 'react';
 import { User, Mail, MapPin, Calendar, Edit3, Camera, Save, X, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { UserProfile } from '../types';
+import { AuthUserProfile } from '../../../lib/authUserService';
 import { ProfileImageUpload } from '../../../components/ProfileImageUpload';
 
 interface ProfileHeaderProps {
-  profile: UserProfile;
+  profile: AuthUserProfile;
   isEditing: boolean;
   saving: boolean;
   onEdit: () => void;
@@ -61,15 +61,15 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                 />
               ) : (
                 <div className="w-32 h-32 bg-white rounded-full p-2 shadow-lg">
-                  {profile.avatar ? (
+                  {profile.raw_user_meta_data?.avatar ? (
                     <img
-                      src={profile.avatar}
-                      alt={profile.name}
+                      src={profile.raw_user_meta_data.avatar}
+                      alt={profile.raw_user_meta_data?.name || 'User'}
                       className="w-full h-full rounded-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-                      {getInitials(profile.name, profile.last_name)}
+                      {getInitials(profile.raw_user_meta_data?.name, profile.raw_user_meta_data?.last_name)}
                     </div>
                   )}
                 </div>
@@ -80,7 +80,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             {!isEditing && (
               <div className="mb-2">
                 <h1 className="text-3xl font-bold text-gray-900">
-                  {profile.name} {profile.last_name}
+                  {profile.raw_user_meta_data?.name || ''} {profile.raw_user_meta_data?.last_name || ''}
                 </h1>
                 <p className="text-gray-600 flex items-center mt-1">
                   <Mail size={16} className="mr-2" />
@@ -170,4 +170,4 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       </div>
     </div>
   );
-}; 
+};

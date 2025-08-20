@@ -8,13 +8,26 @@ export interface User {
   bio?: string;
   city?: string;
   birth_date?: string;
-  created_at?: string;
-  updated_at?: string;
+  education?: string;
+  phone?: string;
+  work?: string;
+  website?: string;
+  relationship_status?: string;
+  hobbies?: string[];
+  languages?: string[];
+  notifications?: {
+    email: boolean;
+    messages: boolean;
+    friendRequests: boolean;
+  };
   privacy?: {
     profileVisibility: 'public' | 'friends' | 'private';
     showBirthDate: boolean;
     showEmail: boolean;
   };
+  email_verified?: boolean;
+  created_at?: string;
+  updated_at?: string;
   isOnline?: boolean;
   lastSeen?: string;
   friendsCount?: number;
@@ -39,4 +52,4 @@ export interface Filters {
   hasBio: boolean;
 }
 
-export type ViewMode = 'grid' | 'list'; 
+export type ViewMode = 'grid' | 'list';

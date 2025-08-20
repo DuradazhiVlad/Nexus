@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { AuthUserService } from '../../../lib/authUserService';
 import { User, FriendRequest } from '../types';
 
 export class PeopleService {
@@ -9,6 +10,7 @@ export class PeopleService {
     try {
       console.log('🔍 PeopleService: Fetching all users');
       
+      // Отримуємо користувачів з user_profiles (як fallback, оскільки auth.users недоступна через RLS)
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -19,8 +21,35 @@ export class PeopleService {
         throw error;
       }
 
-      console.log('✅ PeopleService: Users fetched:', data);
-      return data || [];
+      // Конвертуємо дані в формат User
+      const users: User[] = (data || []).map(profile => ({
+        id: profile.id || profile.auth_user_id,
+        auth_user_id: profile.auth_user_id,
+        name: profile.name || '',
+        last_name: profile.last_name || '',
+        email: profile.email || '',
+        avatar: profile.avatar,
+        bio: profile.bio,
+        city: profile.city,
+        birth_date: profile.birth_date,
+        education: profile.education,
+        phone: profile.phone,
+        work: profile.work,
+        website: profile.website,
+        relationship_status: profile.relationship_status,
+        hobbies: profile.hobbies || [],
+        languages: profile.languages || [],
+        notifications: profile.notifications,
+        privacy: profile.privacy,
+        email_verified: profile.email_verified || false,
+        created_at: profile.created_at,
+        updated_at: profile.updated_at,
+        isOnline: false, // TODO: Implement online status
+        lastSeen: profile.updated_at
+      }));
+
+      console.log('✅ PeopleService: Users fetched:', users.length);
+      return users;
     } catch (error) {
       console.error('❌ PeopleService: Unexpected error:', error);
       return [];
@@ -227,4 +256,4 @@ export class PeopleService {
       throw error;
     }
   }
-} 
+}

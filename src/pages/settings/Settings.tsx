@@ -3,7 +3,7 @@ import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
 import { User, Shield, Bell, Globe, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getUserProfile, upsertUserProfile } from '../../lib/userProfileService';
+import { AuthUserService, AuthUserProfile } from '../../lib/authUserService';
 
 interface UserSettings {
   name: string;
@@ -75,31 +75,33 @@ export function Settings() {
 
   const loadUserSettings = async () => {
     try {
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      if (authError || !authUser) {
+      const profile = await AuthUserService.getCurrentUserProfile();
+      if (!profile) {
         navigate('/login');
         return;
       }
-      const data = await getUserProfile(authUser.id);
-      if (!data) return;
+      
+      // Отримуємо дані з raw_user_meta_data та user_profiles
+      const metaData = profile.raw_user_meta_data || {};
+      
       setSettings({
-        name: data.name || '',
-        last_name: data.last_name || '',
-        email: data.email || '',
-        avatar: data.avatar || '',
-        bio: data.bio || '',
-        city: data.city || '',
-        birth_date: data.birth_date || '',
-        birthday: data.birthday || '',
-        notifications: data.notifications || { email: true, messages: true, friendRequests: true },
-        privacy: data.privacy || { profileVisibility: 'public', showBirthDate: true, showEmail: false },
-        education: data.education || '',
-        work: data.work || '',
-        relationshipStatus: data.relationshipStatus || '',
-        phone: data.phone || '',
-        hobbies: data.hobbies || [],
-        languages: data.languages || [],
-        website: data.website || '',
+        name: metaData.name || profile.name || '',
+        last_name: metaData.last_name || profile.last_name || '',
+        email: profile.email || '',
+        avatar: metaData.avatar || profile.avatar || '',
+        bio: profile.bio || '',
+        city: profile.city || '',
+        birth_date: profile.birth_date || '',
+        birthday: profile.birthday || '',
+        notifications: profile.notifications || { email: true, messages: true, friendRequests: true },
+        privacy: profile.privacy || { profileVisibility: 'public', showBirthDate: true, showEmail: false },
+        education: profile.education || '',
+        work: profile.work || '',
+        relationshipStatus: profile.relationship_status || '',
+        phone: profile.phone || '',
+        hobbies: profile.hobbies || [],
+        languages: profile.languages || [],
+        website: profile.website || '',
       });
     } catch (error) {
       console.error('Error loading user settings:', error);
@@ -116,19 +118,30 @@ export function Settings() {
       if (!safeSettings.birthday) safeSettings.birthday = null;
       if (!safeSettings.hobbies) safeSettings.hobbies = [];
       if (!safeSettings.languages) safeSettings.languages = [];
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      if (authError || !authUser) {
-        navigate('/login');
-        return;
-      }
-      const { data: updated, error: upsertError } = await upsertUserProfile({
-        auth_user_id: authUser.id,
-        ...safeSettings,
+      
+      // Оновлюємо профіль через AuthUserService
+      await AuthUserService.updateProfile({
+        name: safeSettings.name,
+        last_name: safeSettings.last_name,
+        bio: safeSettings.bio,
+        city: safeSettings.city,
+        birth_date: safeSettings.birth_date,
+        education: safeSettings.education,
+        work: safeSettings.work,
+        relationship_status: safeSettings.relationshipStatus,
+        phone: safeSettings.phone,
+        hobbies: safeSettings.hobbies,
+        languages: safeSettings.languages,
+        website: safeSettings.website,
+        notifications: safeSettings.notifications,
+        privacy: safeSettings.privacy,
+        avatar: safeSettings.avatar
       });
-      if (upsertError) throw upsertError;
+      
       alert('Налаштування збережено успішно');
     } catch (error) {
-      alert('Помилка при збереженні налаштувань: ' + (error.message || error.details || ''));
+      console.error('Error saving settings:', error);
+      alert('Помилка при збереженні налаштувань: ' + (error instanceof Error ? error.message : 'Невідома помилка'));
     }
   };
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
-import { DatabaseService, DatabaseUser } from '../../lib/database';
+import { AuthUserService } from '../../lib/authUserService';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Send, UserCircle, MessageCircle } from 'lucide-react';
 import { ErrorNotification, useErrorNotifications } from '../../components/ErrorNotification';
@@ -56,28 +56,29 @@ export function Messages() {
 
   async function loadCurrentUser() {
     try {
-      const user = await DatabaseService.getCurrentUserProfile();
-      if (!user) {
+      const profile = await AuthUserService.getCurrentUserProfile();
+      if (!profile) {
         addNotification({
           type: 'error',
           title: 'Помилка авторизації',
           message: 'Не вдалося завантажити профіль користувача'
         });
+        navigate('/login');
         return;
       }
-      setCurrentUser(user);
       
-      // Отримуємо auth user
-      const { data: { user: authUserData }, error: authError } = await supabase.auth.getUser();
-      if (authError || !authUserData) {
-        addNotification({
-          type: 'error',
-          title: 'Помилка авторизації',
-          message: 'Не вдалося отримати дані авторизації'
-        });
-        return;
-      }
-      setAuthUser(authUserData);
+      // Конвертуємо AuthUserProfile в формат, який очікує Messages
+      const user = {
+        id: profile.id,
+        auth_user_id: profile.id,
+        name: profile.raw_user_meta_data?.name || profile.name || '',
+        last_name: profile.raw_user_meta_data?.last_name || profile.last_name || '',
+        email: profile.email || '',
+        avatar: profile.raw_user_meta_data?.avatar || profile.avatar || ''
+      };
+      
+      setCurrentUser(user);
+      setAuthUser(profile);
     } catch (error) {
       console.error('Error loading current user:', error);
       addNotification({

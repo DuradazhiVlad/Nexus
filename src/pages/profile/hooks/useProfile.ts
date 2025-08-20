@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
-import { DatabaseService } from '../../../lib/database';
-import { UserProfile, EditFormData } from '../types';
+import { AuthUserService, AuthUserProfile } from '../../../lib/authUserService';
+import { EditFormData } from '../types';
 
 export const useProfile = () => {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfile] = useState<AuthUserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -68,7 +68,7 @@ export const useProfile = () => {
       console.log('✅ Authenticated user:', authUser.email);
       setCurrentUser(authUser);
       
-      const userProfile = await DatabaseService.getCurrentUserProfile();
+      const userProfile = await AuthUserService.getCurrentUserProfile();
       
       if (!userProfile) {
         console.log('No user profile found, creating new one');
@@ -101,13 +101,7 @@ export const useProfile = () => {
           }
         };
         
-        const { data: savedProfile, error: saveError } = await supabase
-          .from('user_profiles')
-          .insert([newProfile])
-          .select()
-          .single();
-          
-        if (saveError) throw saveError;
+        const savedProfile = await AuthUserService.createUserProfile(newProfile);
         
         setProfile(savedProfile);
         setEditForm({
@@ -151,8 +145,8 @@ export const useProfile = () => {
         console.log('🔍 Languages is array:', Array.isArray(userProfile.languages));
         
         setEditForm({
-          name: userProfile.name,
-          last_name: userProfile.last_name || '',
+          name: userProfile.raw_user_meta_data?.name || '',
+          last_name: userProfile.raw_user_meta_data?.last_name || '',
           email: userProfile.email,
           bio: userProfile.bio || '',
           city: userProfile.city || '',
@@ -249,12 +243,7 @@ export const useProfile = () => {
         updated_at: new Date().toISOString()
       };
       
-      const { error } = await supabase
-        .from('user_profiles')
-        .update(updates)
-        .eq('auth_user_id', currentUser.id);
-        
-      if (error) throw error;
+      await AuthUserService.updateFullProfile(updates);
       
       setSuccess('Профіль успішно оновлено!');
       setIsEditing(false);
@@ -370,4 +359,4 @@ export const useProfile = () => {
     setError,
     setSuccess
   };
-}; 
+};

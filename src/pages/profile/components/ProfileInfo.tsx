@@ -1,8 +1,8 @@
 import React from 'react';
-import { UserProfile } from '../types';
+import { AuthUserProfile } from '../../../lib/authUserService';
 
 interface ProfileInfoProps {
-  profile: UserProfile;
+  profile: AuthUserProfile;
 }
 
 export const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile }) => {
@@ -81,4 +81,4 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile }) => {
       )}
     </div>
   );
-}; 
+};
