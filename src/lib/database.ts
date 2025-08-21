@@ -211,8 +211,7 @@ export class DatabaseService {
         hobbies: [] as string[],
         languages: [] as string[],
         notifications: { email: true, messages: true, friendRequests: true },
-        privacy: { profileVisibility: 'public', showBirthDate: true, showEmail: false },
-        email_verified: authUser.email_confirmed_at ? true : false
+        privacy: { profileVisibility: 'public', showBirthDate: true, showEmail: false }
       };
       
       console.log('📋 New user data:', newUserData);
@@ -249,8 +248,7 @@ export class DatabaseService {
         hobbies: [] as string[],
         languages: [] as string[],
         notifications: { email: true, messages: true, friendRequests: true },
-        privacy: { profileVisibility: 'public', showBirthDate: true, showEmail: false },
-        email_verified: authUser.email_confirmed_at ? true : false
+        privacy: { profileVisibility: 'public', showBirthDate: true, showEmail: false }
       };
       
       console.log('📋 New profile data:', newProfileData);

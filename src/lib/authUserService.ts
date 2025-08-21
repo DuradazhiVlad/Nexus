@@ -65,6 +65,35 @@ export interface UserProfileExtension {
 
 export class AuthUserService {
   /**
+   * Створити новий профіль користувача в user_profiles
+   */
+  static async createUserProfile(profileData: any): Promise<any> {
+    try {
+      console.log('📝 Creating user profile:', profileData);
+      
+      // Видаляємо email_verified з даних, оскільки це поле викликає помилку
+      const { email_verified, ...cleanProfileData } = profileData;
+      
+      const { data: newProfile, error } = await supabase
+        .from('user_profiles')
+        .insert([cleanProfileData])
+        .select()
+        .single();
+        
+      if (error) {
+        console.error('❌ Error creating user profile:', error);
+        throw new Error(`Failed to create user profile: ${error.message}`);
+      }
+      
+      console.log('✅ User profile created:', newProfile.id);
+      return newProfile;
+    } catch (error) {
+      console.error('❌ Error creating user profile:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Отримати поточного користувача з auth.users та додаткові дані з user_profiles
    */
   static async getCurrentUserProfile(): Promise<AuthUserProfile | null> {

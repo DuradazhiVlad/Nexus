@@ -3,6 +3,41 @@ import { User, Calendar, X } from 'lucide-react';
 import { FileUpload } from '../../../components/FileUpload';
 import { EditFormData } from '../types';
 
+// Константи для випадаючих списків
+const RELATIONSHIP_STATUS_OPTIONS = [
+  { value: '', label: 'Не вказано' },
+  { value: 'single', label: 'Неодружений/Незаміжня' },
+  { value: 'in_relationship', label: 'У стосунках' },
+  { value: 'engaged', label: 'Заручений/Зарученна' },
+  { value: 'married', label: 'Одружений/Заміжня' },
+  { value: 'divorced', label: 'Розлучений/Розлучена' },
+  { value: 'widowed', label: 'Вдівець/Вдова' },
+  { value: 'complicated', label: 'Все складно' }
+];
+
+const LANGUAGE_OPTIONS = [
+  'Українська',
+  'Англійська',
+  'Російська',
+  'Польська',
+  'Німецька',
+  'Французька',
+  'Іспанська',
+  'Італійська',
+  'Португальська',
+  'Китайська',
+  'Японська',
+  'Корейська',
+  'Арабська',
+  'Турецька',
+  'Чеська',
+  'Словацька',
+  'Угорська',
+  'Румунська',
+  'Болгарська',
+  'Хорватська'
+];
+
 interface ProfileEditFormProps {
   editForm: EditFormData;
   setEditForm: (form: EditFormData) => void;
@@ -144,13 +179,17 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Сімейний стан
           </label>
-          <input
-            type="text"
+          <select
             value={editForm.relationship_status}
             onChange={(e) => setEditForm({ ...editForm, relationship_status: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="Введіть сімейний стан"
-          />
+          >
+            {RELATIONSHIP_STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -241,89 +280,45 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Мови
           </label>
-          <div className="flex flex-wrap items-center gap-2 p-2 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent">
-            {editForm.languages.map((language, index) => (
-              <span key={index} className="flex items-center bg-purple-100 text-purple-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
-                {language}
-                <button
-                  type="button"
-                  onClick={() => removeLanguage(language)}
-                  className="ml-1 text-purple-800 hover:text-purple-900 focus:outline-none"
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            ))}
-            <input
-              type="text"
-              value={editForm.newLanguage}
-              onChange={(e) => setEditForm({ ...editForm, newLanguage: e.target.value })}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  addLanguage();
+          <div className="space-y-2">
+            <select
+              value=""
+              onChange={(e) => {
+                if (e.target.value && !editForm.languages.includes(e.target.value)) {
+                  setEditForm({ 
+                    ...editForm, 
+                    languages: [...editForm.languages, e.target.value] 
+                  });
                 }
               }}
-              className="flex-1 px-1 py-0.5 bg-transparent focus:outline-none"
-              placeholder="Додати мову і натиснути Enter"
-            />
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Оберіть мову</option>
+              {LANGUAGE_OPTIONS.filter(lang => !editForm.languages.includes(lang)).map((language) => (
+                <option key={language} value={language}>
+                  {language}
+                </option>
+              ))}
+            </select>
+            <div className="flex flex-wrap gap-2">
+              {editForm.languages.map((language, index) => (
+                <span key={index} className="flex items-center bg-purple-100 text-purple-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
+                  {language}
+                  <button
+                    type="button"
+                    onClick={() => removeLanguage(language)}
+                    className="ml-1 text-purple-800 hover:text-purple-900 focus:outline-none"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 col-span-1 md:col-span-2">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Показувати дату народження
-          </label>
-          <select
-            value={editForm.privacy.showBirthDate ? 'true' : 'false'}
-            onChange={(e) => setEditForm({
-              ...editForm,
-              privacy: { ...editForm.privacy, showBirthDate: e.target.value === 'true' }
-            })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="true">Так</option>
-            <option value="false">Ні</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Показувати email
-          </label>
-          <select
-            value={editForm.privacy.showEmail ? 'true' : 'false'}
-            onChange={(e) => setEditForm({
-              ...editForm,
-              privacy: { ...editForm.privacy, showEmail: e.target.value === 'true' }
-            })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="true">Так</option>
-            <option value="false">Ні</option>
-          </select>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 col-span-1 md:col-span-2">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Показувати профіль всім
-          </label>
-          <select
-            value={editForm.privacy.profileVisibility}
-            onChange={(e) => setEditForm({
-              ...editForm,
-              privacy: { ...editForm.privacy, profileVisibility: e.target.value as 'public' | 'friends' | 'private' }
-            })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="public">Всім</option>
-            <option value="friends">Друзям</option>
-            <option value="private">Тільки мені</option>
-          </select>
-        </div>
-      </div>
     </div>
   );
-}; 
+};

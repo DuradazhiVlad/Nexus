@@ -88,7 +88,6 @@ export const useProfile = () => {
           work: '',
           website: '',
           languages: [],
-          email_verified: authUser.email_confirmed_at ? true : false,
           notifications: {
             email: true,
             messages: true,
