@@ -399,7 +399,7 @@ export async function getUserPosts(userProfileId: string) {
     // First, let's check if the user profile exists
     const { data: profileCheck, error: profileError } = await supabase
       .from('user_profiles')
-      .select('id, name, last_name, avatar')
+      .select('id, auth_user_id, name, last_name, avatar')
       .eq('id', userProfileId)
       .single();
     
@@ -455,4 +455,4 @@ export async function getUserPosts(userProfileId: string) {
     console.error('❌ Unexpected error in getUserPosts:', error);
     return { data: [], error: error instanceof Error ? error : new Error('Unknown error') };
   }
-} 
+}

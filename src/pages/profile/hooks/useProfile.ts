@@ -144,8 +144,8 @@ export const useProfile = () => {
         console.log('🔍 Languages is array:', Array.isArray(userProfile.languages));
         
         setEditForm({
-          name: userProfile.raw_user_meta_data?.name || '',
-          last_name: userProfile.raw_user_meta_data?.last_name || '',
+          name: userProfile.name || userProfile.raw_user_meta_data?.name || '',
+          last_name: userProfile.last_name || userProfile.raw_user_meta_data?.last_name || '',
           email: userProfile.email,
           bio: userProfile.bio || '',
           city: userProfile.city || '',

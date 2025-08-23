@@ -3,6 +3,9 @@ import { supabase } from './supabase';
 export interface AuthUserProfile {
   id: string;
   email: string;
+  name?: string;
+  last_name?: string;
+  avatar?: string;
   phone?: string;
   email_confirmed_at?: string;
   phone_confirmed_at?: string;
@@ -35,11 +38,15 @@ export interface AuthUserProfile {
     showBirthDate: boolean;
     showEmail: boolean;
   };
+  email_verified?: boolean;
 }
 
 export interface UserProfileExtension {
   id?: string;
   auth_user_id: string;
+  name?: string;
+  last_name?: string;
+  avatar?: string;
   bio?: string;
   city?: string;
   birth_date?: string;
@@ -59,6 +66,7 @@ export interface UserProfileExtension {
     showBirthDate: boolean;
     showEmail: boolean;
   };
+  email_verified?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -129,6 +137,9 @@ export class AuthUserService {
       const combinedProfile: AuthUserProfile = {
         id: authUser.id,
         email: authUser.email || '',
+        name: profileExtension?.name || authUser.user_metadata?.name || '',
+        last_name: profileExtension?.last_name || authUser.user_metadata?.last_name || '',
+        avatar: profileExtension?.avatar || authUser.user_metadata?.avatar,
         phone: authUser.phone,
         email_confirmed_at: authUser.email_confirmed_at,
         phone_confirmed_at: authUser.phone_confirmed_at,
@@ -155,7 +166,8 @@ export class AuthUserService {
           profileVisibility: 'public',
           showBirthDate: true,
           showEmail: false
-        }
+        },
+        email_verified: profileExtension?.email_verified || false
       };
       
       console.log('✅ Combined user profile loaded');
@@ -296,6 +308,9 @@ export class AuthUserService {
       
       // Оновлюємо розширення в user_profiles
       const extension: Partial<UserProfileExtension> = {};
+      if (updates.name !== undefined) extension.name = updates.name;
+      if (updates.last_name !== undefined) extension.last_name = updates.last_name;
+      if (updates.avatar !== undefined) extension.avatar = updates.avatar;
       if (updates.bio !== undefined) extension.bio = updates.bio;
       if (updates.city !== undefined) extension.city = updates.city;
       if (updates.birth_date !== undefined) extension.birth_date = updates.birth_date;
