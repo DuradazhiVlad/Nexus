@@ -38,7 +38,6 @@ export interface AuthUserProfile {
     showBirthDate: boolean;
     showEmail: boolean;
   };
-  email_verified?: boolean;
 }
 
 export interface UserProfileExtension {
@@ -79,8 +78,10 @@ export class AuthUserService {
     try {
       console.log('📝 Creating user profile:', profileData);
       
-      // Видаляємо email_verified з даних, оскільки це поле викликає помилку
+      // Видаляємо email_verified з даних, оскільки це поле більше не існує в таблиці
       const { email_verified, ...cleanProfileData } = profileData;
+      
+      console.log('📝 Clean profile data for insert:', cleanProfileData);
       
       const { data: newProfile, error } = await supabase
         .from('user_profiles')
@@ -133,6 +134,15 @@ export class AuthUserService {
         console.warn('Warning getting profile extension:', profileError);
       }
       
+      // Перевіряємо, чи поля hobbies та languages є масивами
+      const hobbies = profileExtension?.hobbies && Array.isArray(profileExtension.hobbies) 
+        ? profileExtension.hobbies 
+        : [];
+      
+      const languages = profileExtension?.languages && Array.isArray(profileExtension.languages) 
+        ? profileExtension.languages 
+        : [];
+      
       // Комбінуємо дані з auth.users та user_profiles
       const combinedProfile: AuthUserProfile = {
         id: authUser.id,
@@ -155,8 +165,8 @@ export class AuthUserService {
         work: profileExtension?.work,
         website: profileExtension?.website,
         relationship_status: profileExtension?.relationship_status,
-        hobbies: profileExtension?.hobbies || [],
-        languages: profileExtension?.languages || [],
+        hobbies: hobbies,
+        languages: languages,
         notifications: profileExtension?.notifications || {
           email: true,
           messages: true,
@@ -166,8 +176,7 @@ export class AuthUserService {
           profileVisibility: 'public',
           showBirthDate: true,
           showEmail: false
-        },
-        email_verified: profileExtension?.email_verified || false
+        }
       };
       
       console.log('✅ Combined user profile loaded');
@@ -220,6 +229,19 @@ export class AuthUserService {
         throw new Error('User not authenticated');
       }
       
+      // Переконуємося, що hobbies та languages є масивами
+      const cleanExtension = { ...extension };
+      
+      if (cleanExtension.hobbies && !Array.isArray(cleanExtension.hobbies)) {
+        cleanExtension.hobbies = [];
+      }
+      
+      if (cleanExtension.languages && !Array.isArray(cleanExtension.languages)) {
+        cleanExtension.languages = [];
+      }
+      
+      console.log('📝 Clean extension data for update:', cleanExtension);
+      
       // Перевіряємо чи існує запис
       const { data: existing, error: checkError } = await supabase
         .from('user_profiles')
@@ -235,7 +257,7 @@ export class AuthUserService {
         // Оновлюємо існуючий запис
         const { error: updateError } = await supabase
           .from('user_profiles')
-          .update(extension)
+          .update(cleanExtension)
           .eq('auth_user_id', authUser.id);
           
         if (updateError) {
@@ -247,7 +269,7 @@ export class AuthUserService {
           .from('user_profiles')
           .insert([{
             auth_user_id: authUser.id,
-            ...extension
+            ...cleanExtension
           }]);
           
         if (insertError) {

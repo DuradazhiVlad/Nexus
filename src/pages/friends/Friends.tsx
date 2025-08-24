@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { UserPlus, UserMinus, Users, UserCheck, UserX, Search, Filter } from 'lucide-react';
 import { useErrorNotifications } from '../../components/ErrorNotification';
+import { Sidebar } from '../../components/Sidebar';
+import { useNavigate } from 'react-router-dom';
 
 interface Friend {
   id: string;
@@ -29,7 +31,9 @@ export function Friends() {
   const [filter, setFilter] = useState<'all' | 'online' | 'recent'>('all');
   const [authUser, setAuthUser] = useState<any>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const { addNotification } = useErrorNotifications();
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadAuthUser();
@@ -52,9 +56,11 @@ export function Friends() {
           title: 'Помилка авторизації',
           message: 'Не вдалося отримати дані користувача'
         });
+        navigate('/login');
         return;
       }
       setAuthUser(user);
+      setIsAuthenticated(true);
       
       // Отримуємо ID користувача з таблиці user_profiles
       const { data: userProfile, error: profileError } = await supabase
@@ -82,6 +88,7 @@ export function Friends() {
         message: 'Не вдалося завантажити дані користувача',
         details: error instanceof Error ? error.message : 'Невідома помилка'
       });
+      navigate('/login');
     }
   }
 
@@ -396,10 +403,21 @@ export function Friends() {
     return matchesSearch;
   });
 
+  if (!isAuthenticated) {
+    return (
+      <div className="flex h-screen">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
+      <div className="flex h-screen">
+        <Sidebar />
+        <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Завантаження друзів...</p>
         </div>
@@ -408,8 +426,10 @@ export function Friends() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow-sm">
           {/* Header */}
           <div className="px-6 py-4 border-b border-gray-200">

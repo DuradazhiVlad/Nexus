@@ -33,6 +33,54 @@ interface UserSettings {
   website?: string;
 }
 
+// Доступні варіанти для випадаючих списків
+const EDUCATION_OPTIONS = [
+  'Середня освіта',
+  'Професійно-технічна освіта',
+  'Неповна вища освіта',
+  'Бакалавр',
+  'Магістр',
+  'Доктор філософії (PhD)',
+  'Інше'
+];
+
+const RELATIONSHIP_OPTIONS = [
+  'Неодружений/Незаміжня',
+  'У відносинах',
+  'Заручений/Заручена',
+  'Одружений/Заміжня',
+  'Все складно',
+  'Розлучений/Розлучена',
+  'Вдівець/Вдова'
+];
+
+const LANGUAGE_OPTIONS = [
+  'Українська',
+  'Англійська',
+  'Німецька',
+  'Французька',
+  'Іспанська',
+  'Італійська',
+  'Польська',
+  'Російська',
+  'Китайська',
+  'Японська',
+  'Корейська',
+  'Арабська',
+  'Інша'
+];
+
+// Додаємо CSS стилі для перемикачів
+const toggleStyles = `
+  .toggle-label {
+    width: 48px;
+    height: 24px;
+  }
+  .toggle-dot {
+    transition: transform 0.3s ease-in-out;
+  }
+`;
+
 export function Settings() {
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(true);
@@ -84,7 +132,27 @@ export function Settings() {
       // Отримуємо дані з raw_user_meta_data та user_profiles
       const metaData = profile.raw_user_meta_data || {};
       
-      setSettings({
+      // Виводимо в консоль для діагностики
+      console.log('Завантажені дані профілю:', profile);
+      
+      // Перевіряємо, чи hobbies та languages є масивами
+      const hobbies = Array.isArray(profile.hobbies) ? profile.hobbies : [];
+      const languages = Array.isArray(profile.languages) ? profile.languages : [];
+      
+      // Перевіряємо, чи privacy та notifications є об'єктами
+      const privacy = profile.privacy || {
+        profileVisibility: 'public',
+        showBirthDate: true,
+        showEmail: false
+      };
+      
+      const notifications = profile.notifications || {
+        email: true,
+        messages: true,
+        friendRequests: true
+      };
+      
+      const newSettings = {
         name: metaData.name || profile.name || '',
         last_name: metaData.last_name || profile.last_name || '',
         email: profile.email || '',
@@ -93,16 +161,21 @@ export function Settings() {
         city: profile.city || '',
         birth_date: profile.birth_date || '',
         birthday: profile.birthday || '',
-        notifications: profile.notifications || { email: true, messages: true, friendRequests: true },
-        privacy: profile.privacy || { profileVisibility: 'public', showBirthDate: true, showEmail: false },
+        notifications: notifications,
+        privacy: privacy,
         education: profile.education || '',
         work: profile.work || '',
         relationshipStatus: profile.relationship_status || '',
         phone: profile.phone || '',
-        hobbies: profile.hobbies || [],
-        languages: profile.languages || [],
+        hobbies: hobbies,
+        languages: languages,
         website: profile.website || '',
-      });
+      };
+      
+      // Виводимо в консоль налаштування перед встановленням стану
+      console.log('Налаштування перед встановленням стану:', newSettings);
+      
+      setSettings(newSettings);
     } catch (error) {
       console.error('Error loading user settings:', error);
     } finally {
@@ -186,6 +259,7 @@ export function Settings() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
+      <style>{toggleStyles}</style>
       <Sidebar />
       <div className="flex-1 ml-64 p-8">
         <div className="max-w-3xl mx-auto">
@@ -305,12 +379,16 @@ export function Settings() {
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Освіта</label>
-                      <input
-                        type="text"
+                      <select
                         value={settings.education || ''}
                         onChange={e => setSettings({ ...settings, education: e.target.value })}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      />
+                      >
+                        <option value="">Виберіть рівень освіти</option>
+                        {EDUCATION_OPTIONS.map(option => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Робота</label>
@@ -386,32 +464,47 @@ export function Settings() {
                           </span>
                         ))}
                       </div>
-                      <input
-                        type="text"
-                        value={newLanguage}
-                        onChange={e => setNewLanguage(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' && newLanguage.trim()) {
-                            setSettings(s => ({
-                              ...s,
-                              languages: [...(s.languages || []), newLanguage.trim()]
-                            }));
-                            setNewLanguage('');
-                          }
-                        }}
-                        placeholder="Додати мову і натиснути Enter"
-                        className="block w-full"
-                      />
+                      <div className="flex">
+                        <select
+                          value={newLanguage}
+                          onChange={e => setNewLanguage(e.target.value)}
+                          className="block w-full flex-1 rounded-l-md border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                        >
+                          <option value="">Виберіть мову</option>
+                          {LANGUAGE_OPTIONS.map(option => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (newLanguage.trim()) {
+                              setSettings(s => ({
+                                ...s,
+                                languages: [...(s.languages || []), newLanguage.trim()]
+                              }));
+                              setNewLanguage('');
+                            }
+                          }}
+                          className="inline-flex items-center rounded-r-md border border-l-0 border-gray-300 bg-blue-600 px-3 text-white hover:bg-blue-700"
+                        >
+                          Додати
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Сімейний стан</label>
-                    <input
-                      type="text"
+                    <select
                       value={settings.relationshipStatus || ''}
                       onChange={e => setSettings({ ...settings, relationshipStatus: e.target.value })}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    />
+                    >
+                      <option value="">Виберіть сімейний стан</option>
+                      {RELATIONSHIP_OPTIONS.map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
                   </div>
                   <button
                     type="submit"
@@ -425,96 +518,225 @@ export function Settings() {
               {activeTab === 'privacy' && (
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Видимість профілю</label>
-                    <div className="flex space-x-4 mt-2">
-                      <label className="inline-flex items-center">
-                        <input
-                          type="radio"
-                          name="profileVisibility"
-                          value="public"
-                          checked={settings.privacy.profileVisibility === 'public'}
-                          onChange={() => setSettings({ ...settings, privacy: { ...settings.privacy, profileVisibility: 'public' } })}
-                          className="form-radio h-5 w-5 text-blue-600"
-                        />
-                        <span className="ml-2">Публічно</span>
-                      </label>
-                      <label className="inline-flex items-center">
-                        <input
-                          type="radio"
-                          name="profileVisibility"
-                          value="friends"
-                          checked={settings.privacy.profileVisibility === 'friends'}
-                          onChange={() => setSettings({ ...settings, privacy: { ...settings.privacy, profileVisibility: 'friends' } })}
-                          className="form-radio h-5 w-5 text-blue-600"
-                        />
-                        <span className="ml-2">Тільки друзі</span>
-                      </label>
-                      <label className="inline-flex items-center">
-                        <input
-                          type="radio"
-                          name="profileVisibility"
-                          value="private"
-                          checked={settings.privacy.profileVisibility === 'private'}
-                          onChange={() => setSettings({ ...settings, privacy: { ...settings.privacy, profileVisibility: 'private' } })}
-                          className="form-radio h-5 w-5 text-blue-600"
-                        />
-                        <span className="ml-2">Приватно</span>
-                      </label>
+                    <h3 className="text-lg font-medium leading-6 text-gray-900">Налаштування приватності</h3>
+                    <p className="mt-1 text-sm text-gray-500">Керуйте тим, хто може бачити вашу інформацію.</p>
+                  </div>
+
+                  <div className="space-y-6 bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">Видимість профілю</label>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div 
+                          className={`flex flex-col items-center p-4 rounded-lg cursor-pointer border ${settings.privacy.profileVisibility === 'public' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}
+                          onClick={() => setSettings({
+                            ...settings,
+                            privacy: { ...settings.privacy, profileVisibility: 'public' },
+                          })}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${settings.privacy.profileVisibility === 'public' ? 'text-blue-500' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className={`mt-2 text-sm font-medium ${settings.privacy.profileVisibility === 'public' ? 'text-blue-700' : 'text-gray-700'}`}>Публічний</span>
+                          <span className="text-xs text-gray-500 mt-1 text-center">Доступний всім</span>
+                        </div>
+                        <div 
+                          className={`flex flex-col items-center p-4 rounded-lg cursor-pointer border ${settings.privacy.profileVisibility === 'friends' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}
+                          onClick={() => setSettings({
+                            ...settings,
+                            privacy: { ...settings.privacy, profileVisibility: 'friends' },
+                          })}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${settings.privacy.profileVisibility === 'friends' ? 'text-blue-500' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                          </svg>
+                          <span className={`mt-2 text-sm font-medium ${settings.privacy.profileVisibility === 'friends' ? 'text-blue-700' : 'text-gray-700'}`}>Тільки друзі</span>
+                          <span className="text-xs text-gray-500 mt-1 text-center">Тільки для друзів</span>
+                        </div>
+                        <div 
+                          className={`flex flex-col items-center p-4 rounded-lg cursor-pointer border ${settings.privacy.profileVisibility === 'private' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}
+                          onClick={() => setSettings({
+                            ...settings,
+                            privacy: { ...settings.privacy, profileVisibility: 'private' },
+                          })}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${settings.privacy.profileVisibility === 'private' ? 'text-blue-500' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                          <span className={`mt-2 text-sm font-medium ${settings.privacy.profileVisibility === 'private' ? 'text-blue-700' : 'text-gray-700'}`}>Приватний</span>
+                          <span className="text-xs text-gray-500 mt-1 text-center">Тільки для вас</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 pt-4 border-t border-gray-100">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Додаткові налаштування приватності</h4>
+                      
+                      <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+                        <div>
+                          <label htmlFor="show-birth-date" className="text-sm font-medium text-gray-700 cursor-pointer">
+                            Показувати дату народження
+                          </label>
+                          <p className="text-xs text-gray-500">Дозволити іншим користувачам бачити вашу дату народження</p>
+                        </div>
+                        <div className="relative inline-block w-12 mr-2 align-middle select-none">
+                          <input 
+                            type="checkbox" 
+                            id="show-birth-date" 
+                            checked={settings.privacy.showBirthDate}
+                            onChange={e => setSettings({
+                              ...settings,
+                              privacy: { ...settings.privacy, showBirthDate: e.target.checked },
+                            })}
+                            className="sr-only" 
+                          />
+                          <label 
+                            htmlFor="show-birth-date"
+                            className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${settings.privacy.showBirthDate ? 'bg-blue-500' : 'bg-gray-300'}`}
+                          >
+                            <span className={`toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 ease-in-out ${settings.privacy.showBirthDate ? 'transform translate-x-6' : ''}`}></span>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+                        <div>
+                          <label htmlFor="show-email" className="text-sm font-medium text-gray-700 cursor-pointer">
+                            Показувати електронну пошту
+                          </label>
+                          <p className="text-xs text-gray-500">Дозволити іншим користувачам бачити вашу електронну пошту</p>
+                        </div>
+                        <div className="relative inline-block w-12 mr-2 align-middle select-none">
+                          <input 
+                            type="checkbox" 
+                            id="show-email" 
+                            checked={settings.privacy.showEmail}
+                            onChange={e => setSettings({
+                              ...settings,
+                              privacy: { ...settings.privacy, showEmail: e.target.checked },
+                            })}
+                            className="sr-only" 
+                          />
+                          <label 
+                            htmlFor="show-email"
+                            className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${settings.privacy.showEmail ? 'bg-blue-500' : 'bg-gray-300'}`}
+                          >
+                            <span className={`toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 ease-in-out ${settings.privacy.showEmail ? 'transform translate-x-6' : ''}`}></span>
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-4">
-                    <label className="inline-flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={settings.privacy.showEmail}
-                        onChange={e => setSettings({ ...settings, privacy: { ...settings.privacy, showEmail: e.target.checked } })}
-                        className="form-checkbox h-5 w-5 text-blue-600"
-                      />
-                      <span className="ml-2">Показувати email</span>
-                    </label>
-                    <label className="inline-flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={settings.privacy.showBirthDate}
-                        onChange={e => setSettings({ ...settings, privacy: { ...settings.privacy, showBirthDate: e.target.checked } })}
-                        className="form-checkbox h-5 w-5 text-blue-600"
-                      />
-                      <span className="ml-2">Показувати дату народження</span>
-                    </label>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                      Зберегти
+                    </button>
                   </div>
                 </div>
               )}
 
               {activeTab === 'notifications' && (
                 <div className="space-y-6">
-                  <div className="flex items-center space-x-4">
-                    <label className="inline-flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={settings.notifications.email}
-                        onChange={e => setSettings({ ...settings, notifications: { ...settings.notifications, email: e.target.checked } })}
-                        className="form-checkbox h-5 w-5 text-blue-600"
-                      />
-                      <span className="ml-2">Email</span>
-                    </label>
-                    <label className="inline-flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={settings.notifications.messages}
-                        onChange={e => setSettings({ ...settings, notifications: { ...settings.notifications, messages: e.target.checked } })}
-                        className="form-checkbox h-5 w-5 text-blue-600"
-                      />
-                      <span className="ml-2">Повідомлення</span>
-                    </label>
-                    <label className="inline-flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={settings.notifications.friendRequests}
-                        onChange={e => setSettings({ ...settings, notifications: { ...settings.notifications, friendRequests: e.target.checked } })}
-                        className="form-checkbox h-5 w-5 text-blue-600"
-                      />
-                      <span className="ml-2">Запити в друзі</span>
-                    </label>
+                  <div>
+                    <h3 className="text-lg font-medium leading-6 text-gray-900">Налаштування сповіщень</h3>
+                    <p className="mt-1 text-sm text-gray-500">Вирішіть, які сповіщення ви хочете отримувати.</p>
+                  </div>
+
+                  <div className="space-y-4 bg-white p-6 rounded-lg shadow-sm border border-gray-100">
+                    <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+                      <div>
+                        <label htmlFor="email-notifications" className="text-sm font-medium text-gray-700 cursor-pointer">
+                          Сповіщення електронною поштою
+                        </label>
+                        <p className="text-xs text-gray-500">Отримувати сповіщення на вашу електронну пошту</p>
+                      </div>
+                      <div className="relative inline-block w-12 mr-2 align-middle select-none">
+                        <input 
+                          type="checkbox" 
+                          id="email-notifications" 
+                          checked={settings.notifications.email}
+                          onChange={e => setSettings({
+                            ...settings,
+                            notifications: { ...settings.notifications, email: e.target.checked },
+                          })}
+                          className="sr-only" 
+                        />
+                        <label 
+                          htmlFor="email-notifications"
+                          className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${settings.notifications.email ? 'bg-blue-500' : 'bg-gray-300'}`}
+                        >
+                          <span className={`toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 ease-in-out ${settings.notifications.email ? 'transform translate-x-6' : ''}`}></span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+                      <div>
+                        <label htmlFor="message-notifications" className="text-sm font-medium text-gray-700 cursor-pointer">
+                          Сповіщення про повідомлення
+                        </label>
+                        <p className="text-xs text-gray-500">Отримувати сповіщення про нові повідомлення</p>
+                      </div>
+                      <div className="relative inline-block w-12 mr-2 align-middle select-none">
+                        <input 
+                          type="checkbox" 
+                          id="message-notifications" 
+                          checked={settings.notifications.messages}
+                          onChange={e => setSettings({
+                            ...settings,
+                            notifications: { ...settings.notifications, messages: e.target.checked },
+                          })}
+                          className="sr-only" 
+                        />
+                        <label 
+                          htmlFor="message-notifications"
+                          className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${settings.notifications.messages ? 'bg-blue-500' : 'bg-gray-300'}`}
+                        >
+                          <span className={`toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 ease-in-out ${settings.notifications.messages ? 'transform translate-x-6' : ''}`}></span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50">
+                      <div>
+                        <label htmlFor="friend-request-notifications" className="text-sm font-medium text-gray-700 cursor-pointer">
+                          Сповіщення про запити в друзі
+                        </label>
+                        <p className="text-xs text-gray-500">Отримувати сповіщення про нові запити в друзі</p>
+                      </div>
+                      <div className="relative inline-block w-12 mr-2 align-middle select-none">
+                        <input 
+                          type="checkbox" 
+                          id="friend-request-notifications" 
+                          checked={settings.notifications.friendRequests}
+                          onChange={e => setSettings({
+                            ...settings,
+                            notifications: { ...settings.notifications, friendRequests: e.target.checked },
+                          })}
+                          className="sr-only" 
+                        />
+                        <label 
+                          htmlFor="friend-request-notifications"
+                          className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer ${settings.notifications.friendRequests ? 'bg-blue-500' : 'bg-gray-300'}`}
+                        >
+                          <span className={`toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 ease-in-out ${settings.notifications.friendRequests ? 'transform translate-x-6' : ''}`}></span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                      Зберегти
+                    </button>
                   </div>
                 </div>
               )}

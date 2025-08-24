@@ -6,9 +6,12 @@ import { PeopleService } from './services/peopleService';
 import { UserCard } from './components/UserCard';
 import { PeopleFilters } from './components/PeopleFilters';
 import { User, FriendRequest, Filters, ViewMode } from './types';
+import { supabase } from '../../lib/supabase';
+import { useNavigate } from 'react-router-dom';
 
 export function People() {
   const { showError } = useErrorNotifications();
+  const navigate = useNavigate();
 
   // State
   const [users, setUsers] = useState<User[]>([]);
@@ -28,12 +31,36 @@ export function People() {
     hasAvatar: false,
     hasBio: false
   });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
-  // Load data on mount
+  // Check authentication and load data on mount
   useEffect(() => {
-    fetchUsers();
-    fetchFriendRequests();
+    checkAuth();
   }, []);
+  
+  // Load data when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchUsers();
+      fetchFriendRequests();
+    }
+  }, [isAuthenticated]);
+  
+  // Check if user is authenticated
+  const checkAuth = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUser(user.id);
+        setIsAuthenticated(true);
+      } else {
+        navigate('/login');
+      }
+    } catch (error) {
+      console.error('Error checking authentication:', error);
+      navigate('/login');
+    }
+  };
 
   // Apply filters when data or filters change
   useEffect(() => {
@@ -217,6 +244,16 @@ export function People() {
     if (filters.hasBio) count++;
     return count;
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex h-screen">
+        <div className="flex-1 flex items-center justify-center">
+          <LoadingSpinner />
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
