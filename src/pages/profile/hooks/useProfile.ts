@@ -335,7 +335,7 @@ export const useProfile = () => {
 
   useEffect(() => {
     loadProfile();
-  }, [location.key]);
+  }, []);
 
   return {
     profile,

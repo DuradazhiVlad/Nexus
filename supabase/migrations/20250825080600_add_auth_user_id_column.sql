@@ -61,4 +61,3 @@ $$;
 
 -- Надаємо права на таблицю user_profiles
 GRANT SELECT, INSERT, UPDATE ON TABLE public.user_profiles TO authenticated, anon, service_role;
-GRANT USAGE ON SEQUENCE public.user_profiles_id_seq TO authenticated, anon, service_role;

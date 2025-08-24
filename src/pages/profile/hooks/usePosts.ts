@@ -21,7 +21,7 @@ export const usePosts = (currentUser: any, profile: UserProfile | null) => {
     if (currentUser && profile) {
       loadUserPosts();
     }
-  }, [currentUser, profile]);
+  }, [currentUser?.id, profile?.id]);
 
   useEffect(() => {
     setCharacterCount(postContent.length);
@@ -177,4 +177,4 @@ export const usePosts = (currentUser: any, profile: UserProfile | null) => {
     loadUserPosts,
     formatPostDate
   };
-}; 
+};

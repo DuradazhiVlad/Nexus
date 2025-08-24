@@ -58,7 +58,7 @@ export function Wall() {
   useEffect(() => {
     fetchCurrentUser();
     fetchPosts();
-  }, [location.key]);
+  }, []);
 
   useEffect(() => {
     setCharacterCount(content.length);
@@ -421,4 +421,4 @@ export function Wall() {
 
     </div>
   );
-} 
+}

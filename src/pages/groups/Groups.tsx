@@ -118,7 +118,7 @@ export function Groups() {
 
   useEffect(() => {
     fetchCurrentUser();
-  }, [location.key]);
+  }, []);
 
   useEffect(() => {
     if (currentUser) {

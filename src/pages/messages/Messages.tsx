@@ -37,7 +37,7 @@ export function Messages() {
 
   useEffect(() => {
     loadCurrentUser();
-  }, [location.key]);
+  }, []);
 
   useEffect(() => {
     if (currentUser && authUser) {

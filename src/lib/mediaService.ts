@@ -134,15 +134,26 @@ export class MediaService {
 
       const result = await this.uploadFile(file, 'posts', 'media');
       
-      // Отримуємо поточного користувача
+      // Отримуємо поточного користувача та його профіль
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error('Користувач не аутентифікований');
       }
 
+      // Отримуємо профіль користувача
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        throw new Error('Профіль користувача не знайдено');
+      }
+
       // Зберігаємо медіа в базі даних
       await addMediaToDatabase({
-        user_id: user.id,
+        user_id: profile.id,
         type: result.type === 'image' ? 'photo' : 'video',
         url: result.url,
         original_name: file.name,
@@ -303,4 +314,4 @@ export async function getAlbumMedia(album_id: string) {
   
   if (error) throw error;
   return data;
-} 
+}

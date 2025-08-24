@@ -44,7 +44,7 @@ export function GroupDetail() {
 
   useEffect(() => {
     fetchCurrentUser();
-  }, [location.key]);
+  }, []);
 
   useEffect(() => {
     if (currentUser && groupId) {
