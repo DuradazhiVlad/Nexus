@@ -17,6 +17,7 @@ import { UserDetailPage } from './src/pages/user-detail';
 import { Games } from './src/pages/games';
 import { TestDB } from './src/pages/test-db';
 import { Wall } from './src/pages/wall';
+import { Dating } from './src/pages/dating/Dating';
 
 // Auth initialization component
 function AuthInitializer() {
@@ -110,6 +111,7 @@ function App() {
         <Route path="/settings" element={<Settings />} />
         <Route path="/groups" element={<Groups />} />
         <Route path="/groups/:groupId" element={<GroupDetail />} />
+        <Route path="/dating" element={<Dating />} />
         <Route path="/games" element={<Games />} />
         <Route path="/test-db" element={<TestDB />} />
         <Route path="/wall" element={<Wall />} />

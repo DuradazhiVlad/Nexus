@@ -56,49 +56,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-interface Reel {
-  id: string;
-  userId: string;
-  userName: string;
-  userAvatar?: string;
-  isVerified?: boolean;
-  videoUrl: string;
-  thumbnailUrl?: string;
-  title: string;
-  description: string;
-  duration: number;
-  views: number;
-  likes: number;
-  comments: number;
-  shares: number;
-  bookmarks: number;
-  createdAt: string;
-  music?: {
-    id: string;
-    title: string;
-    artist: string;
-    url: string;
-    duration: number;
-  };
-  hashtags: string[];
-  location?: string;
-  isLiked?: boolean;
-  isBookmarked?: boolean;
-  isFollowing?: boolean;
-  category: 'trending' | 'music' | 'comedy' | 'dance' | 'food' | 'travel' | 'sports' | 'education' | 'pets' | 'art' | 'other';
-}
-
-interface Comment {
-  id: string;
-  userId: string;
-  userName: string;
-  userAvatar?: string;
-  content: string;
-  likes: number;
-  replies: number;
-  createdAt: string;
-  isLiked?: boolean;
-}
+// Using Reel and ReelComment interfaces from service
 
 type FilterType = 'all' | 'trending' | 'following' | 'music' | 'comedy' | 'dance' | 'food' | 'travel' | 'sports' | 'education' | 'pets' | 'art';
 
@@ -111,7 +69,7 @@ export function Reels() {
   const [isMuted, setIsMuted] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<ReelComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -129,6 +87,7 @@ export function Reels() {
   const [videoCategory, setVideoCategory] = useState<Reel['category']>('other');
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedMusic, setSelectedMusic] = useState<Reel['music']>();
+  const { showError } = useErrorNotifications();
   
   // Video editing states
   const [videoDuration, setVideoDuration] = useState(0);
@@ -223,18 +182,17 @@ export function Reels() {
     try {
       setLoading(true);
       
-      // Симуляція завантаження рілс
-      const mockReels: Reel[] = generateMockReels();
+      const allReels = await ReelsService.getReels();
       
       // Фільтрація за активним фільтром
-      let filteredReels = mockReels;
+      let filteredReels = allReels;
       if (activeFilter !== 'all') {
         if (activeFilter === 'trending') {
-          filteredReels = mockReels.filter(reel => reel.views > 10000).sort((a, b) => b.views - a.views);
+          filteredReels = allReels.filter(reel => reel.views > 10000).sort((a, b) => b.views - a.views);
         } else if (activeFilter === 'following') {
-          filteredReels = mockReels.filter(reel => reel.isFollowing);
+          filteredReels = allReels.filter(reel => reel.isFollowing);
         } else {
-          filteredReels = mockReels.filter(reel => reel.category === activeFilter);
+          filteredReels = allReels.filter(reel => reel.category === activeFilter);
         }
       }
       
@@ -252,93 +210,74 @@ export function Reels() {
       setCurrentReelIndex(0);
     } catch (error) {
       console.error('Error loading reels:', error);
+      showError('Помилка завантаження рілсів');
     } finally {
       setLoading(false);
     }
   };
 
-  const generateMockReels = (): Reel[] => {
-    const categories: Reel['category'][] = ['trending', 'music', 'comedy', 'dance', 'food', 'travel', 'sports', 'education', 'pets', 'art'];
-    const mockReels: Reel[] = [];
-    
-    for (let i = 1; i <= 50; i++) {
-      mockReels.push({
-        id: i.toString(),
-        userId: `user_${i}`,
-        userName: `User${i}`,
-        userAvatar: `https://images.unsplash.com/photo-${1500000000000 + i * 1000}?auto=format&fit=crop&w=100&q=80`,
-        isVerified: Math.random() > 0.8,
-        videoUrl: `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`,
-        thumbnailUrl: `https://images.unsplash.com/photo-${1600000000000 + i * 1000}?auto=format&fit=crop&w=400&q=80`,
-        title: `Amazing Reel ${i}`,
-        description: `This is an amazing reel number ${i}! Check out this incredible content that will blow your mind! 🤯`,
-        duration: Math.floor(Math.random() * 60) + 15,
-        views: Math.floor(Math.random() * 100000) + 1000,
-        likes: Math.floor(Math.random() * 10000) + 100,
-        comments: Math.floor(Math.random() * 1000) + 10,
-        shares: Math.floor(Math.random() * 500) + 5,
-        bookmarks: Math.floor(Math.random() * 2000) + 20,
-        createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-        music: Math.random() > 0.3 ? {
-          id: `music_${i}`,
-          title: `Track ${i}`,
-          artist: `Artist ${i}`,
-          url: '',
-          duration: 30
-        } : undefined,
-        hashtags: [`#reel${i}`, '#amazing', '#viral', '#trending'],
-        location: Math.random() > 0.5 ? 'Київ, Україна' : undefined,
-        isLiked: Math.random() > 0.7,
-        isBookmarked: Math.random() > 0.8,
-        isFollowing: Math.random() > 0.6,
-        category: categories[Math.floor(Math.random() * categories.length)]
-      });
-    }
-    
-    return mockReels;
-  };
+
 
   const loadComments = async (reelId: string) => {
-    // Симуляція завантаження коментарів
-    const mockComments: Comment[] = [];
-    for (let i = 1; i <= 20; i++) {
-      mockComments.push({
-        id: `comment_${i}`,
-        userId: `user_${i}`,
-        userName: `User${i}`,
-        userAvatar: `https://images.unsplash.com/photo-${1500000000000 + i * 1000}?auto=format&fit=crop&w=50&q=80`,
-        content: `This is an amazing comment ${i}! I love this reel! 😍`,
-        likes: Math.floor(Math.random() * 100),
-        replies: Math.floor(Math.random() * 10),
-        createdAt: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000).toISOString(),
-        isLiked: Math.random() > 0.7
-      });
+    try {
+      const reelComments = await ReelsService.getReelComments(reelId);
+      setComments(reelComments);
+    } catch (error) {
+      console.error('Error loading comments:', error);
+      showError('Помилка завантаження коментарів');
     }
-    setComments(mockComments);
   };
 
   const toggleLike = async (reelId: string) => {
-    setReels(prev => prev.map(reel => 
-      reel.id === reelId 
-        ? { 
-            ...reel, 
-            isLiked: !reel.isLiked,
-            likes: reel.isLiked ? reel.likes - 1 : reel.likes + 1
-          }
-        : reel
-    ));
+    try {
+      const currentReel = reels.find(reel => reel.id === reelId);
+      if (!currentReel) return;
+      
+      if (currentReel.isLiked) {
+        await ReelsService.unlikeReel(reelId);
+      } else {
+        await ReelsService.likeReel(reelId);
+      }
+      
+      setReels(prev => prev.map(reel => 
+        reel.id === reelId 
+          ? { 
+              ...reel, 
+              isLiked: !reel.isLiked,
+              likes: reel.isLiked ? reel.likes - 1 : reel.likes + 1
+            }
+          : reel
+      ));
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      showError('Помилка при лайку');
+    }
   };
 
   const toggleBookmark = async (reelId: string) => {
-    setReels(prev => prev.map(reel => 
-      reel.id === reelId 
-        ? { 
-            ...reel, 
-            isBookmarked: !reel.isBookmarked,
-            bookmarks: reel.isBookmarked ? reel.bookmarks - 1 : reel.bookmarks + 1
-          }
-        : reel
-    ));
+    try {
+      const currentReel = reels.find(reel => reel.id === reelId);
+      if (!currentReel) return;
+      
+      if (currentReel.isBookmarked) {
+        await ReelsService.unbookmarkReel(reelId);
+      } else {
+        await ReelsService.bookmarkReel(reelId);
+      }
+      
+      setReels(prev => prev.map(reel => 
+        reel.id === reelId 
+          ? { 
+              ...reel, 
+              isBookmarked: !reel.isBookmarked,
+              bookmarks: reel.isBookmarked ? reel.bookmarks - 1 : reel.bookmarks + 1
+            }
+          : reel
+      ));
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
+      showError('Помилка при додаванні в закладки');
+    }
   };
 
   const toggleFollow = async (userId: string) => {
@@ -350,29 +289,25 @@ export function Reels() {
   };
 
   const addComment = async () => {
-    if (!newComment.trim()) return;
+    if (!newComment.trim() || !currentUser) return;
     
-    const comment: Comment = {
-      id: Date.now().toString(),
-      userId: currentUser!,
-      userName: 'Ви',
-      content: newComment,
-      likes: 0,
-      replies: 0,
-      createdAt: new Date().toISOString(),
-      isLiked: false
-    };
-    
-    setComments(prev => [comment, ...prev]);
-    setNewComment('');
-    
-    // Оновлюємо лічильник коментарів
-    const currentReel = reels[currentReelIndex];
-    setReels(prev => prev.map(reel => 
-      reel.id === currentReel.id 
-        ? { ...reel, comments: reel.comments + 1 }
-        : reel
-    ));
+    try {
+      const currentReel = reels[currentReelIndex];
+      const comment = await ReelsService.addComment(currentReel.id, newComment);
+      
+      setComments(prev => [comment, ...prev]);
+      setNewComment('');
+      
+      // Оновлюємо лічильник коментарів
+      setReels(prev => prev.map(reel => 
+        reel.id === currentReel.id 
+          ? { ...reel, comments: reel.comments + 1 }
+          : reel
+      ));
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      showError('Помилка при додаванні коментаря');
+    }
   };
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -416,45 +351,36 @@ export function Reels() {
   };
 
   const uploadReel = async () => {
-    if (!selectedVideo) return;
+    if (!selectedVideo || !currentUser) return;
     
-    setUploadStep('uploading');
-    setUploadProgress(0);
-    
-    // Симуляція завантаження
-    for (let i = 0; i <= 100; i += 10) {
-      setUploadProgress(i);
-      await new Promise(resolve => setTimeout(resolve, 200));
+    try {
+      setUploadStep('uploading');
+      setUploadProgress(0);
+      
+      const reelData = {
+        title: videoTitle,
+        description: videoDescription,
+        hashtags: videoHashtags,
+        location: videoLocation,
+        category: videoCategory,
+        music: selectedMusic
+      };
+      
+      const newReel = await ReelsService.uploadReel(
+        selectedVideo,
+        reelData,
+        (progress) => setUploadProgress(progress)
+      );
+      
+      setReels(prev => [newReel, ...prev]);
+      setShowUploadModal(false);
+      resetUpload();
+      setCurrentReelIndex(0);
+    } catch (error) {
+      console.error('Error uploading reel:', error);
+      showError('Помилка при завантаженні рілсу');
+      setUploadStep('details');
     }
-    
-    // Додаємо новий рел
-    const newReel: Reel = {
-      id: Date.now().toString(),
-      userId: currentUser!,
-      userName: 'Ви',
-      videoUrl: videoPreview,
-      title: videoTitle,
-      description: videoDescription,
-      duration: trimEnd - trimStart,
-      views: 0,
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      bookmarks: 0,
-      createdAt: new Date().toISOString(),
-      music: selectedMusic,
-      hashtags: videoHashtags,
-      location: videoLocation,
-      isLiked: false,
-      isBookmarked: false,
-      isFollowing: false,
-      category: videoCategory
-    };
-    
-    setReels(prev => [newReel, ...prev]);
-    setShowUploadModal(false);
-    resetUpload();
-    setCurrentReelIndex(0);
   };
 
   const formatTime = (seconds: number) => {
@@ -1240,6 +1166,7 @@ export function Reels() {
           </div>
         </div>
       )}
+      <ErrorNotification />
     </div>
   );
 }
