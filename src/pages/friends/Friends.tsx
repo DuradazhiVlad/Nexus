@@ -430,145 +430,146 @@ export function Friends() {
       <Sidebar />
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow-sm">
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Users className="h-6 w-6 text-blue-600" />
-                <h1 className="text-2xl font-bold text-gray-900">Друзі</h1>
-                <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
-                  {friends.length}
-                </span>
-              </div>
-              
-              <div className="flex items-center space-x-4">
-                {/* Search */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <input
-                    type="text"
-                    placeholder="Пошук друзів..."
-                    value={searchQuery}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+          <div className="bg-white rounded-lg shadow-sm">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Users className="h-6 w-6 text-blue-600" />
+                  <h1 className="text-2xl font-bold text-gray-900">Друзі</h1>
+                  <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
+                    {friends.length}
+                  </span>
                 </div>
                 
-                {/* Filter */}
-                <div className="relative">
-                  <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <select
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value as 'all' | 'online' | 'recent')}
-                    className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
-                  >
-                    <option value="all">Всі друзі</option>
-                    <option value="online">Онлайн</option>
-                    <option value="recent">Останні</option>
-                  </select>
+                <div className="flex items-center space-x-4">
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <input
+                      type="text"
+                      placeholder="Пошук друзів..."
+                      value={searchQuery}
+                      onChange={(e) => handleSearch(e.target.value)}
+                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  {/* Filter */}
+                  <div className="relative">
+                    <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <select
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value as 'all' | 'online' | 'recent')}
+                      className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                    >
+                      <option value="all">Всі друзі</option>
+                      <option value="online">Онлайн</option>
+                      <option value="recent">Останні</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Content */}
-          <div className="p-6">
-            {/* Friend Requests */}
-            {requests.length > 0 && (
-              <div className="mb-8">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <UserPlus className="h-5 w-5 text-orange-500 mr-2" />
-                  Запити на дружбу ({requests.length})
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {requests.map((request) => (
-                    <div key={request.id} className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="flex-shrink-0">
-                          <img
-                            src={request.user.avatar || '/default-avatar.png'}
-                            alt={request.user.name}
-                            className="h-10 w-10 rounded-full"
-                          />
+            {/* Content */}
+            <div className="p-6">
+              {/* Friend Requests */}
+              {requests.length > 0 && (
+                <div className="mb-8">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <UserPlus className="h-5 w-5 text-orange-500 mr-2" />
+                    Запити на дружбу ({requests.length})
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {requests.map((request) => (
+                      <div key={request.id} className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-shrink-0">
+                            <img
+                              src={request.user.avatar || '/default-avatar.png'}
+                              alt={request.user.name}
+                              className="h-10 w-10 rounded-full"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900">
+                              {request.user.name} {request.user.last_name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Хоче додати вас у друзі
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">
-                            {request.user.name} {request.user.last_name}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Хоче додати вас у друзі
-                          </p>
+                        <div className="mt-3 flex space-x-2">
+                          <button
+                            onClick={() => acceptRequest(request.id)}
+                            className="flex-1 bg-green-600 text-white text-xs px-3 py-1.5 rounded-md hover:bg-green-700 transition-colors flex items-center justify-center"
+                          >
+                            <UserCheck className="h-3 w-3 mr-1" />
+                            Прийняти
+                          </button>
+                          <button
+                            onClick={() => rejectRequest(request.id)}
+                            className="flex-1 bg-red-600 text-white text-xs px-3 py-1.5 rounded-md hover:bg-red-700 transition-colors flex items-center justify-center"
+                          >
+                            <UserX className="h-3 w-3 mr-1" />
+                            Відхилити
+                          </button>
                         </div>
                       </div>
-                      <div className="mt-3 flex space-x-2">
-                        <button
-                          onClick={() => acceptRequest(request.id)}
-                          className="flex-1 bg-green-600 text-white text-xs px-3 py-1.5 rounded-md hover:bg-green-700 transition-colors flex items-center justify-center"
-                        >
-                          <UserCheck className="h-3 w-3 mr-1" />
-                          Прийняти
-                        </button>
-                        <button
-                          onClick={() => rejectRequest(request.id)}
-                          className="flex-1 bg-red-600 text-white text-xs px-3 py-1.5 rounded-md hover:bg-red-700 transition-colors flex items-center justify-center"
-                        >
-                          <UserX className="h-3 w-3 mr-1" />
-                          Відхилити
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Friends List */}
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Users className="h-5 w-5 text-blue-500 mr-2" />
-                Мої друзі
-              </h2>
-              
-              {filteredFriends.length === 0 ? (
-                <div className="text-center py-12">
-                  <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">
-                    {searchQuery ? 'Друзів не знайдено' : 'У вас поки немає друзів'}
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredFriends.map((friend) => (
-                    <div key={friend.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-center space-x-3">
-                        <div className="flex-shrink-0">
-                          <img
-                            src={friend.avatar || '/default-avatar.png'}
-                            alt={friend.name}
-                            className="h-10 w-10 rounded-full"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">
-                            {friend.name} {friend.last_name}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Онлайн
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => removeFriend(friend.id)}
-                          className="text-red-600 hover:text-red-800 transition-colors"
-                          title="Видалити друга"
-                        >
-                          <UserMinus className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
+
+              {/* Friends List */}
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <Users className="h-5 w-5 text-blue-500 mr-2" />
+                  Мої друзі
+                </h2>
+                
+                {filteredFriends.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">
+                      {searchQuery ? 'Друзів не знайдено' : 'У вас поки немає друзів'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredFriends.map((friend) => (
+                      <div key={friend.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-shrink-0">
+                            <img
+                              src={friend.avatar || '/default-avatar.png'}
+                              alt={friend.name}
+                              className="h-10 w-10 rounded-full"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900">
+                              {friend.name} {friend.last_name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Онлайн
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => removeFriend(friend.id)}
+                            className="text-red-600 hover:text-red-800 transition-colors"
+                            title="Видалити друга"
+                          >
+                            <UserMinus className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

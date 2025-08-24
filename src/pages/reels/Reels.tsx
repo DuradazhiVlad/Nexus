@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
+import { ReelsService, Reel, ReelComment } from './services/reelsService';
+import { ErrorNotification, useErrorNotifications } from '../../components/ErrorNotification';
 import { 
   Heart, 
   MessageCircle, 

@@ -458,7 +458,7 @@ export function CallManager({
                   ? 'Виклик...'
                   : callStatus === CallStatus.INCOMING
                   ? 'Вхідний дзвінок'
-                  : 'З'єднано'}
+                  : 'Зєднано'}
               </p>
             </div>
           )}

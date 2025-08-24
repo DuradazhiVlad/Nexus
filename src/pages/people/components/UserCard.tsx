@@ -6,12 +6,10 @@ import {
   Check, 
   UserCheck, 
   UserX,
-  MapPin,
-  Calendar,
-  Globe,
-  Lock
+  MapPin
 } from 'lucide-react';
 import { User, FriendRequest } from '../types';
+import { useErrorNotifications } from '../../../components/ErrorNotification';
 
 interface UserCardProps {
   user: User;
@@ -31,6 +29,7 @@ export function UserCard({
   onRemoveFriend
 }: UserCardProps) {
   const navigate = useNavigate();
+  const { showError } = useErrorNotifications();
 
   const getInitials = (name: string, lastName?: string) => {
     const firstLetter = name[0].toUpperCase();
@@ -51,7 +50,12 @@ export function UserCard({
   };
 
   const getFriendStatus = (userId: string) => {
-    // Використовуємо id для порівняння
+    // Перевіряємо чи є користувач у списку друзів
+    if (user.friends && user.friends.some(friend => friend.id === userId)) {
+      return 'friends';
+    }
+    
+    // Використовуємо id для порівняння запитів
     const currentUser = friendRequests.find(req => req.user_id === userId);
     const receivedRequest = friendRequests.find(req => req.friend_id === userId);
     
@@ -67,125 +71,167 @@ export function UserCard({
   const friendStatus = getFriendStatus(user.id);
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-      <div className="flex items-center space-x-4">
-        {/* Avatar */}
-        <div className="flex-shrink-0">
-          <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
+    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow h-full flex flex-col">
+      {/* Avatar section */}
+      <div className="flex flex-col items-center mb-4">
+        {/* Clickable Avatar */}
+        <div 
+          className="flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => navigate(`/user/${user.id}`)}
+        >
+          <div className="w-16 h-20 rounded-lg bg-gray-200 flex items-center justify-center overflow-hidden">
             {user.avatar ? (
               <img 
                 src={user.avatar} 
                 alt={`${user.name} ${user.last_name}`} 
-                className="w-full h-full rounded-full object-cover"
+                className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-lg">
+              <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
                 {getInitials(user.name, user.last_name)}
               </div>
             )}
           </div>
         </div>
         
-        {/* User Info */}
-        <div className="flex-1 min-w-0">
-          <div 
-            className="cursor-pointer hover:text-blue-600 transition-colors"
-            onClick={() => navigate(`/user/${user.id}`)}
-          >
-            <h3 className="text-lg font-semibold text-gray-900 truncate">
-              {user.name} {user.last_name}
-            </h3>
-            <p className="text-sm text-gray-500 truncate">{user.email}</p>
-          </div>
+        {/* User name below avatar */}
+        <div className="text-center mt-2">
+          <h3 className="text-base font-semibold text-gray-900">
+            {user.last_name} {user.name}
+          </h3>
           
           {user.city && (
-            <p className="text-sm text-gray-600 flex items-center mt-1">
-              <MapPin className="w-4 h-4 mr-1" />
+            <p className="text-xs text-gray-600 flex items-center justify-center mt-1">
+              <MapPin className="w-3 h-3 mr-1" />
               {user.city}
             </p>
           )}
-          
-          {user.created_at && (
-            <p className="text-xs text-gray-400 mt-1">
-              Приєднався {formatDate(user.created_at || '')}
-            </p>
-          )}
-          
-          {/* Показуємо статус приватності */}
-          {user.privacy?.profileVisibility && (
-            <p className="text-xs text-gray-500 mt-1 flex items-center">
-              {user.privacy.profileVisibility === 'public' ? (
-                <>
-                  <Globe className="w-3 h-3 mr-1" />
-                  Публічний профіль
-                </>
-              ) : (
-                <>
-                  <Lock className="w-3 h-3 mr-1" />
-                  Приватний профіль
-                </>
-              )}
-            </p>
-          )}
         </div>
+      </div>
+      
+      {/* Action Buttons at bottom */}
+      <div className="mt-auto">
+        {friendStatus === 'not_friends' && (
+          <div className="flex flex-col space-y-2">
+            <button
+               onClick={() => {
+                 try {
+                   onAddFriend(user.id);
+                 } catch (error) {
+                   console.error('Error adding friend:', error);
+                   showError('Помилка додавання друга');
+                 }
+               }}
+               className="flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs w-full"
+             >
+               <UserPlus className="w-3 h-3 mr-1" />
+               Додати в друзі
+             </button>
+             
+             {canSendMessage(user) && (
+               <button
+                 onClick={() => {
+                   try {
+                     navigate(`/messages?user=${user.id}`);
+                   } catch (error) {
+                     console.error('Error navigating to messages:', error);
+                     showError('Помилка відкриття повідомлень');
+                   }
+                 }}
+                 className="flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs w-full"
+               >
+                 <MessageCircle className="w-3 h-3 mr-1" />
+                 Повідомлення
+               </button>
+             )}
+          </div>
+        )}
+          
+        {friendStatus === 'sent' && (
+          <div className="flex items-center justify-center px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-xs w-full">
+            <Check className="w-3 h-3 mr-1" />
+            Запит надіслано
+          </div>
+        )}
+          
+        {friendStatus === 'received' && (
+          <div className="flex flex-col space-y-2">
+            <button
+              onClick={() => {
+                try {
+                  const request = friendRequests.find(req => req.friend_id === user.id);
+                  if (request) {
+                    onAcceptFriendRequest(request.id);
+                  } else {
+                    showError('Запит в друзі не знайдено');
+                  }
+                } catch (error) {
+                  console.error('Error accepting friend request:', error);
+                  showError('Помилка прийняття запиту в друзі');
+                }
+              }}
+              className="flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs w-full"
+            >
+              <UserCheck className="w-3 h-3 mr-1" />
+              Прийняти
+            </button>
+            <button
+              onClick={() => {
+                try {
+                  const request = friendRequests.find(req => req.friend_id === user.id);
+                  if (request) {
+                    onRejectFriendRequest(request.id);
+                  } else {
+                    showError('Запит в друзі не знайдено');
+                  }
+                } catch (error) {
+                  console.error('Error rejecting friend request:', error);
+                  showError('Помилка відхилення запиту в друзі');
+                }
+              }}
+              className="flex items-center justify-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-xs w-full"
+            >
+              <UserX className="w-3 h-3 mr-1" />
+              Відхилити
+            </button>
+          </div>
+        )}
         
-        {/* Action Buttons */}
-        <div className="flex flex-col space-y-2">
-          {friendStatus === 'not_friends' && (
-            <div className="flex space-x-2">
-              <button
-                onClick={() => onAddFriend(user.id)}
-                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Додати в друзі
-              </button>
-              
-              {canSendMessage(user) && (
-                <button
-                  onClick={() => navigate(`/messages?user=${user.id}`)}
-                  className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                >
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  Повідомлення
-                </button>
-              )}
-            </div>
-          )}
-          
-          {friendStatus === 'sent' && (
-            <div className="flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm">
-              <Check className="w-4 h-4 mr-2" />
-              Запит надіслано
-            </div>
-          )}
-          
-          {friendStatus === 'received' && (
-            <div className="flex space-x-2">
+        {friendStatus === 'friends' && (
+          <div className="flex flex-col space-y-2">
+            {canSendMessage(user) && (
               <button
                 onClick={() => {
-                  const request = friendRequests.find(req => req.friend_id === user.id);
-                  if (request) onAcceptFriendRequest(request.id);
+                  try {
+                    navigate(`/messages?user=${user.id}`);
+                  } catch (error) {
+                    console.error('Error navigating to messages:', error);
+                    showError('Помилка відкриття повідомлень');
+                  }
                 }}
-                className="flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                className="flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs w-full"
               >
-                <UserCheck className="w-4 h-4 mr-1" />
-                Прийняти
+                <MessageCircle className="w-3 h-3 mr-1" />
+                Повідомлення
               </button>
-              <button
-                onClick={() => {
-                  const request = friendRequests.find(req => req.friend_id === user.id);
-                  if (request) onRejectFriendRequest(request.id);
-                }}
-                className="flex items-center justify-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
-              >
-                <UserX className="w-4 h-4 mr-1" />
-                Відхилити
-              </button>
-            </div>
-          )}
-        </div>
+            )}
+            <button
+              onClick={() => {
+                try {
+                  onRemoveFriend(user.id);
+                } catch (error) {
+                  console.error('Error removing friend:', error);
+                  showError('Помилка видалення друга');
+                }
+              }}
+              className="flex items-center justify-center px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-xs w-full"
+            >
+              <UserX className="w-3 h-3 mr-1" />
+              Видалити з друзів
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
-} 
+}

@@ -193,7 +193,7 @@ export function Settings() {
       if (!safeSettings.languages) safeSettings.languages = [];
       
       // Оновлюємо профіль через AuthUserService
-      await AuthUserService.updateProfile({
+      const updateData = {
         name: safeSettings.name,
         last_name: safeSettings.last_name,
         bio: safeSettings.bio,
@@ -209,7 +209,10 @@ export function Settings() {
         notifications: safeSettings.notifications,
         privacy: safeSettings.privacy,
         avatar: safeSettings.avatar
-      });
+      };
+      
+      console.log('Updating profile with data:', updateData);
+      await AuthUserService.updateFullProfile(updateData);
       
       alert('Налаштування збережено успішно');
     } catch (error) {

@@ -25,6 +25,8 @@ const getIcon = (type: ErrorType) => {
       return <Info className="w-5 h-5 text-blue-600" />;
     case 'success':
       return <CheckCircle className="w-5 h-5 text-green-600" />;
+    default:
+      return <Info className="w-5 h-5 text-gray-600" />;
   }
 };
 
@@ -57,6 +59,13 @@ const getStyles = (type: ErrorType) => {
         icon: 'bg-green-100',
         closeButton: 'text-green-400 hover:text-green-600',
         retryButton: 'bg-green-600 hover:bg-green-700 text-white'
+      };
+    default:
+      return {
+        container: 'bg-gray-50 border-gray-200 text-gray-800',
+        icon: 'bg-gray-100',
+        closeButton: 'text-gray-400 hover:text-gray-600',
+        retryButton: 'bg-gray-600 hover:bg-gray-700 text-white'
       };
   }
 };
@@ -187,4 +196,4 @@ export const useErrorNotifications = () => {
     removeNotification,
     clearAll
   };
-}; 
+};

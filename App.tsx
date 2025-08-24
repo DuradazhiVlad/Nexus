@@ -11,7 +11,7 @@ import { Messages } from './src/pages/messages';
 import { Friends } from './src/pages/friends';
 import { Settings } from './src/pages/settings';
 import { Groups } from './src/pages/groups';
-import { GroupDetail } from './src/pages/group-detail';
+import { GroupDetail } from './src/pages/group-detail/GroupDetail';
 import { People } from './src/pages/people';
 import { UserDetailPage } from './src/pages/user-detail';
 import { Games } from './src/pages/games';
