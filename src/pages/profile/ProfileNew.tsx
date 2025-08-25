@@ -10,6 +10,7 @@ import {
   CreatePostForm, 
   PostsSection 
 } from './components';
+import { supabase } from '../../lib/supabase';
 
 export function ProfileNew() {
   const {
@@ -67,6 +68,31 @@ export function ProfileNew() {
       console.log('🔍 Profile languages length:', profile.languages?.length);
     }
   }, [profile]);
+
+  // Debug function to test user_profiles table
+  const testUserProfilesTable = async () => {
+    try {
+      console.log('🔍 Testing user_profiles table...');
+      
+      // Test table access
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .limit(1);
+      
+      if (error) {
+        console.error('❌ Error accessing user_profiles table:', error);
+        alert(`Table error: ${error.message}`);
+      } else {
+        console.log('✅ user_profiles table accessible');
+        console.log('📊 Data:', data);
+        alert('Table accessible! Check console for details.');
+      }
+    } catch (error) {
+      console.error('❌ Unexpected error:', error);
+      alert(`Unexpected error: ${error.message}`);
+    }
+  };
 
   if (loading) {
     return (
@@ -143,6 +169,16 @@ export function ProfileNew() {
               {error}
             </div>
           )}
+
+          {/* Debug Button */}
+          <div className="mb-6">
+            <button
+              onClick={testUserProfilesTable}
+              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm"
+            >
+              🔍 Test user_profiles Table
+            </button>
+          </div>
 
           {/* Debug Information */}
           {process.env.NODE_ENV === 'development' && profile && (
@@ -225,4 +261,4 @@ export function ProfileNew() {
       </div>
     </div>
   );
-} 
+}

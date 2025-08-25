@@ -1,0 +1,285 @@
+y<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест таблиці user_profiles</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Тест таблиці user_profiles</h1>
+        
+        <div class="test-section info">
+            <h3>Інформація про підключення</h3>
+            <p>Цей тест перевіряє доступність та структуру таблиці user_profiles в Supabase.</p>
+            <button onclick="testConnection()">Перевірити підключення</button>
+            <div id="connection-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Тест таблиці user_profiles</h3>
+            <button onclick="testUserProfilesTable()">Перевірити таблицю</button>
+            <div id="table-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Тест створення профілю</h3>
+            <button onclick="testCreateProfile()">Створити тестовий профіль</button>
+            <div id="create-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Тест оновлення профілю</h3>
+            <button onclick="testUpdateProfile()">Оновити профіль</button>
+            <div id="update-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Логи</h3>
+            <div id="logs"></div>
+        </div>
+    </div>
+
+    <script>
+        // Ініціалізація Supabase клієнта
+        const SUPABASE_URL = 'https://gtfgvqttfydelzgvgwly.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0Zmd2cXR0ZnlkZWx6Z3Znd2x5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwMjE0OTEsImV4cCI6MjA1OTU5NzQ5MX0.nBdVMHZ6LJ8ZvdSuXk_uDVMb6DxB5iTeFdc0dM7zolI';
+        
+        const supabaseUrl = SUPABASE_URL;
+        const supabaseKey = SUPABASE_ANON_KEY;
+        
+        let supabase;
+        
+        try {
+            supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+            log('✅ Supabase клієнт ініціалізовано');
+        } catch (error) {
+            log('❌ Помилка ініціалізації Supabase: ' + error.message, 'error');
+        }
+
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `test-section ${type}`;
+            logEntry.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            logsDiv.appendChild(logEntry);
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        async function testConnection() {
+            const resultDiv = document.getElementById('connection-result');
+            resultDiv.innerHTML = '<p>Перевіряємо підключення...</p>';
+            
+            try {
+                const { data, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    throw error;
+                }
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h4>✅ Підключення успішне</h4>
+                        <p>Сесія: ${data.session ? 'Активна' : 'Неактивна'}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+                log('✅ Підключення до Supabase успішне', 'success');
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Помилка підключення</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                log('❌ Помилка підключення: ' + error.message, 'error');
+            }
+        }
+
+        async function testUserProfilesTable() {
+            const resultDiv = document.getElementById('table-result');
+            resultDiv.innerHTML = '<p>Перевіряємо таблицю user_profiles...</p>';
+            
+            try {
+                // Спробуємо виконати простий SELECT запит
+                const { data, error, count } = await supabase
+                    .from('user_profiles')
+                    .select('*', { count: 'exact' })
+                    .limit(5);
+                
+                if (error) {
+                    throw error;
+                }
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h4>✅ Таблиця user_profiles доступна</h4>
+                        <p>Загальна кількість записів: ${count}</p>
+                        <p>Отримано записів: ${data.length}</p>
+                        <h5>Структура таблиці (перші 5 записів):</h5>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+                log(`✅ Таблиця user_profiles доступна. Записів: ${count}`, 'success');
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Помилка доступу до таблиці</h4>
+                        <p>${error.message}</p>
+                        <p><strong>Код помилки:</strong> ${error.code}</p>
+                        <p><strong>Деталі:</strong> ${error.details}</p>
+                    </div>
+                `;
+                log('❌ Помилка доступу до таблиці: ' + error.message, 'error');
+            }
+        }
+
+        async function testCreateProfile() {
+            const resultDiv = document.getElementById('create-result');
+            resultDiv.innerHTML = '<p>Тестуємо створення профілю...</p>';
+            
+            try {
+                // Спробуємо створити тестовий профіль
+                const testProfile = {
+                    auth_user_id: '00000000-0000-0000-0000-000000000001', // Тестовий UUID
+                    name: 'Тестовий',
+                    last_name: 'Користувач',
+                    email: 'test@example.com',
+                    bio: 'Це тестовий профіль',
+                    city: 'Київ',
+                    hobbies: ['програмування', 'читання'],
+                    languages: ['українська', 'англійська']
+                };
+                
+                const { data, error } = await supabase
+                    .from('user_profiles')
+                    .insert([testProfile])
+                    .select();
+                
+                if (error) {
+                    throw error;
+                }
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h4>✅ Тестовий профіль створено</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+                log('✅ Тестовий профіль створено успішно', 'success');
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Помилка створення профілю</h4>
+                        <p>${error.message}</p>
+                        <p><strong>Код помилки:</strong> ${error.code}</p>
+                    </div>
+                `;
+                log('❌ Помилка створення профілю: ' + error.message, 'error');
+            }
+        }
+
+        async function testUpdateProfile() {
+            const resultDiv = document.getElementById('update-result');
+            resultDiv.innerHTML = '<p>Тестуємо оновлення профілю...</p>';
+            
+            try {
+                const { data, error } = await supabase
+                    .from('user_profiles')
+                    .update({ 
+                        bio: 'Оновлене біо - ' + new Date().toISOString(),
+                        work: 'Тестова робота'
+                    })
+                    .eq('email', 'test@example.com')
+                    .select();
+                
+                if (error) {
+                    throw error;
+                }
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h4>✅ Профіль оновлено</h4>
+                        <p>Оновлено записів: ${data.length}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+                log('✅ Профіль оновлено успішно', 'success');
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h4>❌ Помилка оновлення профілю</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                log('❌ Помилка оновлення профілю: ' + error.message, 'error');
+            }
+        }
+
+        // Автоматично запускаємо тест підключення при завантаженні
+        window.onload = function() {
+            log('🚀 Сторінка завантажена, готово до тестування');
+            
+            // Показуємо поточні налаштування
+            log(`📋 Supabase URL: ${supabaseUrl}`);
+            log(`📋 Supabase Key: ${supabaseKey.substring(0, 20)}...`);
+        };
+    </script>
+</body>
+</html>

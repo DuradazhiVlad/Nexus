@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест завантаження медіа</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .info {
+            color: #17a2b8;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+            padding: 5px;
+        }
+        .preview {
+            margin: 10px 0;
+            max-width: 300px;
+        }
+        .preview img, .preview video {
+            max-width: 100%;
+            border-radius: 5px;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Тест завантаження медіа файлів</h1>
+        <p>Цей інструмент допоможе протестувати завантаження зображень та відео в Supabase Storage.</p>
+        
+        <div class="test-section">
+            <h3>📡 Підключення до Supabase</h3>
+            <button onclick="testConnection()">Перевірити підключення</button>
+            <div id="connectionResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📁 Перевірка Storage Buckets</h3>
+            <button onclick="checkBuckets()">Перевірити buckets</button>
+            <div id="bucketsResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📤 Завантаження файлів</h3>
+            <input type="file" id="fileInput" accept="image/*,video/*" onchange="previewFile()">
+            <div id="filePreview" class="preview"></div>
+            <button onclick="uploadFile()" id="uploadBtn" disabled>Завантажити файл</button>
+            <div id="uploadResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🖼️ Тест створення поста з медіа</h3>
+            <textarea id="postContent" placeholder="Текст поста..." rows="3" style="width: 100%; margin: 10px 0; padding: 10px;"></textarea>
+            <button onclick="createTestPost()" id="createPostBtn">Створити тестовий пост</button>
+            <div id="postResult"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Логи</h3>
+            <div id="logs" class="log"></div>
+            <button onclick="clearLogs()">Очистити логи</button>
+        </div>
+    </div>
+
+    <script>
+        // Ініціалізація Supabase
+        const supabaseUrl = 'https://wnqzgvqjqvqzgvqjqvqz.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InducXpndnFqcXZxemd2cWpxdnF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU5MDI0MDAsImV4cCI6MjA1MTQ3ODQwMH0.Hs8sucy6B1lqKGKKWH_qgCdxLCNjWALOLwrjHLrxkpE';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        let selectedFile = null;
+        let uploadedFileUrl = null;
+
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<span style="color: #666;">[${timestamp}]</span> <span class="${type}">${message}</span>`;
+            logs.appendChild(logEntry);
+            logs.scrollTop = logs.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        async function testConnection() {
+            const resultDiv = document.getElementById('connectionResult');
+            resultDiv.innerHTML = '<div class="info">Перевіряємо підключення...</div>';
+            
+            try {
+                const { data, error } = await supabase.auth.getSession();
+                if (error) throw error;
+                
+                resultDiv.innerHTML = '<div class="success">✅ Підключення успішне!</div>';
+                log('Підключення до Supabase успішне', 'success');
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Помилка підключення: ${error.message}</div>`;
+                log(`Помилка підключення: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkBuckets() {
+            const resultDiv = document.getElementById('bucketsResult');
+            resultDiv.innerHTML = '<div class="info">Перевіряємо buckets...</div>';
+            
+            try {
+                const { data, error } = await supabase.storage.listBuckets();
+                if (error) throw error;
+                
+                const bucketNames = data.map(bucket => bucket.name).join(', ');
+                resultDiv.innerHTML = `<div class="success">✅ Знайдено buckets: ${bucketNames}</div>`;
+                log(`Знайдено buckets: ${bucketNames}`, 'success');
+                
+                // Перевіряємо чи є bucket 'media'
+                const mediaBucket = data.find(bucket => bucket.name === 'media');
+                if (mediaBucket) {
+                    log('Bucket "media" знайдено', 'success');
+                } else {
+                    log('Bucket "media" не знайдено', 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Помилка: ${error.message}</div>`;
+                log(`Помилка перевірки buckets: ${error.message}`, 'error');
+            }
+        }
+
+        function previewFile() {
+            const fileInput = document.getElementById('fileInput');
+            const preview = document.getElementById('filePreview');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            selectedFile = fileInput.files[0];
+            
+            if (selectedFile) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    if (selectedFile.type.startsWith('image/')) {
+                        preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+                    } else if (selectedFile.type.startsWith('video/')) {
+                        preview.innerHTML = `<video src="${e.target.result}" controls></video>`;
+                    }
+                };
+                reader.readAsDataURL(selectedFile);
+                uploadBtn.disabled = false;
+                log(`Файл вибрано: ${selectedFile.name} (${(selectedFile.size / 1024 / 1024).toFixed(2)} MB)`);
+            } else {
+                preview.innerHTML = '';
+                uploadBtn.disabled = true;
+            }
+        }
+
+        async function uploadFile() {
+            if (!selectedFile) {
+                log('Файл не вибрано', 'error');
+                return;
+            }
+
+            const resultDiv = document.getElementById('uploadResult');
+            resultDiv.innerHTML = '<div class="info">Завантажуємо файл...</div>';
+            
+            try {
+                // Перевіряємо розмір файлу (максимум 5MB)
+                if (selectedFile.size > 5 * 1024 * 1024) {
+                    throw new Error('Файл занадто великий. Максимальний розмір: 5MB');
+                }
+
+                // Генеруємо унікальне ім'я файлу
+                const fileExt = selectedFile.name.split('.').pop();
+                const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+                
+                log(`Завантажуємо файл як: ${fileName}`);
+
+                // Завантажуємо файл
+                const { data, error } = await supabase.storage
+                    .from('media')
+                    .upload(fileName, selectedFile);
+
+                if (error) throw error;
+
+                // Отримуємо публічний URL
+                const { data: urlData } = supabase.storage
+                    .from('media')
+                    .getPublicUrl(fileName);
+
+                uploadedFileUrl = urlData.publicUrl;
+                
+                resultDiv.innerHTML = `
+                    <div class="success">✅ Файл завантажено успішно!</div>
+                    <div><strong>URL:</strong> <a href="${uploadedFileUrl}" target="_blank">${uploadedFileUrl}</a></div>
+                `;
+                
+                log(`Файл завантажено: ${uploadedFileUrl}`, 'success');
+                
+                // Активуємо кнопку створення поста
+                document.getElementById('createPostBtn').disabled = false;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Помилка завантаження: ${error.message}</div>`;
+                log(`Помилка завантаження: ${error.message}`, 'error');
+            }
+        }
+
+        async function createTestPost() {
+            const content = document.getElementById('postContent').value;
+            const resultDiv = document.getElementById('postResult');
+            
+            if (!content.trim()) {
+                log('Введіть текст поста', 'error');
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="info">Створюємо пост...</div>';
+            
+            try {
+                // Спочатку потрібно авторизуватися
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    // Створюємо анонімного користувача для тесту
+                    const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+                    if (authError) throw authError;
+                    log('Створено анонімного користувача для тесту', 'info');
+                }
+
+                // Визначаємо тип медіа
+                let mediaType = null;
+                if (uploadedFileUrl && selectedFile) {
+                    if (selectedFile.type.startsWith('image/')) {
+                        mediaType = 'photo';
+                    } else if (selectedFile.type.startsWith('video/')) {
+                        mediaType = 'video';
+                    }
+                }
+
+                const postData = {
+                    content: content.trim(),
+                    media_url: uploadedFileUrl,
+                    media_type: mediaType
+                };
+
+                log(`Створюємо пост з даними: ${JSON.stringify(postData)}`);
+
+                // Тут ми б викликали createPost, але для тесту просто покажемо дані
+                resultDiv.innerHTML = `
+                    <div class="success">✅ Тестові дані поста готові!</div>
+                    <div><strong>Контент:</strong> ${postData.content}</div>
+                    ${postData.media_url ? `<div><strong>Медіа URL:</strong> ${postData.media_url}</div>` : ''}
+                    ${postData.media_type ? `<div><strong>Тип медіа:</strong> ${postData.media_type}</div>` : ''}
+                `;
+                
+                log('Тестові дані поста підготовлено', 'success');
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Помилка створення поста: ${error.message}</div>`;
+                log(`Помилка створення поста: ${error.message}`, 'error');
+            }
+        }
+
+        // Ініціалізація при завантаженні сторінки
+        window.onload = function() {
+            log('Сторінка завантажена, готово до тестування');
+        };
+    </script>
+</body>
+</html>

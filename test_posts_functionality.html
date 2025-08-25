@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест функціональності постів</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .post-item {
+            border: 1px solid #eee;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background: #fafafa;
+        }
+        .post-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .post-content {
+            margin-bottom: 10px;
+        }
+        .post-media {
+            margin: 10px 0;
+        }
+        .post-media img {
+            max-width: 300px;
+            max-height: 200px;
+            border-radius: 4px;
+        }
+        .post-stats {
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Тест функціональності постів</h1>
+        <p>Цей інструмент допоможе протестувати створення, відображення та завантаження медіа для постів.</p>
+        
+        <div id="authStatus" class="test-section">
+            <h3>📋 Статус авторизації</h3>
+            <div id="authResult">Перевіряємо...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 Створення поста</h3>
+            <textarea id="postContent" placeholder="Введіть текст поста..." rows="3"></textarea>
+            <input type="text" id="mediaUrl" placeholder="URL медіа (необов'язково)">
+            <select id="mediaType">
+                <option value="">Тип медіа</option>
+                <option value="photo">Фото</option>
+                <option value="video">Відео</option>
+                <option value="document">Документ</option>
+            </select>
+            <br>
+            <button onclick="createTestPost()">Створити пост</button>
+            <div id="createPostResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📄 Завантаження постів</h3>
+            <button onclick="loadAllPosts()">Завантажити всі пости</button>
+            <div id="loadPostsResult" class="result"></div>
+            <div id="postsContainer"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📤 Тест завантаження файлу</h3>
+            <input type="file" id="fileInput" accept="image/*,video/*">
+            <button onclick="uploadTestFile()">Завантажити файл</button>
+            <div id="uploadResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>❤️ Тест лайків</h3>
+            <input type="text" id="likePostId" placeholder="ID поста для лайку">
+            <button onclick="testLikePost()">Лайкнути</button>
+            <button onclick="testUnlikePost()">Прибрати лайк</button>
+            <div id="likeResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>💬 Тест коментарів</h3>
+            <input type="text" id="commentPostId" placeholder="ID поста для коментаря">
+            <textarea id="commentContent" placeholder="Текст коментаря" rows="2"></textarea>
+            <button onclick="addTestComment()">Додати коментар</button>
+            <button onclick="loadPostComments()">Завантажити коментарі</button>
+            <div id="commentResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        // Ініціалізація Supabase
+        const supabaseUrl = 'https://ixjhqhqvgqjjqhqvgqjj.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4amhxaHF2Z3FqanFocXZncWpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU0NzI4NzQsImV4cCI6MjA1MTA0ODg3NH0.Ej5Ej5Ej5Ej5Ej5Ej5Ej5Ej5Ej5Ej5Ej5Ej5Ej5E';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        let currentUser = null;
+        let currentProfile = null;
+
+        // Перевірка авторизації при завантаженні
+        window.onload = async function() {
+            await checkAuth();
+        };
+
+        async function checkAuth() {
+            try {
+                const { data: { user }, error } = await supabase.auth.getUser();
+                
+                if (error) {
+                    document.getElementById('authResult').innerHTML = 
+                        `<div class="error">Помилка авторизації: ${error.message}</div>`;
+                    return;
+                }
+
+                if (!user) {
+                    document.getElementById('authResult').innerHTML = 
+                        `<div class="error">Користувач не авторизований</div>
+                         <p>Будь ласка, авторизуйтесь в додатку спочатку.</p>`;
+                    return;
+                }
+
+                currentUser = user;
+                
+                // Отримуємо профіль користувача
+                const { data: profile, error: profileError } = await supabase
+                    .from('user_profiles')
+                    .select('*')
+                    .eq('auth_user_id', user.id)
+                    .single();
+
+                if (profileError) {
+                    document.getElementById('authResult').innerHTML = 
+                        `<div class="error">Помилка завантаження профілю: ${profileError.message}</div>`;
+                    return;
+                }
+
+                currentProfile = profile;
+                document.getElementById('authResult').innerHTML = 
+                    `<div class="success">✅ Авторизовано як: ${user.email}</div>
+                     <div>Профіль: ${profile.name} ${profile.last_name || ''} (ID: ${profile.id})</div>`;
+                
+            } catch (error) {
+                document.getElementById('authResult').innerHTML = 
+                    `<div class="error">Помилка: ${error.message}</div>`;
+            }
+        }
+
+        async function createTestPost() {
+            if (!currentUser || !currentProfile) {
+                document.getElementById('createPostResult').innerHTML = 
+                    '<div class="error">Спочатку авторизуйтесь</div>';
+                return;
+            }
+
+            const content = document.getElementById('postContent').value.trim();
+            const mediaUrl = document.getElementById('mediaUrl').value.trim();
+            const mediaType = document.getElementById('mediaType').value;
+
+            if (!content) {
+                document.getElementById('createPostResult').innerHTML = 
+                    '<div class="error">Введіть текст поста</div>';
+                return;
+            }
+
+            try {
+                const postData = {
+                    user_id: currentProfile.id,
+                    content: content
+                };
+
+                if (mediaUrl) {
+                    postData.media_url = mediaUrl;
+                    postData.media_type = mediaType || 'photo';
+                }
+
+                const { data, error } = await supabase
+                    .from('posts')
+                    .insert([postData])
+                    .select('*');
+
+                if (error) throw error;
+
+                document.getElementById('createPostResult').innerHTML = 
+                    `<div class="success">✅ Пост створено успішно!</div>
+                     <div>ID: ${data[0].id}</div>
+                     <div>Контент: ${data[0].content}</div>`;
+                
+                // Очищуємо форму
+                document.getElementById('postContent').value = '';
+                document.getElementById('mediaUrl').value = '';
+                document.getElementById('mediaType').value = '';
+                
+            } catch (error) {
+                document.getElementById('createPostResult').innerHTML = 
+                    `<div class="error">❌ Помилка створення поста: ${error.message}</div>`;
+            }
+        }
+
+        async function loadAllPosts() {
+            try {
+                const { data, error } = await supabase
+                    .from('posts')
+                    .select(`
+                        *,
+                        user_profiles!posts_user_id_fkey (
+                            id,
+                            name,
+                            last_name,
+                            avatar
+                        ),
+                        post_likes (id, user_id),
+                        post_comments (id)
+                    `)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                document.getElementById('loadPostsResult').innerHTML = 
+                    `<div class="success">✅ Завантажено ${data.length} постів</div>`;
+                
+                const container = document.getElementById('postsContainer');
+                container.innerHTML = '';
+
+                data.forEach(post => {
+                    const postDiv = document.createElement('div');
+                    postDiv.className = 'post-item';
+                    
+                    const author = post.user_profiles;
+                    const likesCount = post.post_likes?.length || 0;
+                    const commentsCount = post.post_comments?.length || 0;
+                    
+                    let mediaHtml = '';
+                    if (post.media_url) {
+                        if (post.media_type === 'photo') {
+                            mediaHtml = `<div class="post-media"><img src="${post.media_url}" alt="Post media"></div>`;
+                        } else if (post.media_type === 'video') {
+                            mediaHtml = `<div class="post-media"><video src="${post.media_url}" controls style="max-width: 300px;"></video></div>`;
+                        } else {
+                            mediaHtml = `<div class="post-media"><a href="${post.media_url}" target="_blank">📄 ${post.media_type}</a></div>`;
+                        }
+                    }
+                    
+                    postDiv.innerHTML = `
+                        <div class="post-header">
+                            ${author?.name || 'Невідомий'} ${author?.last_name || ''}
+                            <span style="font-weight: normal; color: #666; font-size: 0.9em;">
+                                • ${new Date(post.created_at).toLocaleString('uk-UA')}
+                            </span>
+                        </div>
+                        <div class="post-content">${post.content}</div>
+                        ${mediaHtml}
+                        <div class="post-stats">
+                            ❤️ ${likesCount} лайків • 💬 ${commentsCount} коментарів
+                            <br><small>ID: ${post.id}</small>
+                        </div>
+                    `;
+                    
+                    container.appendChild(postDiv);
+                });
+                
+            } catch (error) {
+                document.getElementById('loadPostsResult').innerHTML = 
+                    `<div class="error">❌ Помилка завантаження постів: ${error.message}</div>`;
+            }
+        }
+
+        async function uploadTestFile() {
+            if (!currentUser) {
+                document.getElementById('uploadResult').innerHTML = 
+                    '<div class="error">Спочатку авторизуйтесь</div>';
+                return;
+            }
+
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                document.getElementById('uploadResult').innerHTML = 
+                    '<div class="error">Виберіть файл</div>';
+                return;
+            }
+
+            try {
+                // Генеруємо унікальне ім'я файлу
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const filePath = `posts/${currentUser.id}/${fileName}`;
+
+                // Завантажуємо файл
+                const { error: uploadError } = await supabase.storage
+                    .from('media')
+                    .upload(filePath, file);
+
+                if (uploadError) throw uploadError;
+
+                // Отримуємо публічний URL
+                const { data: { publicUrl } } = supabase.storage
+                    .from('media')
+                    .getPublicUrl(filePath);
+
+                document.getElementById('uploadResult').innerHTML = 
+                    `<div class="success">✅ Файл завантажено успішно!</div>
+                     <div>Шлях: ${filePath}</div>
+                     <div>URL: <a href="${publicUrl}" target="_blank">${publicUrl}</a></div>
+                     <div>Тип: ${file.type.startsWith('image/') ? 'photo' : 'video'}</div>`;
+                
+            } catch (error) {
+                document.getElementById('uploadResult').innerHTML = 
+                    `<div class="error">❌ Помилка завантаження: ${error.message}</div>`;
+            }
+        }
+
+        async function testLikePost() {
+            if (!currentProfile) {
+                document.getElementById('likeResult').innerHTML = 
+                    '<div class="error">Спочатку авторизуйтесь</div>';
+                return;
+            }
+
+            const postId = document.getElementById('likePostId').value.trim();
+            if (!postId) {
+                document.getElementById('likeResult').innerHTML = 
+                    '<div class="error">Введіть ID поста</div>';
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from('post_likes')
+                    .insert([{ post_id: postId, user_id: currentProfile.id }])
+                    .select('*');
+
+                if (error) throw error;
+
+                document.getElementById('likeResult').innerHTML = 
+                    `<div class="success">✅ Лайк додано!</div>
+                     <div>ID лайку: ${data[0].id}</div>`;
+                
+            } catch (error) {
+                document.getElementById('likeResult').innerHTML = 
+                    `<div class="error">❌ Помилка лайку: ${error.message}</div>`;
+            }
+        }
+
+        async function testUnlikePost() {
+            if (!currentProfile) {
+                document.getElementById('likeResult').innerHTML = 
+                    '<div class="error">Спочатку авторизуйтесь</div>';
+                return;
+            }
+
+            const postId = document.getElementById('likePostId').value.trim();
+            if (!postId) {
+                document.getElementById('likeResult').innerHTML = 
+                    '<div class="error">Введіть ID поста</div>';
+                return;
+            }
+
+            try {
+                const { error } = await supabase
+                    .from('post_likes')
+                    .delete()
+                    .eq('post_id', postId)
+                    .eq('user_id', currentProfile.id);
+
+                if (error) throw error;
+
+                document.getElementById('likeResult').innerHTML = 
+                    `<div class="success">✅ Лайк видалено!</div>`;
+                
+            } catch (error) {
+                document.getElementById('likeResult').innerHTML = 
+                    `<div class="error">❌ Помилка видалення лайку: ${error.message}</div>`;
+            }
+        }
+
+        async function addTestComment() {
+            if (!currentProfile) {
+                document.getElementById('commentResult').innerHTML = 
+                    '<div class="error">Спочатку авторизуйтесь</div>';
+                return;
+            }
+
+            const postId = document.getElementById('commentPostId').value.trim();
+            const content = document.getElementById('commentContent').value.trim();
+            
+            if (!postId || !content) {
+                document.getElementById('commentResult').innerHTML = 
+                    '<div class="error">Введіть ID поста та текст коментаря</div>';
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from('post_comments')
+                    .insert([{ 
+                        post_id: postId, 
+                        user_id: currentProfile.id,
+                        content: content
+                    }])
+                    .select('*');
+
+                if (error) throw error;
+
+                document.getElementById('commentResult').innerHTML = 
+                    `<div class="success">✅ Коментар додано!</div>
+                     <div>ID: ${data[0].id}</div>
+                     <div>Контент: ${data[0].content}</div>`;
+                
+                document.getElementById('commentContent').value = '';
+                
+            } catch (error) {
+                document.getElementById('commentResult').innerHTML = 
+                    `<div class="error">❌ Помилка додавання коментаря: ${error.message}</div>`;
+            }
+        }
+
+        async function loadPostComments() {
+            const postId = document.getElementById('commentPostId').value.trim();
+            if (!postId) {
+                document.getElementById('commentResult').innerHTML = 
+                    '<div class="error">Введіть ID поста</div>';
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from('post_comments')
+                    .select(`
+                        *,
+                        user_profiles!post_comments_user_id_fkey (
+                            id,
+                            name,
+                            last_name
+                        )
+                    `)
+                    .eq('post_id', postId)
+                    .order('created_at', { ascending: true });
+
+                if (error) throw error;
+
+                let html = `<div class="success">✅ Завантажено ${data.length} коментарів</div>`;
+                
+                data.forEach(comment => {
+                    const author = comment.user_profiles;
+                    html += `
+                        <div style="border-left: 3px solid #007bff; padding-left: 10px; margin: 10px 0;">
+                            <strong>${author?.name || 'Невідомий'} ${author?.last_name || ''}</strong>
+                            <div>${comment.content}</div>
+                            <small style="color: #666;">${new Date(comment.created_at).toLocaleString('uk-UA')}</small>
+                        </div>
+                    `;
+                });
+                
+                document.getElementById('commentResult').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('commentResult').innerHTML = 
+                    `<div class="error">❌ Помилка завантаження коментарів: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

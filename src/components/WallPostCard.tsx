@@ -186,8 +186,17 @@ export function WallPostCard({
       if (error) throw error;
       
       // Add new comment to the list
-      if (data) {
-        setComments(prev => [...prev, data[0]]);
+      if (data && data[0]) {
+        const newComment = {
+          ...data[0],
+          author: data[0].user_profiles || {
+            id: data[0].user_id,
+            name: 'Користувач',
+            last_name: '',
+            avatar: null
+          }
+        };
+        setComments(prev => [...prev, newComment]);
       }
       setCommentInput('');
     } catch (error) {
@@ -509,4 +518,4 @@ export function WallPostCard({
       )}
     </div>
   );
-} 
+}
