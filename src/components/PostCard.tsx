@@ -89,7 +89,7 @@ export function PostCard({
   const [isSaving, setIsSaving] = useState(false);
   
   // Comments state
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState([]);
   const [showCommentsSection, setShowCommentsSection] = useState(showComments);
   const [commentInput, setCommentInput] = useState('');
   const [isLoadingComments, setIsLoadingComments] = useState(false);
@@ -97,8 +97,8 @@ export function PostCard({
 
   // Share state
   const [showShareModal, setShowShareModal] = useState(false);
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [selectedFriend, setSelectedFriend] = useState<string>('');
+  const [friends, setFriends] = useState([]);
+  const [selectedFriend, setSelectedFriend] = useState('');
   const [isSharing, setIsSharing] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
 
@@ -353,7 +353,7 @@ export function PostCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             {/* Avatar */}
-            <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
               {post.author.avatar ? (
                 <img 
                   src={post.author.avatar} 
@@ -361,7 +361,7 @@ export function PostCard({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-white font-semibold text-sm">
+                <span className="text-white font-semibold text-base">
                   {getInitials(post.author.name, post.author.last_name)}
                 </span>
               )}
@@ -698,4 +698,4 @@ export function PostCard({
       )}
     </div>
   );
-} 
+}

@@ -5,10 +5,10 @@ import { AuthUserService, AuthUserProfile } from '../../../lib/authUserService';
 import { EditFormData } from '../types';
 
 export const useProfile = () => {
-  const [profile, setProfile] = useState<AuthUserProfile | null>(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -68,9 +68,20 @@ export const useProfile = () => {
       console.log('✅ Authenticated user:', authUser.email);
       setCurrentUser(authUser);
       
-      const userProfile = await AuthUserService.getCurrentUserProfile();
+      // Спочатку отримуємо профіль з user_profiles таблиці
+      const { data: userProfileData, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('auth_user_id', authUser.id)
+        .single();
       
-      if (!userProfile) {
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('❌ Profile error:', profileError);
+        throw new Error(`Помилка завантаження профілю: ${profileError.message}`);
+      }
+      
+      if (!userProfileData) {
+        console.log('🔍 Raw profile data from database:', userProfileData);
         console.log('No user profile found, creating new one');
         const newProfile = {
           auth_user_id: authUser.id,
@@ -101,7 +112,7 @@ export const useProfile = () => {
         };
         
         const savedProfile = await AuthUserService.createUserProfile(newProfile);
-        
+        console.log('✅ User profile created:', savedProfile.id);
         setProfile(savedProfile);
         setEditForm({
           name: savedProfile.name,
@@ -132,40 +143,41 @@ export const useProfile = () => {
           }
         });
       } else {
-        console.log('✅ User profile loaded:', userProfile);
-        setProfile(userProfile);
+        console.log('🔍 Raw profile data from database:', userProfileData);
+        console.log('✅ User profile found:', userProfileData.id);
+        setProfile(userProfileData);
         
         // Debug hobbies and languages
-        console.log('🔍 Profile hobbies in useProfile:', userProfile.hobbies);
-        console.log('🔍 Profile languages in useProfile:', userProfile.languages);
-        console.log('🔍 Hobbies type:', typeof userProfile.hobbies);
-        console.log('🔍 Languages type:', typeof userProfile.languages);
-        console.log('🔍 Hobbies is array:', Array.isArray(userProfile.hobbies));
-        console.log('🔍 Languages is array:', Array.isArray(userProfile.languages));
+        console.log('🔍 Profile hobbies in useProfile:', userProfileData.hobbies);
+        console.log('🔍 Profile languages in useProfile:', userProfileData.languages);
+        console.log('🔍 Hobbies type:', typeof userProfileData.hobbies);
+        console.log('🔍 Languages type:', typeof userProfileData.languages);
+        console.log('🔍 Hobbies is array:', Array.isArray(userProfileData.hobbies));
+        console.log('🔍 Languages is array:', Array.isArray(userProfileData.languages));
         
         setEditForm({
-          name: userProfile.name || userProfile.raw_user_meta_data?.name || '',
-          last_name: userProfile.last_name || userProfile.raw_user_meta_data?.last_name || '',
-          email: userProfile.email,
-          bio: userProfile.bio || '',
-          city: userProfile.city || '',
-          birth_date: userProfile.birth_date || '',
-          avatar: userProfile.avatar || '',
-          education: userProfile.education || '',
-          phone: userProfile.phone || '',
-          hobbies: Array.isArray(userProfile.hobbies) ? userProfile.hobbies : [],
-          relationship_status: userProfile.relationship_status || '',
-          work: userProfile.work || '',
-          website: userProfile.website || '',
-          languages: Array.isArray(userProfile.languages) ? userProfile.languages : [],
+          name: userProfileData.name || '',
+          last_name: userProfileData.last_name || '',
+          email: userProfileData.email || authUser.email || '',
+          bio: userProfileData.bio || '',
+          city: userProfileData.city || '',
+          birth_date: userProfileData.birth_date || '',
+          avatar: userProfileData.avatar || '',
+          education: userProfileData.education || '',
+          phone: userProfileData.phone || '',
+          hobbies: Array.isArray(userProfileData.hobbies) ? userProfileData.hobbies : [],
+          relationship_status: userProfileData.relationship_status || '',
+          work: userProfileData.work || '',
+          website: userProfileData.website || '',
+          languages: Array.isArray(userProfileData.languages) ? userProfileData.languages : [],
           newHobby: '',
           newLanguage: '',
-          notifications: userProfile.notifications || {
+          notifications: userProfileData.notifications || {
             email: true,
             messages: true,
             friendRequests: true
           },
-          privacy: userProfile.privacy || {
+          privacy: userProfileData.privacy || {
             profileVisibility: 'public',
             showBirthDate: true,
             showEmail: false

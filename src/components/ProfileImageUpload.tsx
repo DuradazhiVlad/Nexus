@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, ChangeEvent } from 'react';
 import { Camera, X, AlertCircle, CheckCircle, Upload } from 'lucide-react';
 import { MediaService } from '../lib/mediaService';
 
@@ -9,16 +9,16 @@ interface ProfileImageUploadProps {
   className?: string;
 }
 
-export const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
+export const ProfileImageUpload = ({
   currentAvatar,
   onUpload,
   onCancel,
   className = ''
 }) => {
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const fileInputRef = useRef(null);
 
   const handleFileSelect = useCallback(async (file: File) => {
     try {
@@ -62,7 +62,7 @@ export const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
     }
   }, [onUpload]);
 
-  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length > 0) {
       handleFileSelect(files[0]);
@@ -186,4 +186,4 @@ export const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
       </div>
     </div>
   );
-}; 
+};

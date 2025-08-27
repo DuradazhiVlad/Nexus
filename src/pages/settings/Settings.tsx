@@ -14,6 +14,7 @@ interface UserSettings {
   city?: string;
   birth_date?: string | null;
   birthday?: string | null;
+  gender?: string;
   notifications: {
     email: boolean;
     messages: boolean;
@@ -34,6 +35,13 @@ interface UserSettings {
 }
 
 // Доступні варіанти для випадаючих списків
+const GENDER_OPTIONS = [
+  { value: '', label: 'Не вказано' },
+  { value: 'male', label: 'Чоловік' },
+  { value: 'female', label: 'Жінка' },
+  { value: 'other', label: 'Інше' }
+];
+
 const EDUCATION_OPTIONS = [
   'Середня освіта',
   'Професійно-технічна освіта',
@@ -94,6 +102,7 @@ export function Settings() {
     city: '',
     birth_date: '',
     birthday: '',
+    gender: '',
     notifications: {
       email: true,
       messages: true,
@@ -161,6 +170,7 @@ export function Settings() {
         city: profile.city || '',
         birth_date: profile.birth_date || '',
         birthday: profile.birthday || '',
+        gender: profile.gender || '',
         notifications: notifications,
         privacy: privacy,
         education: profile.education || '',
@@ -199,6 +209,7 @@ export function Settings() {
         bio: safeSettings.bio,
         city: safeSettings.city,
         birth_date: safeSettings.birth_date,
+        gender: safeSettings.gender,
         education: safeSettings.education,
         work: safeSettings.work,
         relationship_status: safeSettings.relationshipStatus,
@@ -324,7 +335,7 @@ export function Settings() {
                       <label className="block text-sm font-medium text-gray-700">Аватар</label>
                       <div className="flex items-center space-x-4">
                         {settings.avatar && (
-                          <img src={settings.avatar} alt="avatar" className="w-16 h-16 rounded-full object-cover border" />
+                          <img src={settings.avatar} alt="avatar" className="w-20 h-20 rounded-full object-cover border" />
                         )}
                         <input
                           type="file"
@@ -378,6 +389,21 @@ export function Settings() {
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       />
                     </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Стать</label>
+                      <select
+                        value={settings.gender || ''}
+                        onChange={e => setSettings({ ...settings, gender: e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      >
+                        {GENDER_OPTIONS.map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div></div>
                   </div>
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, FormEvent } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
 import { DatabaseService } from '../../lib/database';
@@ -40,6 +40,9 @@ interface Group {
   is_public: boolean;
   member_count: number;
   post_count: number;
+  is_verified?: boolean;
+  category?: string;
+  location?: string;
   created_by_user?: {
     id: string;
     name: string;
@@ -68,18 +71,18 @@ type ViewMode = 'grid' | 'list';
 type SortBy = 'name' | 'members' | 'activity' | 'created';
 
 export function Groups() {
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [filteredGroups, setFilteredGroups] = useState<Group[]>([]);
+  const [groups, setGroups] = useState([]);
+  const [filteredGroups, setFilteredGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [sortBy, setSortBy] = useState<SortBy>('activity');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [viewMode, setViewMode] = useState('grid');
+  const [sortBy, setSortBy] = useState('activity');
   const [showFilters, setShowFilters] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'public' | 'private'>('all');
-  const [membershipFilter, setMembershipFilter] = useState<'all' | 'member' | 'not_member'>('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [membershipFilter, setMembershipFilter] = useState('all');
   
   const [createForm, setCreateForm] = useState<CreateGroupForm>({
     name: '',
@@ -300,7 +303,7 @@ export function Groups() {
     setFilteredGroups(filtered);
   };
 
-  const createGroup = async (e: React.FormEvent) => {
+  const createGroup = async (e: FormEvent) => {
     e.preventDefault();
     
     if (!currentUser) {

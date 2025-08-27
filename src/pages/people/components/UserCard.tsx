@@ -79,7 +79,7 @@ export function UserCard({
           className="flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
           onClick={() => navigate(`/user/${user.id}`)}
         >
-          <div className="w-16 h-20 rounded-lg bg-gray-200 flex items-center justify-center overflow-hidden">
+          <div className="w-20 h-24 rounded-lg bg-gray-200 flex items-center justify-center overflow-hidden">
             {user.avatar ? (
               <img 
                 src={user.avatar} 
@@ -87,7 +87,7 @@ export function UserCard({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
+              <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-base">
                 {getInitials(user.name, user.last_name)}
               </div>
             )}

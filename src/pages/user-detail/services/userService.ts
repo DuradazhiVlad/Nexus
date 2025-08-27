@@ -164,10 +164,25 @@ export class UserService {
     try {
       console.log('🔍 UserService: Sending friend request to:', friendId);
       
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Отримуємо ID користувача з таблиці user_profiles
+      const { data: userProfile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('❌ UserService: Error getting user profile:', profileError);
+        throw profileError;
+      }
+
       const { error } = await supabase
         .from('friend_requests')
         .insert([{
-          user_id: (await supabase.auth.getUser()).data.user?.id,
+          user_id: userProfile.id,
           friend_id: friendId,
           status: 'pending'
         }]);
@@ -288,4 +303,4 @@ export class UserService {
       throw error;
     }
   }
-} 
+}

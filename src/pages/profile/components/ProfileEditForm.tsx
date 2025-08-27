@@ -48,7 +48,7 @@ interface ProfileEditFormProps {
   setError: (error: string) => void;
 }
 
-export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
+export const ProfileEditForm = ({
   editForm,
   setEditForm,
   addHobby,
@@ -213,7 +213,7 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
             Аватар
           </label>
           <div className="flex items-center space-x-3">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center">
               {editForm.avatar ? (
                 <img
                   src={editForm.avatar}
@@ -221,7 +221,7 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
                   className="w-full h-full rounded-full object-cover"
                 />
               ) : (
-                <User className="h-8 w-8 text-gray-400" />
+                <User className="h-10 w-10 text-gray-400" />
               )}
             </div>
             <FileUpload

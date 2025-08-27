@@ -135,8 +135,8 @@ export function UserHeader({
       {/* Profile Info */}
       <div className="relative px-6 pb-6">
         {/* Avatar */}
-        <div className="relative -mt-16 mb-4">
-          <div className="w-32 h-32 rounded-full border-4 border-white bg-gray-200 flex items-center justify-center text-2xl font-bold text-gray-600">
+        <div className="relative -mt-20 mb-4">
+          <div className="w-40 h-40 rounded-full border-4 border-white bg-gray-200 flex items-center justify-center text-3xl font-bold text-gray-600">
             {user.avatar ? (
               <img 
                 src={user.avatar} 
@@ -150,12 +150,12 @@ export function UserHeader({
           {isOnline && (
             <div className="absolute bottom-2 right-2 w-6 h-6 bg-green-500 rounded-full border-2 border-white"></div>
           )}
-          {user.isverified && (
-            <div className="absolute top-2 right-2">
-              <CheckCircle size={20} className="text-blue-500" />
-            </div>
-          )}
         </div>
+        {user.isverified && (
+          <div className="absolute top-2 right-2">
+            <CheckCircle size={20} className="text-blue-500" />
+          </div>
+        )}
 
         {/* User Info */}
         <div className="mb-4">
@@ -213,4 +213,4 @@ export function UserHeader({
       </div>
     </div>
   );
-} 
+}

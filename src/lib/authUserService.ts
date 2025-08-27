@@ -22,6 +22,7 @@ export interface AuthUserProfile {
   bio?: string;
   city?: string;
   birth_date?: string;
+  gender?: string;
   education?: string;
   work?: string;
   website?: string;
@@ -49,6 +50,7 @@ export interface UserProfileExtension {
   bio?: string;
   city?: string;
   birth_date?: string;
+  gender?: string;
   education?: string;
   work?: string;
   website?: string;
@@ -155,7 +157,7 @@ export class AuthUserService {
         phone_confirmed_at: authUser.phone_confirmed_at,
         last_sign_in_at: authUser.last_sign_in_at,
         created_at: authUser.created_at,
-        updated_at: authUser.updated_at,
+        updated_at: authUser.updated_at || new Date().toISOString(),
         raw_user_meta_data: authUser.user_metadata,
         // Додаткові поля з user_profiles
         bio: profileExtension?.bio,
@@ -295,6 +297,7 @@ export class AuthUserService {
     bio?: string;
     city?: string;
     birth_date?: string;
+    gender?: string;
     education?: string;
     work?: string;
     website?: string;

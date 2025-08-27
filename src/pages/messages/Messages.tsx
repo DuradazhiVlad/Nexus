@@ -176,13 +176,25 @@ export function Messages() {
       );
       
       if (!conv) {
+        // Отримуємо auth_user_id для другого учасника
+        const { data: targetUserProfile, error: targetError } = await supabase
+          .from('user_profiles')
+          .select('auth_user_id')
+          .eq('auth_user_id', userId)
+          .single();
+          
+        if (targetError) {
+          console.error('Error getting target user profile:', targetError);
+          throw new Error('Користувач не знайдений');
+        }
+        
         // Якщо немає, створюємо нову
         const { data, error } = await supabase
           .from('conversations')
           .insert([
             {
               participant1_id: authUser.id,
-              participant2_id: userId,
+              participant2_id: targetUserProfile.auth_user_id,
             },
           ])
           .select('*')
