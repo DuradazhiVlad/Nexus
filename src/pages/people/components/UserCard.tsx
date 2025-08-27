@@ -29,7 +29,7 @@ export function UserCard({
   onRemoveFriend
 }: UserCardProps) {
   const navigate = useNavigate();
-  const { showError } = useErrorNotifications();
+  const { addNotification } = useErrorNotifications();
 
   const getInitials = (name: string, lastName?: string) => {
     const firstLetter = name[0].toUpperCase();

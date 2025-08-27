@@ -32,6 +32,7 @@ export interface User {
   lastSeen?: string;
   friendsCount?: number;
   postsCount?: number;
+  friends?: { id: string; name: string; }[];
 }
 
 export interface FriendRequest {

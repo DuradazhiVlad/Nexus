@@ -11,9 +11,9 @@ export const useProfile = () => {
   const [success, setSuccess] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState(null);
   
-  const [editForm, setEditForm] = useState<EditFormData>({
+  const [editForm, setEditForm] = useState({
     name: '',
     last_name: '',
     email: '',

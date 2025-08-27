@@ -93,7 +93,7 @@ export function Settings() {
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const [settings, setSettings] = useState<UserSettings>({
+  const [settings, setSettings] = useState({
     name: '',
     last_name: '',
     email: '',
@@ -122,7 +122,7 @@ export function Settings() {
     website: '',
   });
   const [avatarUploading, setAvatarUploading] = useState(false);
-  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef(null);
   const [newHobby, setNewHobby] = useState('');
   const [newLanguage, setNewLanguage] = useState('');
 

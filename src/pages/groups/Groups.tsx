@@ -1,4 +1,4 @@
-import React, { useState, useEffect, FormEvent } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
 import { DatabaseService } from '../../lib/database';
@@ -38,6 +38,7 @@ interface Group {
   created_at: string;
   updated_at: string;
   is_public: boolean;
+  is_private?: boolean;
   member_count: number;
   post_count: number;
   is_verified?: boolean;
@@ -84,7 +85,7 @@ export function Groups() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [membershipFilter, setMembershipFilter] = useState('all');
   
-  const [createForm, setCreateForm] = useState<CreateGroupForm>({
+  const [createForm, setCreateForm] = useState({
     name: '',
     description: '',
     is_private: false,
@@ -303,7 +304,7 @@ export function Groups() {
     setFilteredGroups(filtered);
   };
 
-  const createGroup = async (e: FormEvent) => {
+  const createGroup = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!currentUser) {

@@ -44,13 +44,13 @@ export function Wall() {
   const [mediaUrl, setMediaUrl] = useState('');
   const [mediaType, setMediaType] = useState('');
   const [creating, setCreating] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMediaInput, setShowMediaInput] = useState(false);
   const [characterCount, setCharacterCount] = useState(0);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef(null);
   const location = useLocation();
 
   const MAX_CHARACTERS = 280; // Twitter-style character limit

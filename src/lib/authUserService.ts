@@ -22,6 +22,7 @@ export interface AuthUserProfile {
   bio?: string;
   city?: string;
   birth_date?: string;
+  birthday?: string;
   gender?: string;
   education?: string;
   work?: string;
