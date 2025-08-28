@@ -3,6 +3,17 @@ import { supabase } from './supabase';
 export async function getAllPosts() {
   const { data: { user } } = await supabase.auth.getUser();
   
+  // Get current user's profile ID if authenticated
+  let currentUserProfileId = null;
+  if (user) {
+    const { data: currentProfile } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .single();
+    currentUserProfileId = currentProfile?.id;
+  }
+  
   let query = supabase
     .from('posts')
     .select(`
@@ -29,20 +40,27 @@ export async function getAllPosts() {
         .eq('id', post.user_id)
         .single();
 
+      // Get friends count for the author
+      const { data: friendsData } = await supabase
+        .from('friend_requests')
+        .select('id')
+        .eq('receiver_id', post.user_id)
+        .eq('status', 'accepted');
+
       return {
         ...post,
         likes_count: post.post_likes?.length || 0,
         comments_count: post.post_comments?.length || 0,
-        isLiked: user ? post.post_likes?.some((like: any) => {
+        isLiked: currentUserProfileId ? post.post_likes?.some((like: any) => {
           // Перевіряємо чи лайк належить поточному користувачу
-          return like.user_id === userProfile?.id;
+          return like.user_id === currentUserProfileId;
         }) : false,
         author: {
           id: post.user_id,
           name: userProfile?.name || 'Користувач',
           last_name: userProfile?.last_name || '',
           avatar: userProfile?.avatar || null,
-          friends_count: 0
+          friends_count: friendsData?.length || 0
         }
       };
     }) || []
@@ -432,18 +450,36 @@ export async function getUserPosts(userProfileId: string) {
     console.log('✅ Raw posts data:', data);
     console.log('✅ Number of posts found:', data?.length || 0);
 
+    // Get current user's profile ID if authenticated
+    let currentUserProfileId = null;
+    if (user) {
+      const { data: currentProfile } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+      currentUserProfileId = currentProfile?.id;
+    }
+
+    // Get friends count for the profile
+    const { data: friendsData } = await supabase
+      .from('friend_requests')
+      .select('id')
+      .eq('receiver_id', userProfileId)
+      .eq('status', 'accepted');
+
     // Обробляємо дані щоб додати кількість лайків, коментарів та перевірку лайку
     const processedPosts = data?.map(post => ({
       ...post,
       likes_count: post.post_likes?.length || 0,
       comments_count: post.post_comments?.length || 0,
-      isLiked: user ? post.post_likes?.some((like: any) => like.user_id === user.id) : false,
+      isLiked: currentUserProfileId ? post.post_likes?.some((like: any) => like.user_id === currentUserProfileId) : false,
       author: {
         id: post.user_id,
         name: profileCheck.name || 'Користувач',
         last_name: profileCheck.last_name || '',
         avatar: profileCheck.avatar,
-        friends_count: 0
+        friends_count: friendsData?.length || 0
       }
     })) || [];
 

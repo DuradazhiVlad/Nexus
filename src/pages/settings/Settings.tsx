@@ -239,12 +239,12 @@ export function Settings() {
       if (!user) throw new Error('Не авторизовано');
       const fileExt = file.name.split('.').pop();
       const filePath = `${user.id}_${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from('avatar').upload(filePath, file, {
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, {
         upsert: true,
         contentType: file.type,
       });
       if (uploadError) throw uploadError;
-      const { data } = supabase.storage.from('avatar').getPublicUrl(filePath);
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
       return data.publicUrl;
     } catch (e) {
       alert('Помилка при завантаженні аватара');
