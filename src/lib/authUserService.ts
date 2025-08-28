@@ -81,7 +81,7 @@ export class AuthUserService {
     try {
       console.log('📝 Creating user profile:', profileData);
       
-      // Видаляємо email_verified з даних, оскільки це поле більше не існує в таблиці
+      // Видаляємо email_verified з даних, оскільки це поле може не існувати в схемі кешу
       const { email_verified, ...cleanProfileData } = profileData;
       
       console.log('📝 Clean profile data for insert:', cleanProfileData);
@@ -89,7 +89,7 @@ export class AuthUserService {
       const { data: newProfile, error } = await supabase
         .from('user_profiles')
         .insert([cleanProfileData])
-        .select()
+        .select('id, auth_user_id, name, last_name, email, avatar, bio, city, birth_date, education, phone, work, website, relationship_status, hobbies, languages, notifications, privacy, created_at, updated_at')
         .single();
         
       if (error) {

@@ -256,7 +256,7 @@ export class DatabaseService {
       const { data: newProfile, error } = await supabase
         .from('user_profiles')
         .insert([newProfileData])
-        .select()
+        .select('id, auth_user_id, name, last_name, email, avatar, bio, city, birth_date, education, phone, work, website, relationship_status, hobbies, languages, notifications, privacy, created_at, updated_at')
         .single();
         
       if (error) {

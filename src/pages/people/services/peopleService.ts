@@ -41,7 +41,7 @@ export class PeopleService {
         languages: profile.languages || [],
         notifications: profile.notifications,
         privacy: profile.privacy,
-        email_verified: profile.email_verified || false,
+        email_verified: false, // Поле тимчасово відключене через проблеми зі схемою кешу
         created_at: profile.created_at,
         updated_at: profile.updated_at,
         isOnline: false, // TODO: Implement online status

@@ -69,30 +69,7 @@ export function ProfileNew() {
     }
   }, [profile]);
 
-  // Debug function to test user_profiles table
-  const testUserProfilesTable = async () => {
-    try {
-      console.log('🔍 Testing user_profiles table...');
-      
-      // Test table access
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .limit(1);
-      
-      if (error) {
-        console.error('❌ Error accessing user_profiles table:', error);
-        alert(`Table error: ${error.message}`);
-      } else {
-        console.log('✅ user_profiles table accessible');
-        console.log('📊 Data:', data);
-        alert('Table accessible! Check console for details.');
-      }
-    } catch (error) {
-      console.error('❌ Unexpected error:', error);
-      alert(`Unexpected error: ${error.message}`);
-    }
-  };
+
 
   if (loading) {
     return (
@@ -170,28 +147,9 @@ export function ProfileNew() {
             </div>
           )}
 
-          {/* Debug Button */}
-          <div className="mb-6">
-            <button
-              onClick={testUserProfilesTable}
-              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm"
-            >
-              🔍 Test user_profiles Table
-            </button>
-          </div>
 
-          {/* Debug Information */}
-          {process.env.NODE_ENV === 'development' && profile && (
-            <div className="mb-6 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-lg">
-              <h3 className="font-semibold mb-2">Debug Info (Development Only):</h3>
-              <div className="text-sm space-y-1">
-                <div>Hobbies: {JSON.stringify(profile.hobbies)} (length: {profile.hobbies?.length || 0})</div>
-                <div>Languages: {JSON.stringify(profile.languages)} (length: {profile.languages?.length || 0})</div>
-                <div>Hobbies type: {typeof profile.hobbies}</div>
-                <div>Languages type: {typeof profile.languages}</div>
-              </div>
-            </div>
-          )}
+
+
 
           {/* Profile Header */}
           <ProfileHeader
