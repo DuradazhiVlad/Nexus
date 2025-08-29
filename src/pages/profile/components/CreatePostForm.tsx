@@ -62,14 +62,24 @@ export const CreatePostForm: React.FC<CreatePostFormProps> = ({
     <div className="mb-6">
       <div className="bg-gray-50 rounded-xl p-4">
         <div className="flex items-start space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-            {profile?.name?.charAt(0).toUpperCase() || 'U'}
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+            {profile?.avatar ? (
+              <img 
+                src={profile.avatar} 
+                alt={`${profile.name} ${profile.last_name}`}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-white font-bold text-sm">
+                {profile?.name?.charAt(0).toUpperCase() || 'U'}
+              </span>
+            )}
           </div>
           
           <div className="flex-1">
             <form onSubmit={handleCreatePost}>
               <textarea
-                className="w-full border-0 resize-none text-lg placeholder-gray-500 focus:outline-none focus:ring-0 bg-transparent"
+                className="w-full border border-gray-200 rounded-lg p-3 resize-none text-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                 placeholder="Що нового?"
                 value={postContent}
                 onChange={e => setPostContent(e.target.value)}
@@ -175,4 +185,4 @@ export const CreatePostForm: React.FC<CreatePostFormProps> = ({
       </div>
     </div>
   );
-}; 
+};

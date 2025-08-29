@@ -254,11 +254,13 @@ export const useProfile = () => {
         updated_at: new Date().toISOString()
       };
       
-      await AuthUserService.updateFullProfile(updates);
+      const updatedProfile = await AuthUserService.updateFullProfile(updates);
+      
+      // Оновлюємо локальний стан профілю без повторного завантаження
+      setProfile(prev => ({ ...prev, ...updates }));
       
       setSuccess('Профіль успішно оновлено!');
       setIsEditing(false);
-      await loadProfile();
       
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
