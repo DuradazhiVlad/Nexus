@@ -99,11 +99,11 @@ export const PostsSection: React.FC<PostsSectionProps> = ({
                 }
               };
               
-              return <PostCard {...postCardProps} />;
+              return <PostCard key={post.id} {...postCardProps} />;
             })}
           </div>
         )}
       </div>
     </div>
   );
-}; 
+};

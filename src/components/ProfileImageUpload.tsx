@@ -55,7 +55,7 @@ export const ProfileImageUpload = ({
       onUpload(avatarUrl);
       
     } catch (err: any) {
-      console.error('❌ Profile image upload error:', err);
+      console.error('❌ Profile image upload error:', err instanceof Error ? err.message : String(err));
       setError(err.message || 'Помилка завантаження зображення');
     } finally {
       setUploading(false);

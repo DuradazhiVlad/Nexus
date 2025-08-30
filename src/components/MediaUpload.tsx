@@ -63,7 +63,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       onUpload(result);
       
     } catch (err: any) {
-      console.error('❌ Upload error:', err);
+      console.error('❌ Upload error:', err instanceof Error ? err.message : String(err));
       setError(err.message || 'Помилка завантаження файлу');
     } finally {
       setUploading(false);
@@ -220,4 +220,4 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
       )}
     </div>
   );
-}; 
+};

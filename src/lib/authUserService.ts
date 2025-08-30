@@ -55,6 +55,7 @@ export interface UserProfileExtension {
   education?: string;
   work?: string;
   website?: string;
+  phone?: string;
   relationship_status?: string;
   hobbies?: string[];
   languages?: string[];
@@ -164,6 +165,7 @@ export class AuthUserService {
         bio: profileExtension?.bio,
         city: profileExtension?.city,
         birth_date: profileExtension?.birth_date,
+        gender: profileExtension?.gender,
         education: profileExtension?.education,
         work: profileExtension?.work,
         website: profileExtension?.website,
@@ -302,6 +304,7 @@ export class AuthUserService {
     education?: string;
     work?: string;
     website?: string;
+    phone?: string;
     relationship_status?: string;
     hobbies?: string[];
     languages?: string[];
@@ -340,9 +343,11 @@ export class AuthUserService {
       if (updates.bio !== undefined) extension.bio = updates.bio;
       if (updates.city !== undefined) extension.city = updates.city;
       if (updates.birth_date !== undefined) extension.birth_date = updates.birth_date;
+      if (updates.gender !== undefined) extension.gender = updates.gender;
       if (updates.education !== undefined) extension.education = updates.education;
       if (updates.work !== undefined) extension.work = updates.work;
       if (updates.website !== undefined) extension.website = updates.website;
+      if (updates.phone !== undefined) extension.phone = updates.phone;
       if (updates.relationship_status !== undefined) extension.relationship_status = updates.relationship_status;
       if (updates.hobbies !== undefined) extension.hobbies = updates.hobbies;
       if (updates.languages !== undefined) extension.languages = updates.languages;

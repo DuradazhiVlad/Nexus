@@ -241,6 +241,7 @@ export const useProfile = () => {
         bio: editForm.bio.trim(),
         city: editForm.city.trim(),
         birth_date: editForm.birth_date,
+        gender: editForm.gender,
         avatar: editForm.avatar,
         education: editForm.education.trim(),
         phone: editForm.phone.trim(),

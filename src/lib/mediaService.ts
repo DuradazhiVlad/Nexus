@@ -24,15 +24,22 @@ export class MediaService {
       });
 
       // Перевіряємо тип файлу
-      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-        throw new Error('Підтримуються тільки зображення та відео файли');
+      if (!this.isSupportedFileType(file)) {
+        throw new Error('Непідтримуваний тип файлу. Підтримуються: JPG, PNG, GIF, WebP, MP4, WebM, OGG, MOV');
+      }
+
+      // Перевіряємо розмір файлу (максимум 500MB)
+      if (file.size > 500 * 1024 * 1024) {
+        throw new Error('Розмір файлу не може перевищувати 500MB');
       }
 
       // Генеруємо унікальне ім'я файлу
       const timestamp = Date.now();
       const randomString = Math.random().toString(36).substring(2, 15);
-      const extension = file.name.split('.').pop();
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'bin';
       const filename = `${folder}/${timestamp}_${randomString}.${extension}`;
+
+      console.log('📤 Uploading to bucket:', bucket, 'filename:', filename);
 
       // Завантажуємо файл
       const { data, error } = await supabase.storage
@@ -44,13 +51,27 @@ export class MediaService {
 
       if (error) {
         console.error('❌ Upload error:', error);
+        if (error.message.includes('Bucket not found')) {
+          throw new Error('Сховище не знайдено. Перевірте налаштування проекту.');
+        }
+        if (error.message.includes('The resource already exists')) {
+          throw new Error('Файл з таким іменем вже існує. Спробуйте ще раз.');
+        }
         throw new Error(`Помилка завантаження: ${error.message}`);
+      }
+
+      if (!data?.path) {
+        throw new Error('Не вдалося отримати шлях до завантаженого файлу');
       }
 
       // Отримуємо публічний URL
       const { data: urlData } = supabase.storage
         .from(bucket)
-        .getPublicUrl(filename);
+        .getPublicUrl(data.path);
+
+      if (!urlData?.publicUrl) {
+        throw new Error('Не вдалося отримати публічний URL файлу');
+      }
 
       console.log('✅ File uploaded successfully:', {
         filename: data.path,
@@ -65,7 +86,7 @@ export class MediaService {
         type: file.type.startsWith('image/') ? 'image' : 'video'
       };
     } catch (error) {
-      console.error('❌ Media upload error:', error);
+      console.error('❌ Media upload error:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }
@@ -89,7 +110,7 @@ export class MediaService {
       const result = await this.uploadFile(file, 'avatars', 'profile');
       return result.url;
     } catch (error) {
-      console.error('❌ Profile image upload error:', error);
+      console.error('❌ Profile image upload error:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }
@@ -113,7 +134,7 @@ export class MediaService {
       const result = await this.uploadFile(file, 'covers', 'profile');
       return result.url;
     } catch (error) {
-      console.error('❌ Cover image upload error:', error);
+      console.error('❌ Cover image upload error:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }
@@ -163,7 +184,7 @@ export class MediaService {
 
       return result;
     } catch (error) {
-      console.error('❌ Post media upload error:', error);
+      console.error('❌ Post media upload error:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }
@@ -186,7 +207,7 @@ export class MediaService {
 
       console.log('✅ File deleted successfully:', filename);
     } catch (error) {
-      console.error('❌ File deletion error:', error);
+      console.error('❌ File deletion error:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }

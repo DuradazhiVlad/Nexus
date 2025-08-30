@@ -50,8 +50,7 @@ export const usePosts = (currentUser: any, profile: UserProfile | null) => {
       
       if (error) {
         console.error('❌ Error creating post:', error);
-        alert(`Помилка створення посту: ${error.message}`);
-        return;
+        throw error;
       }
       
       console.log('✅ Post created successfully:', data);
@@ -81,21 +80,16 @@ export const usePosts = (currentUser: any, profile: UserProfile | null) => {
           console.log('✅ Updated posts state:', newPosts.length, 'posts');
           return newPosts;
         });
-        
-        // Очищуємо форму після успішного створення
-        setPostContent('');
-        setPostMediaUrl('');
-        setPostMediaType('');
-        setShowMediaInput(false);
-        setShowEmojiPicker(false);
-        
-        alert('Пост успішно створено!');
       } else {
         console.warn('⚠️ No post data returned from createPost');
-        alert('Пост створено, але не отримано дані з сервера');
       }
       
-      // Перезавантажуємо пости для синхронізації
+      setPostContent('');
+      setPostMediaUrl('');
+      setPostMediaType('');
+      setShowMediaInput(false);
+      setShowEmojiPicker(false);
+      
       setTimeout(() => {
         console.log('🔄 Reloading posts to verify persistence...');
         loadUserPosts();
@@ -103,7 +97,7 @@ export const usePosts = (currentUser: any, profile: UserProfile | null) => {
       
     } catch (e: any) {
       console.error('❌ Error creating post:', e);
-      alert(`Помилка: ${e.message || 'Не вдалося створити пост'}`);
+      throw new Error('Не вдалося створити пост');
     } finally {
       setCreatingPost(false);
     }
