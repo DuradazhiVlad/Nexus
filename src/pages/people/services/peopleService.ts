@@ -119,6 +119,21 @@ export class PeopleService {
         throw profileError;
       }
 
+      // Перевіряємо чи вже існує запит на дружбу
+      const { data: existingRequest } = await supabase
+        .from('friend_requests')
+        .select('id, status')
+        .or(`and(user_id.eq.${userProfile.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userProfile.id})`)
+        .maybeSingle();
+
+      if (existingRequest) {
+        if (existingRequest.status === 'pending') {
+          throw new Error('Запит на дружбу вже відправлено');
+        } else if (existingRequest.status === 'accepted') {
+          throw new Error('Ви вже друзі');
+        }
+      }
+
       const { error } = await supabase
         .from('friend_requests')
         .insert([{
@@ -129,6 +144,9 @@ export class PeopleService {
 
       if (error) {
         console.error('❌ PeopleService: Error sending friend request:', error);
+        if (error.code === '23505') {
+          throw new Error('Запит на дружбу вже існує');
+        }
         throw error;
       }
 

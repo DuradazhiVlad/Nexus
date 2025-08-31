@@ -85,12 +85,14 @@ export const useProfile = () => {
         console.log('No user profile found, creating new one');
         const newProfile = {
           auth_user_id: authUser.id,
-          name: authUser.user_metadata?.full_name?.split(' ')[0] || 'Користувач',
-          last_name: authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+          name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Користувач',
+          last_name: authUser.user_metadata?.last_name || '',
           email: authUser.email || '',
           bio: '',
           city: '',
           birth_date: '',
+          gender: '',
+          age: null,
           avatar: '',
           education: '',
           phone: '',
