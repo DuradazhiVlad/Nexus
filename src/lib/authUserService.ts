@@ -166,6 +166,7 @@ export class AuthUserService {
         city: profileExtension?.city,
         birth_date: profileExtension?.birth_date,
         gender: profileExtension?.gender,
+        age: profileExtension?.age,
         education: profileExtension?.education,
         work: profileExtension?.work,
         website: profileExtension?.website,
@@ -301,6 +302,7 @@ export class AuthUserService {
     city?: string;
     birth_date?: string;
     gender?: string;
+    age?: number | null;
     education?: string;
     work?: string;
     website?: string;
@@ -344,6 +346,7 @@ export class AuthUserService {
       if (updates.city !== undefined) extension.city = updates.city;
       if (updates.birth_date !== undefined) extension.birth_date = updates.birth_date;
       if (updates.gender !== undefined) extension.gender = updates.gender;
+      if (updates.age !== undefined) extension.age = updates.age;
       if (updates.education !== undefined) extension.education = updates.education;
       if (updates.work !== undefined) extension.work = updates.work;
       if (updates.website !== undefined) extension.website = updates.website;

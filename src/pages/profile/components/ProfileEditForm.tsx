@@ -278,6 +278,37 @@ export const ProfileEditForm = ({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
+            Стать
+          </label>
+          <select
+            value={editForm.gender || ''}
+            onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">Не вказано</option>
+            <option value="male">Чоловіча</option>
+            <option value="female">Жіноча</option>
+            <option value="other">Інше</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Вік
+          </label>
+          <input
+            type="number"
+            min="13"
+            max="120"
+            value={editForm.age || ''}
+            onChange={(e) => setEditForm({ ...editForm, age: e.target.value ? parseInt(e.target.value) : null })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Введіть вік"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Мови
           </label>
           <div className="space-y-2">
