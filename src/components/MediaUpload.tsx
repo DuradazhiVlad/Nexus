@@ -1,4 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, DragEvent } from 'react';
+import type { ChangeEvent } from 'react';
 import { Upload, X, Image as ImageIcon, Video, File, AlertCircle, CheckCircle } from 'lucide-react';
 import { MediaService, MediaUploadResult } from '../lib/mediaService';
 
@@ -11,7 +12,7 @@ interface MediaUploadProps {
   placeholder?: string;
 }
 
-export const MediaUpload: React.FC<MediaUploadProps> = ({
+export const MediaUpload = ({
   onUpload,
   onCancel,
   accept = 'both',
@@ -70,17 +71,17 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     }
   }, [accept, maxSize, onUpload]);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: DragEvent) => {
     e.preventDefault();
     setIsDragOver(true);
   }, []);
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
+  const handleDragLeave = useCallback((e: DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback((e: DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
     
@@ -90,7 +91,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     }
   }, [handleFileSelect]);
 
-  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length > 0) {
       handleFileSelect(files[0]);

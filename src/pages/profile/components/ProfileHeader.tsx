@@ -57,6 +57,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                 <ProfileImageUpload
                   currentAvatar={profile.avatar}
                   onUpload={onAvatarChange || (() => {})}
+                  onCancel={() => {}}
                   className="w-32 h-32 mx-auto"
                 />
               ) : (

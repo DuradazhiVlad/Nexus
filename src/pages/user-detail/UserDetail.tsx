@@ -232,7 +232,7 @@ export function UserDetailPage() {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto lg:ml-64">
         <div className="max-w-4xl mx-auto p-6">
           <ErrorNotification />
           
@@ -302,4 +302,4 @@ export function UserDetailPage() {
       </div>
     </div>
   );
-} 
+}

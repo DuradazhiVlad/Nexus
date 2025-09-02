@@ -24,7 +24,7 @@ interface CreatePostFormProps {
   handleCreatePost: (e: any) => void;
 }
 
-export const CreatePostForm: React.FC<CreatePostFormProps> = ({
+export const CreatePostForm = ({
   profile,
   postContent,
   setPostContent,
@@ -43,7 +43,7 @@ export const CreatePostForm: React.FC<CreatePostFormProps> = ({
   addEmoji,
   handleCreatePost
 }) => {
-  const [uploadedMedia, setUploadedMedia] = React.useState<MediaUploadResult | null>(null);
+  const [uploadedMedia, setUploadedMedia] = React.useState(null);
 
   const handleMediaUpload = (result: MediaUploadResult) => {
     setUploadedMedia(result);

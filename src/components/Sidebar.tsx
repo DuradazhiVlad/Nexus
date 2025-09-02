@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import {
   UserCircle,
   MessageCircle,
@@ -9,11 +10,28 @@ import {
   Users2,
   Video,
   Heart,
+  Menu,
+  X,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export function Sidebar() {
   const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 1024);
+      if (window.innerWidth >= 1024) {
+        setIsOpen(false);
+      }
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -25,8 +43,34 @@ export function Sidebar() {
     }
   };
 
+  const toggleSidebar = () => {
+    setIsOpen(!isOpen);
+  };
+
   return (
-    <div className="w-64 bg-white h-screen fixed left-0 top-0 border-r border-gray-200">
+    <>
+      {/* Mobile menu button */}
+      {isMobile && (
+        <button
+          onClick={toggleSidebar}
+          className="fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-lg border border-gray-200 lg:hidden"
+        >
+          {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+      )}
+
+      {/* Overlay for mobile */}
+      {isMobile && isOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div className={`w-64 bg-white h-screen fixed left-0 top-0 border-r border-gray-200 z-40 transform transition-transform duration-300 ease-in-out overflow-y-auto ${
+        isMobile ? (isOpen ? 'translate-x-0' : '-translate-x-full') : 'translate-x-0'
+      }`}>
       <div className="p-4">
         <h1 className="text-xl font-bold text-gray-800">Соціальна мережа</h1>
       </div>
@@ -130,5 +174,6 @@ export function Sidebar() {
         </button>
       </div>
     </div>
+    </>
   );
 }

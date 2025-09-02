@@ -46,29 +46,33 @@ export const useProfile = () => {
   const location = useLocation();
 
   const loadProfile = async () => {
+    console.log('🔄 Початок завантаження профілю');
+    setLoading(true);
+    setError(null);
+    
     try {
-      setLoading(true);
-      setError(null);
-      
-      console.log('🔍 Loading profile...');
-      
+      // Отримуємо дані користувача з Supabase Auth
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
       if (authError) {
-        console.error('Auth error:', authError);
-        throw new Error(`Помилка аутентифікації: ${authError.message}`);
+        console.error('❌ Auth error:', authError);
+        setError(`Помилка аутентифікації: ${authError.message}`);
+        return;
       }
       
       if (!authUser) {
-        console.log('No authenticated user, redirecting to login');
-        navigate('/login');
+        console.log('⚠️ No authenticated user, redirecting to login');
+        setError('Для перегляду профілю необхідно увійти в систему');
+        setTimeout(() => {
+          navigate('/login', { state: { from: location.pathname, message: 'Для перегляду профілю необхідно увійти в систему' } });
+        }, 1500);
         return;
       }
       
       console.log('✅ Authenticated user:', authUser.email);
       setCurrentUser(authUser);
       
-      // Спочатку отримуємо профіль з user_profiles таблиці
+      // Отримуємо профіль з user_profiles таблиці
       const { data: userProfileData, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
@@ -81,62 +85,52 @@ export const useProfile = () => {
       }
       
       if (!userProfileData) {
-        console.log('🔍 Raw profile data from database:', userProfileData);
         console.log('No user profile found, creating new one');
-        const newProfile = {
-          auth_user_id: authUser.id,
-          name: authUser.user_metadata?.full_name?.split(' ')[0] || 'Користувач',
-          last_name: authUser.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
-          email: authUser.email || '',
-          bio: '',
-          city: '',
-          birth_date: '',
-          avatar: '',
-          education: '',
-          phone: '',
-          hobbies: [],
-          relationship_status: '',
-          work: '',
-          website: '',
-          languages: [],
-          notifications: {
-            email: true,
-            messages: true,
-            friendRequests: true
-          },
-          privacy: {
-            profileVisibility: 'public' as const,
-            showBirthDate: true,
-            showEmail: false
-          }
-        };
+        // Створюємо новий профіль
+        const { data: createdProfile, error: createError } = await supabase
+          .from('user_profiles')
+          .insert([{
+            auth_user_id: authUser.id,
+            email: authUser.email,
+            name: '',
+            last_name: '',
+            avatar: '',
+            created_at: new Date().toISOString()
+          }])
+          .select()
+          .single();
         
-        const savedProfile = await AuthUserService.createUserProfile(newProfile);
-        console.log('✅ User profile created:', savedProfile.id);
-        setProfile(savedProfile);
+        if (createError) {
+          console.error('Error creating profile:', createError);
+          throw new Error('Помилка створення профілю');
+        }
+        
+        console.log('✅ Новий профіль створено:', createdProfile);
+        setProfile(createdProfile);
+        
         setEditForm({
-          name: savedProfile.name,
-          last_name: savedProfile.last_name || '',
-          email: savedProfile.email,
-          bio: savedProfile.bio || '',
-          city: savedProfile.city || '',
-          birth_date: savedProfile.birth_date || '',
-          avatar: savedProfile.avatar || '',
-          education: savedProfile.education || '',
-          phone: savedProfile.phone || '',
-          hobbies: savedProfile.hobbies || [],
-          relationship_status: savedProfile.relationship_status || '',
-          work: savedProfile.work || '',
-          website: savedProfile.website || '',
-          languages: savedProfile.languages || [],
+          name: createdProfile.name || '',
+          last_name: createdProfile.last_name || '',
+          email: createdProfile.email || authUser.email || '',
+          bio: createdProfile.bio || '',
+          city: createdProfile.city || '',
+          birth_date: createdProfile.birth_date || '',
+          avatar: createdProfile.avatar || '',
+          education: createdProfile.education || '',
+          phone: createdProfile.phone || '',
+          hobbies: Array.isArray(createdProfile.hobbies) ? createdProfile.hobbies : [],
+          relationship_status: createdProfile.relationship_status || '',
+          work: createdProfile.work || '',
+          website: createdProfile.website || '',
+          languages: Array.isArray(createdProfile.languages) ? createdProfile.languages : [],
           newHobby: '',
           newLanguage: '',
-          notifications: savedProfile.notifications || {
+          notifications: createdProfile.notifications || {
             email: true,
             messages: true,
             friendRequests: true
           },
-          privacy: savedProfile.privacy || {
+          privacy: createdProfile.privacy || {
             profileVisibility: 'public',
             showBirthDate: true,
             showEmail: false
@@ -146,14 +140,6 @@ export const useProfile = () => {
         console.log('🔍 Raw profile data from database:', userProfileData);
         console.log('✅ User profile found:', userProfileData.id);
         setProfile(userProfileData);
-        
-        // Debug hobbies and languages
-        console.log('🔍 Profile hobbies in useProfile:', userProfileData.hobbies);
-        console.log('🔍 Profile languages in useProfile:', userProfileData.languages);
-        console.log('🔍 Hobbies type:', typeof userProfileData.hobbies);
-        console.log('🔍 Languages type:', typeof userProfileData.languages);
-        console.log('🔍 Hobbies is array:', Array.isArray(userProfileData.hobbies));
-        console.log('🔍 Languages is array:', Array.isArray(userProfileData.languages));
         
         setEditForm({
           name: userProfileData.name || '',
@@ -193,7 +179,7 @@ export const useProfile = () => {
   };
 
   const validateForm = () => {
-    const errors: string[] = [];
+    const errors = [];
 
     if (!editForm.name.trim()) {
       errors.push('Ім\'я є обов\'язковим полем');
@@ -201,66 +187,61 @@ export const useProfile = () => {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (editForm.email && !emailRegex.test(editForm.email)) {
-      errors.push('Невірний формат email');
-    }
-
-    if (editForm.phone && !/^[\d\s\-+()]+$/.test(editForm.phone)) {
-      errors.push('Невірний формат телефону');
-    }
-
-    if (editForm.website && !/^https?:\/\/.+/.test(editForm.website)) {
-      errors.push('Веб-сайт повинен починатися з http:// або https://');
-    }
-
-    if (editForm.bio && editForm.bio.length > 500) {
-      errors.push('Біо не може перевищувати 500 символів');
+      errors.push('Введіть коректну електронну пошту');
     }
 
     return errors;
   };
 
-  const handleSaveProfile = async () => {
+  const saveProfile = async () => {
+    const validationErrors = validateForm();
+    if (validationErrors.length > 0) {
+      setError(validationErrors.join(', '));
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
     try {
-      setSaving(true);
-      setError(null);
-      
-      const validationErrors = validateForm();
-      if (validationErrors.length > 0) {
-        setError(validationErrors.join(', '));
-        return;
-      }
-      
-      if (!currentUser) {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
         throw new Error('Користувач не авторизований');
       }
-      
-      const updates = {
-        name: editForm.name.trim(),
-        last_name: editForm.last_name.trim(),
-        email: editForm.email.trim(),
-        bio: editForm.bio.trim(),
-        city: editForm.city.trim(),
+
+      const updateData = {
+        name: editForm.name,
+        last_name: editForm.last_name,
+        email: editForm.email,
+        bio: editForm.bio,
+        city: editForm.city,
         birth_date: editForm.birth_date,
-        gender: editForm.gender,
         avatar: editForm.avatar,
-        education: editForm.education.trim(),
-        phone: editForm.phone.trim(),
+        education: editForm.education,
+        phone: editForm.phone,
         hobbies: editForm.hobbies,
-        relationship_status: editForm.relationship_status.trim(),
-        work: editForm.work.trim(),
-        website: editForm.website.trim(),
+        relationship_status: editForm.relationship_status,
+        work: editForm.work,
+        website: editForm.website,
         languages: editForm.languages,
         notifications: editForm.notifications,
         privacy: editForm.privacy,
         updated_at: new Date().toISOString()
       };
-      
-      const updatedProfile = await AuthUserService.updateFullProfile(updates);
-      
-      // Оновлюємо локальний стан профілю без повторного завантаження
-      setProfile(prev => ({ ...prev, ...updates }));
-      
-      setSuccess('Профіль успішно оновлено!');
+
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .update(updateData)
+        .eq('auth_user_id', authUser.id)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      setProfile(data);
+      setSuccess('Профіль успішно збережено!');
       setIsEditing(false);
       
       setTimeout(() => setSuccess(null), 3000);
@@ -272,52 +253,17 @@ export const useProfile = () => {
     }
   };
 
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setError(null);
-    if (profile) {
-      setEditForm({
-        name: profile.name,
-        last_name: profile.last_name || '',
-        email: profile.email,
-        bio: profile.bio || '',
-        city: profile.city || '',
-        birth_date: profile.birth_date || '',
-        avatar: profile.avatar || '',
-        education: profile.education || '',
-        phone: profile.phone || '',
-        hobbies: profile.hobbies || [],
-        relationship_status: profile.relationship_status || '',
-        work: profile.work || '',
-        website: profile.website || '',
-        languages: profile.languages || [],
-        newHobby: '',
-        newLanguage: '',
-        notifications: profile.notifications || {
-          email: true,
-          messages: true,
-          friendRequests: true
-        },
-        privacy: profile.privacy || {
-          profileVisibility: 'public',
-          showBirthDate: true,
-          showEmail: false
-        }
-      });
-    }
-  };
-
   const addHobby = () => {
     if (editForm.newHobby.trim() && !editForm.hobbies.includes(editForm.newHobby.trim())) {
       setEditForm(prev => ({
         ...prev,
-        hobbies: [...prev.hobbies, editForm.newHobby.trim()],
+        hobbies: [...prev.hobbies, prev.newHobby.trim()],
         newHobby: ''
       }));
     }
   };
 
-  const removeHobby = (hobby: string) => {
+  const removeHobby = (hobby) => {
     setEditForm(prev => ({
       ...prev,
       hobbies: prev.hobbies.filter(h => h !== hobby)
@@ -328,24 +274,47 @@ export const useProfile = () => {
     if (editForm.newLanguage.trim() && !editForm.languages.includes(editForm.newLanguage.trim())) {
       setEditForm(prev => ({
         ...prev,
-        languages: [...prev.languages, editForm.newLanguage.trim()],
+        languages: [...prev.languages, prev.newLanguage.trim()],
         newLanguage: ''
       }));
     }
   };
 
-  const removeLanguage = (language: string) => {
+  const removeLanguage = (language) => {
     setEditForm(prev => ({
       ...prev,
       languages: prev.languages.filter(l => l !== language)
     }));
   };
 
-  const handleAvatarChange = (avatarUrl: string) => {
+  const updateEditForm = (field, value) => {
+    setEditForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const updateNestedField = (parentField, childField, value) => {
+    setEditForm(prev => ({
+      ...prev,
+      [parentField]: {
+        ...prev[parentField],
+        [childField]: value
+      }
+    }));
+  };
+
+  const handleAvatarChange = (avatarUrl) => {
     setEditForm(prev => ({
       ...prev,
       avatar: avatarUrl
     }));
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setError(null);
+    loadProfile();
   };
 
   useEffect(() => {
@@ -362,15 +331,18 @@ export const useProfile = () => {
     currentUser,
     editForm,
     setEditForm,
+    setError,
+    setSuccess,
     setIsEditing,
-    handleSaveProfile,
-    handleCancelEdit,
+    saveProfile,
     handleAvatarChange,
     addHobby,
     removeHobby,
     addLanguage,
     removeLanguage,
-    setError,
-    setSuccess
+    updateEditForm,
+    updateNestedField,
+    cancelEdit,
+    loadProfile
   };
 };

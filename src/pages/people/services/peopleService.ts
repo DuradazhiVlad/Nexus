@@ -119,6 +119,41 @@ export class PeopleService {
         throw profileError;
       }
 
+      // Перевіряємо чи вже існує запит дружби
+      const { data: existingRequest, error: checkError } = await supabase
+        .from('friend_requests')
+        .select('*')
+        .or(`and(user_id.eq.${userProfile.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userProfile.id})`)
+        .eq('status', 'pending')
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('❌ PeopleService: Error checking existing request:', checkError);
+        throw checkError;
+      }
+
+      if (existingRequest) {
+        console.log('⚠️ PeopleService: Friend request already exists');
+        throw new Error('Запит на дружбу вже надіслано');
+      }
+
+      // Перевіряємо чи вже є дружба
+      const { data: existingFriendship, error: friendshipError } = await supabase
+        .from('friendships')
+        .select('*')
+        .or(`and(user1_id.eq.${userProfile.id},user2_id.eq.${friendId}),and(user1_id.eq.${friendId},user2_id.eq.${userProfile.id})`)
+        .single();
+
+      if (friendshipError && friendshipError.code !== 'PGRST116') {
+        console.error('❌ PeopleService: Error checking existing friendship:', friendshipError);
+        throw friendshipError;
+      }
+
+      if (existingFriendship) {
+        console.log('⚠️ PeopleService: Users are already friends');
+        throw new Error('Ви вже друзі з цим користувачем');
+      }
+
       const { error } = await supabase
         .from('friend_requests')
         .insert([{
@@ -129,6 +164,10 @@ export class PeopleService {
 
       if (error) {
         console.error('❌ PeopleService: Error sending friend request:', error);
+        // Якщо це помилка дублювання, повертаємо більш зрозуміле повідомлення
+        if (error.code === '23505') {
+          throw new Error('Запит на дружбу вже надіслано');
+        }
         throw error;
       }
 
@@ -136,6 +175,10 @@ export class PeopleService {
       return true;
     } catch (error) {
       console.error('❌ PeopleService: Unexpected error:', error);
+      // Обробляємо помилку дублювання на верхньому рівні
+      if (error instanceof Error && error.message.includes('duplicate key')) {
+        throw new Error('Запит на дружбу вже надіслано');
+      }
       throw error;
     }
   }

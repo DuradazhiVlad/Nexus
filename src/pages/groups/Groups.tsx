@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import type { FormEvent } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
 import { DatabaseService } from '../../lib/database';
@@ -304,7 +305,7 @@ export function Groups() {
     setFilteredGroups(filtered);
   };
 
-  const createGroup = async (e: React.FormEvent) => {
+  const createGroup = async (e: FormEvent) => {
     e.preventDefault();
     
     if (!currentUser) {
@@ -730,7 +731,7 @@ export function Groups() {
     return (
       <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
-        <div className="flex-1 ml-64 p-8">
+        <div className="flex-1 lg:ml-64 p-8">
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Завантаження груп...</p>
@@ -743,7 +744,7 @@ export function Groups() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 ml-64 p-8">
+      <div className="flex-1 lg:ml-64 p-8">
         {/* Error Notifications */}
         {notifications.map((notification) => (
           <ErrorNotification

@@ -264,7 +264,7 @@ export function Settings() {
     return (
       <div className="flex min-h-screen">
         <Sidebar />
-        <div className="flex-1 ml-64 p-8">
+        <div className="flex-1 lg:ml-64 p-8">
           <div className="text-center">Завантаження...</div>
         </div>
       </div>
@@ -275,7 +275,7 @@ export function Settings() {
     <div className="flex min-h-screen bg-gray-50">
       <style>{toggleStyles}</style>
       <Sidebar />
-      <div className="flex-1 ml-64 p-8">
+      <div className="flex-1 lg:ml-64 p-8">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Налаштування</h1>
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">

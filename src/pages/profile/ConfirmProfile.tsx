@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sidebar } from '../components/Sidebar';
+import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
 import { Mail, CheckCircle, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -33,7 +33,7 @@ export default function ConfirmProfile() {
   return (
     <div className="flex min-h-screen bg-gray-100">
       <Sidebar />
-      <div className="flex-1 ml-64 flex flex-col items-center justify-center p-8">
+      <div className="flex-1 lg:ml-64 flex flex-col items-center justify-center p-8">
         <div className="bg-white rounded-2xl shadow-md p-8 w-full max-w-md text-center">
           <Mail size={48} className="mx-auto text-blue-500 mb-4" />
           <h1 className="text-2xl font-bold mb-2">Підтвердіть ваш профіль</h1>
@@ -63,4 +63,4 @@ export default function ConfirmProfile() {
       </div>
     </div>
   );
-} 
+}

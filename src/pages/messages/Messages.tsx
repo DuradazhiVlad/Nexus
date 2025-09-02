@@ -301,7 +301,7 @@ export function Messages() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 ml-64 flex">
+      <div className="flex-1 lg:ml-64 flex">
         {/* Error Notifications */}
         {notifications.map((notification) => (
           <ErrorNotification

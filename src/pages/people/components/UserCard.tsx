@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   UserPlus, 
@@ -9,7 +9,7 @@ import {
   MapPin
 } from 'lucide-react';
 import { User, FriendRequest } from '../types';
-import { useErrorNotifications } from '../../../components/ErrorNotification';
+import { ErrorNotification } from '../../../components/ErrorNotification';
 
 interface UserCardProps {
   user: User;
@@ -28,8 +28,13 @@ export function UserCard({
   onRejectFriendRequest,
   onRemoveFriend
 }: UserCardProps) {
+  const [error, setError] = useState<string | null>(null);
+  
+  const showError = (message: string) => {
+    setError(message);
+    setTimeout(() => setError(null), 3000);
+  };
   const navigate = useNavigate();
-  const { addNotification } = useErrorNotifications();
 
   const getInitials = (name: string, lastName?: string) => {
     const firstLetter = name[0].toUpperCase();
@@ -72,6 +77,16 @@ export function UserCard({
 
   return (
     <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow h-full flex flex-col">
+      {error && (
+        <ErrorNotification
+          type="error"
+          title="Помилка"
+          message={error}
+          autoClose={true}
+          duration={3000}
+          onClose={() => setError(null)}
+        />
+      )}
       {/* Avatar section */}
       <div className="flex flex-col items-center mb-4">
         {/* Clickable Avatar */}

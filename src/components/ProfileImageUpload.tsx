@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
+import type { ChangeEvent } from 'react';
 import { Camera, X, AlertCircle, CheckCircle, Upload } from 'lucide-react';
 import { MediaService } from '../lib/mediaService';
 
@@ -62,7 +63,7 @@ export const ProfileImageUpload = ({
     }
   }, [onUpload]);
 
-  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length > 0) {
       handleFileSelect(files[0]);

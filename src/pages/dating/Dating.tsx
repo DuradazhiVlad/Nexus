@@ -180,7 +180,7 @@ export function Dating() {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 overflow-y-auto ml-64">
+      <div className="flex-1 overflow-y-auto lg:ml-64">
         <div className="max-w-7xl mx-auto p-6">
           <ErrorNotification />
           

@@ -428,7 +428,7 @@ export function Reels() {
     return (
       <div className="flex min-h-screen">
         <Sidebar />
-        <div className="flex-1 ml-64 flex items-center justify-center">
+        <div className="flex-1 lg:ml-64 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Завантаження рілс...</p>
@@ -442,7 +442,7 @@ export function Reels() {
     return (
       <div className="flex min-h-screen bg-black">
         <Sidebar />
-        <div className="flex-1 ml-64">
+        <div className="flex-1 lg:ml-64">
           {/* Header */}
           <div className="bg-black border-b border-gray-800 p-4">
             <div className="flex items-center justify-between">

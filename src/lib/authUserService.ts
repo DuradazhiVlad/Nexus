@@ -47,6 +47,7 @@ export interface UserProfileExtension {
   auth_user_id: string;
   name?: string;
   last_name?: string;
+  email?: string;
   avatar?: string;
   bio?: string;
   city?: string;
@@ -245,6 +246,11 @@ export class AuthUserService {
         cleanExtension.languages = [];
       }
       
+      // Переконуємося, що avatar не є undefined або null
+      if (cleanExtension.avatar === undefined || cleanExtension.avatar === null) {
+        delete cleanExtension.avatar; // Видаляємо поле, щоб не перезаписати існуюче значення
+      }
+      
       console.log('📝 Clean extension data for update:', cleanExtension);
       
       // Перевіряємо чи існує запис
@@ -274,6 +280,8 @@ export class AuthUserService {
           .from('user_profiles')
           .insert([{
             auth_user_id: authUser.id,
+            email: authUser.email,
+            name: cleanExtension.name || '',
             ...cleanExtension
           }]);
           
@@ -291,11 +299,106 @@ export class AuthUserService {
   }
   
   /**
+   * Оновити окреме поле профілю користувача
+   */
+  static async updateProfileField(fieldName: string, value: any): Promise<any> {
+    try {
+      console.log(`📝 Updating profile field ${fieldName}:`, value);
+      
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw new Error(`Помилка аутентифікації: ${authError.message}`);
+      }
+      
+      if (!authUser) {
+        console.log('No authenticated user');
+        throw new Error('Користувач не авторизований');
+      }
+      
+      // Перевіряємо, чи існує запис профілю
+      const { data: existingProfile, error: checkError } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('auth_user_id', authUser.id)
+        .single();
+      
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking profile existence:', checkError);
+        throw new Error(`Помилка перевірки профілю: ${checkError.message}`);
+      }
+      
+      if (!existingProfile) {
+        console.log('Profile does not exist, creating new one');
+        // Створюємо новий профіль, якщо він не існує
+        const newProfile = {
+          auth_user_id: authUser.id,
+          email: authUser.email,
+          [fieldName]: value,
+          updated_at: new Date().toISOString()
+        };
+        
+        const { data: createdProfile, error: createError } = await supabase
+          .from('user_profiles')
+          .insert([newProfile])
+          .select('*')
+          .single();
+          
+        if (createError) {
+          console.error('Error creating profile:', createError);
+          throw new Error(`Помилка створення профілю: ${createError.message}`);
+        }
+        
+        console.log('✅ New profile created with field:', fieldName);
+        return createdProfile;
+      }
+      
+      // Оновлюємо одне поле в user_profiles
+      const { data: updatedProfile, error: profileError } = await supabase
+        .from('user_profiles')
+        .update({
+          [fieldName]: value,
+          updated_at: new Date().toISOString()
+        })
+        .eq('auth_user_id', authUser.id)
+        .select('*')
+        .single();
+      
+      if (profileError) {
+        console.error(`Profile field ${fieldName} update error:`, profileError);
+        throw new Error(`Помилка оновлення поля ${fieldName}: ${profileError.message}`);
+      }
+      
+      // Якщо поле є частиною метаданих користувача, оновлюємо і їх
+      if (['name', 'last_name', 'avatar'].includes(fieldName)) {
+        const { data: updatedUser, error: updateError } = await supabase.auth.updateUser({
+          data: {
+            [fieldName]: value
+          }
+        });
+        
+        if (updateError) {
+          console.error('User metadata update error:', updateError);
+          throw new Error(`Помилка оновлення метаданих користувача: ${updateError.message}`);
+        }
+      }
+      
+      console.log(`✅ Profile field ${fieldName} updated successfully`);
+      return updatedProfile;
+    } catch (error) {
+      console.error(`❌ Error updating profile field ${fieldName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Оновити повний профіль (метадані + розширення)
    */
   static async updateFullProfile(updates: {
     name?: string;
     last_name?: string;
+    email?: string;
     avatar?: string;
     bio?: string;
     city?: string;
@@ -339,7 +442,8 @@ export class AuthUserService {
       const extension: Partial<UserProfileExtension> = {};
       if (updates.name !== undefined) extension.name = updates.name;
       if (updates.last_name !== undefined) extension.last_name = updates.last_name;
-      if (updates.avatar !== undefined) extension.avatar = updates.avatar;
+      if (updates.email !== undefined) extension.email = updates.email;
+      if (updates.avatar !== undefined && updates.avatar !== '') extension.avatar = updates.avatar;
       if (updates.bio !== undefined) extension.bio = updates.bio;
       if (updates.city !== undefined) extension.city = updates.city;
       if (updates.birth_date !== undefined) extension.birth_date = updates.birth_date;

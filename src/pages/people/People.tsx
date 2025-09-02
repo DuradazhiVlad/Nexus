@@ -101,6 +101,11 @@ export function People() {
   const applyFiltersAndSearch = () => {
     let filtered = [...users];
 
+    // Exclude current user
+    if (currentUser) {
+      filtered = filtered.filter(user => user.auth_user_id !== currentUser);
+    }
+
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -269,7 +274,7 @@ export function People() {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 overflow-y-auto ml-64">
+      <div className="flex-1 overflow-y-auto lg:ml-64">
         <div className="max-w-7xl mx-auto p-6">
           <ErrorNotification />
           

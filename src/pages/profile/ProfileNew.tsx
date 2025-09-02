@@ -11,8 +11,13 @@ import {
   PostsSection 
 } from './components';
 import { supabase } from '../../lib/supabase';
+import { ErrorNotification } from '../../components/ErrorNotification';
 
 export function ProfileNew() {
+  const profileHook = useProfile();
+  
+  if (!profileHook) return <div>Помилка завантаження профілю</div>;
+  
   const {
     profile,
     loading,
@@ -23,17 +28,19 @@ export function ProfileNew() {
     currentUser,
     editForm,
     setEditForm,
+    setError,
+    setSuccess,
     setIsEditing,
-    handleSaveProfile,
-    handleCancelEdit,
+    saveProfile,
     handleAvatarChange,
+    cancelEdit,
     addHobby,
     removeHobby,
     addLanguage,
     removeLanguage,
-    setError,
-    setSuccess
-  } = useProfile();
+    updateEditForm,
+    updateNestedField
+  } = profileHook;
 
   const {
     postContent,
@@ -75,7 +82,7 @@ export function ProfileNew() {
     return (
       <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
-        <div className="flex-1 ml-64 p-8">
+        <div className="flex-1 lg:ml-64 p-8">
           <div className="max-w-4xl mx-auto">
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -91,7 +98,7 @@ export function ProfileNew() {
     return (
       <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
-        <div className="flex-1 ml-64 p-8">
+        <div className="flex-1 lg:ml-64 p-8">
           <div className="max-w-4xl mx-auto">
             <div className="text-center py-12">
               <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
@@ -114,7 +121,7 @@ export function ProfileNew() {
     return (
       <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
-        <div className="flex-1 ml-64 p-8">
+        <div className="flex-1 lg:ml-64 p-8">
           <div className="max-w-4xl mx-auto">
             <div className="text-center py-12">
               <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -130,21 +137,33 @@ export function ProfileNew() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 ml-64 p-8">
+      <div className="flex-1 lg:ml-64 p-8">
         <div className="max-w-4xl mx-auto">
           {/* Success/Error Messages */}
           {success && (
-            <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center">
-              <Check className="h-5 w-5 mr-2" />
-              {success}
-            </div>
+            <ErrorNotification 
+              type="success"
+              title="Успіх!"
+              message={success}
+              autoClose={true}
+              duration={3000}
+              onClose={() => setSuccess(null)}
+            />
           )}
           
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center">
-              <AlertCircle className="h-5 w-5 mr-2" />
-              {error}
-            </div>
+            <ErrorNotification 
+              type="error"
+              title="Помилка!"
+              message={error}
+              details={error.includes('Помилка аутентифікації') ? 'Перевірте, чи ви авторизовані в системі' : 
+                       error.includes('Помилка завантаження профілю') ? 'Спробуйте оновити сторінку' : 
+                       error.includes('Помилка збереження профілю') ? 'Перевірте правильність введених даних' : 
+                       'Спробуйте пізніше або зверніться до адміністратора'}
+              showRetry={error.includes('Помилка завантаження профілю')}
+              onRetry={() => window.location.reload()}
+              onClose={() => setError(null)}
+            />
           )}
 
 
@@ -157,8 +176,8 @@ export function ProfileNew() {
             isEditing={isEditing}
             saving={saving}
             onEdit={() => setIsEditing(true)}
-            onSave={handleSaveProfile}
-            onCancel={handleCancelEdit}
+            onSave={saveProfile}
+            onCancel={cancelEdit}
             onAvatarChange={handleAvatarChange}
           />
 

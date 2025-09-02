@@ -325,7 +325,7 @@ export function GroupDetail() {
     return (
       <div className="flex min-h-screen">
         <Sidebar />
-        <div className="flex-1 ml-64 p-8">
+        <div className="flex-1 lg:ml-64 p-8">
           <div className="text-center">Завантаження...</div>
         </div>
       </div>
@@ -336,7 +336,7 @@ export function GroupDetail() {
     return (
       <div className="flex min-h-screen">
         <Sidebar />
-        <div className="flex-1 ml-64 p-8">
+        <div className="flex-1 lg:ml-64 p-8">
           <div className="text-center">Група не знайдена</div>
         </div>
       </div>
@@ -349,7 +349,7 @@ export function GroupDetail() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 ml-64">
+      <div className="flex-1 lg:ml-64">
         {/* Header */}
         <div className="bg-white border-b border-gray-200">
           <div className="max-w-6xl mx-auto px-8 py-6">
