@@ -88,6 +88,15 @@ BEGIN
         ALTER TABLE public.user_profiles ADD COLUMN privacy jsonb DEFAULT '{"profileVisibility": "public", "showBirthDate": true, "showEmail": false}'::jsonb;
         RAISE NOTICE 'Added privacy column';
     END IF;
+    
+    -- Перевіряємо та додаємо колонку email_verified
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'user_profiles' 
+                   AND column_name = 'email_verified' 
+                   AND table_schema = 'public') THEN
+        ALTER TABLE public.user_profiles ADD COLUMN email_verified boolean DEFAULT false;
+        RAISE NOTICE 'Added email_verified column';
+    END IF;
 END $$;
 
 -- Оновлюємо існуючі записи з NULL значеннями
@@ -109,3 +118,4 @@ CREATE INDEX IF NOT EXISTS idx_user_profiles_languages ON public.user_profiles U
 CREATE INDEX IF NOT EXISTS idx_user_profiles_education ON public.user_profiles(education);
 CREATE INDEX IF NOT EXISTS idx_user_profiles_work ON public.user_profiles(work);
 CREATE INDEX IF NOT EXISTS idx_user_profiles_relationship_status ON public.user_profiles(relationship_status);
+CREATE INDEX IF NOT EXISTS idx_user_profiles_email_verified ON public.user_profiles(email_verified);

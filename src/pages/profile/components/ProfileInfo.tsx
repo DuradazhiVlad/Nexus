@@ -29,6 +29,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile }) => {
   return (
     <div className="mt-6 p-4 bg-gray-50 rounded-lg">
       <h3 className="text-lg font-semibold text-gray-900 mb-3">Додаткова інформація</h3>
+<<<<<<< HEAD
       
       {/* Особиста інформація */}
       <div className="border-b border-gray-200 pb-3 mb-3">
@@ -80,6 +81,69 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile }) => {
                 <p className="text-gray-900">{profile.relationship_status}</p>
               </div>
             )}
+=======
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {profile.bio && (
+          <div className="md:col-span-2">
+            <span className="text-sm font-medium text-gray-600">Про себе:</span>
+            <p className="text-gray-900">{profile.bio}</p>
+          </div>
+        )}
+        {profile.city && (
+          <div>
+            <span className="text-sm font-medium text-gray-600">Місто:</span>
+            <p className="text-gray-900">{profile.city}</p>
+          </div>
+        )}
+        {profile.birth_date && (
+          <div>
+            <span className="text-sm font-medium text-gray-600">Дата народження:</span>
+            <p className="text-gray-900">{new Date(profile.birth_date).toLocaleDateString('uk-UA')}</p>
+          </div>
+        )}
+        {profile.gender && (
+          <div>
+            <span className="text-sm font-medium text-gray-600">Стать:</span>
+            <p className="text-gray-900">{profile.gender === 'male' ? 'Чоловіча' : profile.gender === 'female' ? 'Жіноча' : 'Інше'}</p>
+          </div>
+        )}
+        {profile.age && (
+          <div>
+            <span className="text-sm font-medium text-gray-600">Вік:</span>
+            <p className="text-gray-900">{profile.age} років</p>
+          </div>
+        )}
+        {profile.education && (
+          <div>
+            <span className="text-sm font-medium text-gray-600">Освіта:</span>
+            <p className="text-gray-900">{profile.education}</p>
+          </div>
+        )}
+        {profile.work && (
+          <div>
+            <span className="text-sm font-medium text-gray-600">Робота:</span>
+            <p className="text-gray-900">{profile.work}</p>
+          </div>
+        )}
+        {profile.phone && (
+          <div>
+            <span className="text-sm font-medium text-gray-600">Телефон:</span>
+            <p className="text-gray-900">{profile.phone}</p>
+          </div>
+        )}
+        {profile.website && (
+          <div>
+            <span className="text-sm font-medium text-gray-600">Веб-сайт:</span>
+            <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+              {profile.website}
+            </a>
+          </div>
+        )}
+        {profile.relationship_status && (
+          <div>
+            <span className="text-sm font-medium text-gray-600">Сімейний стан:</span>
+            <p className="text-gray-900">{profile.relationship_status}</p>
+>>>>>>> 045292ca8f4981ae452b4934066e6e30219318c0
           </div>
         )}
       </div>

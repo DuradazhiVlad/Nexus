@@ -37,6 +37,8 @@ export interface EditFormData {
   bio: string;
   city: string;
   birth_date: string;
+  gender: string;
+  age: number | null;
   avatar: string;
   education: string;
   phone: string;
@@ -57,4 +59,4 @@ export interface EditFormData {
     showBirthDate: boolean;
     showEmail: boolean;
   };
-} 
+}

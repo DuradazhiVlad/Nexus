@@ -86,6 +86,7 @@ export const useProfile = () => {
       
       if (!userProfileData) {
         console.log('No user profile found, creating new one');
+<<<<<<< HEAD
         // Створюємо новий профіль
         const { data: createdProfile, error: createError } = await supabase
           .from('user_profiles')
@@ -107,8 +108,40 @@ export const useProfile = () => {
         
         console.log('✅ Новий профіль створено:', createdProfile);
         setProfile(createdProfile);
+=======
+        const newProfile = {
+          auth_user_id: authUser.id,
+          name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Користувач',
+          last_name: authUser.user_metadata?.last_name || '',
+          email: authUser.email || '',
+          bio: '',
+          city: '',
+          birth_date: '',
+          gender: '',
+          age: null,
+          avatar: '',
+          education: '',
+          phone: '',
+          hobbies: [],
+          relationship_status: '',
+          work: '',
+          website: '',
+          languages: [],
+          notifications: {
+            email: true,
+            messages: true,
+            friendRequests: true
+          },
+          privacy: {
+            profileVisibility: 'public' as const,
+            showBirthDate: true,
+            showEmail: false
+          }
+        };
+>>>>>>> 045292ca8f4981ae452b4934066e6e30219318c0
         
         setEditForm({
+<<<<<<< HEAD
           name: createdProfile.name || '',
           last_name: createdProfile.last_name || '',
           email: createdProfile.email || authUser.email || '',
@@ -123,6 +156,24 @@ export const useProfile = () => {
           work: createdProfile.work || '',
           website: createdProfile.website || '',
           languages: Array.isArray(createdProfile.languages) ? createdProfile.languages : [],
+=======
+          name: savedProfile.name,
+          last_name: savedProfile.last_name || '',
+          email: savedProfile.email,
+          bio: savedProfile.bio || '',
+          city: savedProfile.city || '',
+          birth_date: savedProfile.birth_date || '',
+          gender: savedProfile.gender || '',
+          age: savedProfile.age || null,
+          avatar: savedProfile.avatar || '',
+          education: savedProfile.education || '',
+          phone: savedProfile.phone || '',
+          hobbies: savedProfile.hobbies || [],
+          relationship_status: savedProfile.relationship_status || '',
+          work: savedProfile.work || '',
+          website: savedProfile.website || '',
+          languages: savedProfile.languages || [],
+>>>>>>> 045292ca8f4981ae452b4934066e6e30219318c0
           newHobby: '',
           newLanguage: '',
           notifications: createdProfile.notifications || {
@@ -148,6 +199,8 @@ export const useProfile = () => {
           bio: userProfileData.bio || '',
           city: userProfileData.city || '',
           birth_date: userProfileData.birth_date || '',
+          gender: userProfileData.gender || '',
+          age: userProfileData.age || null,
           avatar: userProfileData.avatar || '',
           education: userProfileData.education || '',
           phone: userProfileData.phone || '',
@@ -216,6 +269,11 @@ export const useProfile = () => {
         bio: editForm.bio,
         city: editForm.city,
         birth_date: editForm.birth_date,
+<<<<<<< HEAD
+=======
+        gender: editForm.gender,
+        age: editForm.age,
+>>>>>>> 045292ca8f4981ae452b4934066e6e30219318c0
         avatar: editForm.avatar,
         education: editForm.education,
         phone: editForm.phone,
@@ -253,6 +311,46 @@ export const useProfile = () => {
     }
   };
 
+<<<<<<< HEAD
+=======
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setError(null);
+    if (profile) {
+      setEditForm({
+        name: profile.name,
+        last_name: profile.last_name || '',
+        email: profile.email,
+        bio: profile.bio || '',
+        city: profile.city || '',
+        birth_date: profile.birth_date || '',
+        gender: profile.gender || '',
+        age: profile.age || null,
+        avatar: profile.avatar || '',
+        education: profile.education || '',
+        phone: profile.phone || '',
+        hobbies: profile.hobbies || [],
+        relationship_status: profile.relationship_status || '',
+        work: profile.work || '',
+        website: profile.website || '',
+        languages: profile.languages || [],
+        newHobby: '',
+        newLanguage: '',
+        notifications: profile.notifications || {
+          email: true,
+          messages: true,
+          friendRequests: true
+        },
+        privacy: profile.privacy || {
+          profileVisibility: 'public',
+          showBirthDate: true,
+          showEmail: false
+        }
+      });
+    }
+  };
+
+>>>>>>> 045292ca8f4981ae452b4934066e6e30219318c0
   const addHobby = () => {
     if (editForm.newHobby.trim() && !editForm.hobbies.includes(editForm.newHobby.trim())) {
       setEditForm(prev => ({

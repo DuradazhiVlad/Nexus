@@ -182,7 +182,7 @@ export function ProfileNew() {
           />
 
           {/* Profile Info (when not editing) */}
-          {!isEditing && (profile.education || profile.work || profile.phone || profile.website || profile.hobbies?.length || profile.languages?.length) && (
+          {!isEditing && (profile.bio || profile.city || profile.birth_date || profile.education || profile.work || profile.phone || profile.website || profile.relationship_status || profile.hobbies?.length || profile.languages?.length) && (
             <ProfileInfo profile={profile} />
           )}
 
