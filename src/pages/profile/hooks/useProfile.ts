@@ -20,6 +20,8 @@ export const useProfile = () => {
     bio: '',
     city: '',
     birth_date: '',
+    gender: '',
+    age: null,
     avatar: '',
     education: '',
     phone: '',
@@ -86,29 +88,6 @@ export const useProfile = () => {
       
       if (!userProfileData) {
         console.log('No user profile found, creating new one');
-<<<<<<< HEAD
-        // Створюємо новий профіль
-        const { data: createdProfile, error: createError } = await supabase
-          .from('user_profiles')
-          .insert([{
-            auth_user_id: authUser.id,
-            email: authUser.email,
-            name: '',
-            last_name: '',
-            avatar: '',
-            created_at: new Date().toISOString()
-          }])
-          .select()
-          .single();
-        
-        if (createError) {
-          console.error('Error creating profile:', createError);
-          throw new Error('Помилка створення профілю');
-        }
-        
-        console.log('✅ Новий профіль створено:', createdProfile);
-        setProfile(createdProfile);
-=======
         const newProfile = {
           auth_user_id: authUser.id,
           name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'Користувач',
@@ -138,25 +117,22 @@ export const useProfile = () => {
             showEmail: false
           }
         };
->>>>>>> 045292ca8f4981ae452b4934066e6e30219318c0
+        
+        const { data: savedProfile, error: createError } = await supabase
+          .from('user_profiles')
+          .insert([newProfile])
+          .select()
+          .single();
+        
+        if (createError) {
+          console.error('Error creating profile:', createError);
+          throw new Error('Помилка створення профілю');
+        }
+        
+        console.log('✅ Новий профіль створено:', savedProfile);
+        setProfile(savedProfile);
         
         setEditForm({
-<<<<<<< HEAD
-          name: createdProfile.name || '',
-          last_name: createdProfile.last_name || '',
-          email: createdProfile.email || authUser.email || '',
-          bio: createdProfile.bio || '',
-          city: createdProfile.city || '',
-          birth_date: createdProfile.birth_date || '',
-          avatar: createdProfile.avatar || '',
-          education: createdProfile.education || '',
-          phone: createdProfile.phone || '',
-          hobbies: Array.isArray(createdProfile.hobbies) ? createdProfile.hobbies : [],
-          relationship_status: createdProfile.relationship_status || '',
-          work: createdProfile.work || '',
-          website: createdProfile.website || '',
-          languages: Array.isArray(createdProfile.languages) ? createdProfile.languages : [],
-=======
           name: savedProfile.name,
           last_name: savedProfile.last_name || '',
           email: savedProfile.email,
@@ -173,15 +149,14 @@ export const useProfile = () => {
           work: savedProfile.work || '',
           website: savedProfile.website || '',
           languages: savedProfile.languages || [],
->>>>>>> 045292ca8f4981ae452b4934066e6e30219318c0
           newHobby: '',
           newLanguage: '',
-          notifications: createdProfile.notifications || {
+          notifications: savedProfile.notifications || {
             email: true,
             messages: true,
             friendRequests: true
           },
-          privacy: createdProfile.privacy || {
+          privacy: savedProfile.privacy || {
             profileVisibility: 'public',
             showBirthDate: true,
             showEmail: false
@@ -269,11 +244,8 @@ export const useProfile = () => {
         bio: editForm.bio,
         city: editForm.city,
         birth_date: editForm.birth_date,
-<<<<<<< HEAD
-=======
         gender: editForm.gender,
         age: editForm.age,
->>>>>>> 045292ca8f4981ae452b4934066e6e30219318c0
         avatar: editForm.avatar,
         education: editForm.education,
         phone: editForm.phone,
