@@ -119,41 +119,6 @@ export class PeopleService {
         throw profileError;
       }
 
-<<<<<<< HEAD
-      // Перевіряємо чи вже існує запит дружби
-      const { data: existingRequest, error: checkError } = await supabase
-        .from('friend_requests')
-        .select('*')
-        .or(`and(user_id.eq.${userProfile.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userProfile.id})`)
-        .eq('status', 'pending')
-        .single();
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.error('❌ PeopleService: Error checking existing request:', checkError);
-        throw checkError;
-      }
-
-      if (existingRequest) {
-        console.log('⚠️ PeopleService: Friend request already exists');
-        throw new Error('Запит на дружбу вже надіслано');
-      }
-
-      // Перевіряємо чи вже є дружба
-      const { data: existingFriendship, error: friendshipError } = await supabase
-        .from('friendships')
-        .select('*')
-        .or(`and(user1_id.eq.${userProfile.id},user2_id.eq.${friendId}),and(user1_id.eq.${friendId},user2_id.eq.${userProfile.id})`)
-        .single();
-
-      if (friendshipError && friendshipError.code !== 'PGRST116') {
-        console.error('❌ PeopleService: Error checking existing friendship:', friendshipError);
-        throw friendshipError;
-      }
-
-      if (existingFriendship) {
-        console.log('⚠️ PeopleService: Users are already friends');
-        throw new Error('Ви вже друзі з цим користувачем');
-=======
       // Перевіряємо чи вже існує запит на дружбу
       const { data: existingRequest } = await supabase
         .from('friend_requests')
@@ -167,7 +132,6 @@ export class PeopleService {
         } else if (existingRequest.status === 'accepted') {
           throw new Error('Ви вже друзі');
         }
->>>>>>> 045292ca8f4981ae452b4934066e6e30219318c0
       }
 
       const { error } = await supabase
@@ -180,14 +144,8 @@ export class PeopleService {
 
       if (error) {
         console.error('❌ PeopleService: Error sending friend request:', error);
-<<<<<<< HEAD
-        // Якщо це помилка дублювання, повертаємо більш зрозуміле повідомлення
-        if (error.code === '23505') {
-          throw new Error('Запит на дружбу вже надіслано');
-=======
         if (error.code === '23505') {
           throw new Error('Запит на дружбу вже існує');
->>>>>>> 045292ca8f4981ae452b4934066e6e30219318c0
         }
         throw error;
       }
