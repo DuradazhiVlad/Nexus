@@ -283,8 +283,6 @@ export const useProfile = () => {
     }
   };
 
-<<<<<<< HEAD
-=======
   const handleCancelEdit = () => {
     setIsEditing(false);
     setError(null);
@@ -321,8 +319,6 @@ export const useProfile = () => {
       });
     }
   };
-
->>>>>>> 045292ca8f4981ae452b4934066e6e30219318c0
   const addHobby = () => {
     if (editForm.newHobby.trim() && !editForm.hobbies.includes(editForm.newHobby.trim())) {
       setEditForm(prev => ({
