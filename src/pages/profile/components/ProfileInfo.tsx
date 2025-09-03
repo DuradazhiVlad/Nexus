@@ -8,7 +8,6 @@ interface ProfileInfoProps {
 
 export const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile }) => {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    personal: false,
     hobbies: false,
     languages: false
   });
@@ -20,68 +19,12 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile }) => {
     }));
   };
 
-  // Перевіряємо, чи є хоч якась інформація в профілі
-  const hasPersonalInfo = profile.education || profile.work || profile.phone || 
-                          profile.website || profile.relationship_status;
   const hasHobbies = profile.hobbies?.length > 0;
   const hasLanguages = profile.languages?.length > 0;
 
   return (
     <div className="mt-6 p-4 bg-gray-50 rounded-lg">
       <h3 className="text-lg font-semibold text-gray-900 mb-3">Додаткова інформація</h3>
-<<<<<<< HEAD
-      
-      {/* Особиста інформація */}
-      <div className="border-b border-gray-200 pb-3 mb-3">
-        <button 
-          onClick={() => toggleSection('personal')}
-          className="flex items-center justify-between w-full text-left"
-        >
-          <span className="font-medium">Особиста інформація</span>
-          <span className="text-gray-500">
-            {hasPersonalInfo ? (
-              expandedSections.personal ? <ChevronUp size={18} /> : <ChevronDown size={18} />
-            ) : (
-              <span className="text-xs text-gray-400">Не вказано</span>
-            )}
-          </span>
-        </button>
-        
-        {expandedSections.personal && hasPersonalInfo && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-            {profile.education && (
-              <div>
-                <span className="text-sm font-medium text-gray-600">Освіта:</span>
-                <p className="text-gray-900">{profile.education}</p>
-              </div>
-            )}
-            {profile.work && (
-              <div>
-                <span className="text-sm font-medium text-gray-600">Робота:</span>
-                <p className="text-gray-900">{profile.work}</p>
-              </div>
-            )}
-            {profile.phone && (
-              <div>
-                <span className="text-sm font-medium text-gray-600">Телефон:</span>
-                <p className="text-gray-900">{profile.phone}</p>
-              </div>
-            )}
-            {profile.website && (
-              <div>
-                <span className="text-sm font-medium text-gray-600">Веб-сайт:</span>
-                <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                  {profile.website}
-                </a>
-              </div>
-            )}
-            {profile.relationship_status && (
-              <div>
-                <span className="text-sm font-medium text-gray-600">Сімейний стан:</span>
-                <p className="text-gray-900">{profile.relationship_status}</p>
-              </div>
-            )}
-=======
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {profile.bio && (
           <div className="md:col-span-2">
@@ -143,7 +86,6 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile }) => {
           <div>
             <span className="text-sm font-medium text-gray-600">Сімейний стан:</span>
             <p className="text-gray-900">{profile.relationship_status}</p>
->>>>>>> 045292ca8f4981ae452b4934066e6e30219318c0
           </div>
         )}
       </div>
