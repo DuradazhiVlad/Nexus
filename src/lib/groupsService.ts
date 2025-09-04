@@ -10,7 +10,7 @@ export class GroupsService {
         .from('groups')
         .select(`
           *,
-          created_by_user:user_profiles!groups_created_by_fkey (
+          created_by_user:user_profiles!created_by (
             id,
             name,
             last_name,
@@ -34,7 +34,7 @@ export class GroupsService {
         .from('groups')
         .select(`
           *,
-          created_by_user:user_profiles!groups_created_by_fkey (
+          created_by_user:user_profiles!created_by (
             id,
             name,
             last_name,
@@ -281,7 +281,7 @@ export class GroupsService {
         .select(`
           group:groups!group_members_group_id_fkey (
             *,
-            created_by_user:user_profiles!groups_created_by_fkey (
+            created_by_user:user_profiles!created_by (
               id,
               name,
               last_name,

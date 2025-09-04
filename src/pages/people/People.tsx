@@ -94,7 +94,8 @@ export function People() {
       console.log('✅ Friend requests fetched successfully');
     } catch (error) {
       console.error('❌ Error fetching friend requests:', error);
-      showError('Помилка завантаження запитів на дружбу');
+      const errorMessage = error instanceof Error ? error.message : 'Помилка завантаження запитів на дружбу';
+      showError(errorMessage, 'error');
     }
   };
 
@@ -191,7 +192,8 @@ export function People() {
       console.log('✅ Friend request sent successfully');
     } catch (error) {
       console.error('❌ Error adding friend:', error);
-      showError('Помилка відправки запиту на дружбу');
+      const errorMessage = error instanceof Error ? error.message : 'Помилка відправки запиту на дружбу';
+      showError(errorMessage, 'error');
     }
   };
 
@@ -211,7 +213,8 @@ export function People() {
       console.log('✅ Friend request handled successfully');
     } catch (error) {
       console.error('❌ Error handling friend request:', error);
-      showError('Помилка обробки запиту на дружбу');
+      const errorMessage = error instanceof Error ? error.message : 'Помилка обробки запиту на дружбу';
+      showError(errorMessage, 'error');
     }
   };
 
@@ -223,7 +226,8 @@ export function People() {
       console.log('✅ Friend removed successfully');
     } catch (error) {
       console.error('❌ Error removing friend:', error);
-      showError('Помилка видалення друга');
+      const errorMessage = error instanceof Error ? error.message : 'Помилка видалення друга';
+      showError(errorMessage, 'error');
     }
   };
 

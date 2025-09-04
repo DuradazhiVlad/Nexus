@@ -190,7 +190,7 @@ export function Groups() {
         .from('groups')
         .select(`
           *,
-          created_by_user:user_profiles!groups_created_by_fkey (
+          created_by_user:user_profiles!created_by (
             id,
             name,
             last_name,
@@ -202,6 +202,12 @@ export function Groups() {
 
       if (publicError) {
         console.error('Error fetching public groups:', publicError);
+        addNotification({
+          type: 'error',
+          title: 'Помилка завантаження груп',
+          message: 'Не вдалося завантажити публічні групи',
+          details: publicError.message
+        });
         return;
       }
 
@@ -218,6 +224,12 @@ export function Groups() {
 
       if (membershipError) {
         console.error('Error fetching user memberships:', membershipError);
+        addNotification({
+          type: 'error',
+          title: 'Помилка завантаження членства',
+          message: 'Не вдалося завантажити інформацію про членство в групах',
+          details: membershipError.message
+        });
         return;
       }
 

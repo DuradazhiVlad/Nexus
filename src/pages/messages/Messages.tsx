@@ -180,7 +180,7 @@ export function Messages() {
         const { data: targetUserProfile, error: targetError } = await supabase
           .from('user_profiles')
           .select('auth_user_id')
-          .eq('auth_user_id', userId)
+          .eq('id', userId)
           .single();
           
         if (targetError) {
@@ -206,7 +206,7 @@ export function Messages() {
         const { data: participantProfile } = await supabase
           .from('user_profiles')
           .select('id, name, last_name, avatar, auth_user_id')
-          .eq('auth_user_id', userId)
+          .eq('id', userId)
           .single();
         
         // Створюємо об'єкт розмови

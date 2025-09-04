@@ -120,11 +120,16 @@ export class PeopleService {
       }
 
       // Перевіряємо чи вже існує запит на дружбу
-      const { data: existingRequest } = await supabase
+      const { data: existingRequest, error: checkError } = await supabase
         .from('friend_requests')
         .select('id, status')
         .or(`and(user_id.eq.${userProfile.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userProfile.id})`)
         .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('❌ PeopleService: Error checking existing request:', checkError);
+        throw checkError;
+      }
 
       if (existingRequest) {
         if (existingRequest.status === 'pending') {
@@ -132,6 +137,23 @@ export class PeopleService {
         } else if (existingRequest.status === 'accepted') {
           throw new Error('Ви вже друзі');
         }
+      }
+
+      // Перевіряємо чи вже є дружба
+      const { data: existingFriendship, error: friendshipError } = await supabase
+        .from('friendships')
+        .select('*')
+        .or(`and(user1_id.eq.${userProfile.id},user2_id.eq.${friendId}),and(user1_id.eq.${friendId},user2_id.eq.${userProfile.id})`)
+        .maybeSingle();
+
+      if (friendshipError && friendshipError.code !== 'PGRST116') {
+        console.error('❌ PeopleService: Error checking existing friendship:', friendshipError);
+        throw friendshipError;
+      }
+
+      if (existingFriendship) {
+        console.log('⚠️ PeopleService: Users are already friends');
+        throw new Error('Ви вже друзі з цим користувачем');
       }
 
       const { error } = await supabase
