@@ -13,6 +13,7 @@ import { ErrorNotification } from '../../../components/ErrorNotification';
 
 interface UserCardProps {
   user: User;
+  currentUserId: string | null;
   friendRequests: FriendRequest[];
   onAddFriend: (friendId: string) => void;
   onAcceptFriendRequest: (requestId: string) => void;
@@ -22,6 +23,7 @@ interface UserCardProps {
 
 export function UserCard({
   user,
+  currentUserId,
   friendRequests,
   onAddFriend,
   onAcceptFriendRequest,
@@ -55,22 +57,31 @@ export function UserCard({
   };
 
   const getFriendStatus = (userId: string) => {
+    if (!currentUserId) return 'not_friends';
+    
     // Перевіряємо чи є користувач у списку друзів
     if (user.friends && user.friends.some(friend => friend.id === userId)) {
       return 'friends';
     }
     
-    // Використовуємо id для порівняння запитів
-    const currentUser = friendRequests.find(req => req.user_id === userId);
-    const receivedRequest = friendRequests.find(req => req.friend_id === userId);
+    // Перевіряємо відправлені запити (поточний користувач відправив запит цьому користувачу)
+    const sentRequest = friendRequests.find(req => 
+      req.user_id === currentUserId && req.friend_id === userId && req.status === 'pending'
+    );
+    // Перевіряємо отримані запити (цей користувач відправив запит поточному користувачу)
+    const receivedRequest = friendRequests.find(req => 
+      req.user_id === userId && req.friend_id === currentUserId && req.status === 'pending'
+    );
     
-    if (currentUser) return 'sent';
+    if (sentRequest) return 'sent';
     if (receivedRequest) return 'received';
     return 'not_friends';
   };
 
   const canSendMessage = (user: User) => {
-    return user.privacy?.profileVisibility === 'public';
+    // Дозволяємо відправляти повідомлення якщо профіль публічний або користувачі друзі
+    const friendStatus = getFriendStatus(user.id);
+    return user.privacy?.profileVisibility === 'public' || friendStatus === 'friends';
   };
 
   const friendStatus = getFriendStatus(user.id);

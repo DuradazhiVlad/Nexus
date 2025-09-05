@@ -57,10 +57,11 @@ export class GroupsService {
       console.log('🔍 GroupsService: Creator IDs:', creatorIds);
 
       // Отримуємо інформацію про створників з таблиці user_profiles
+      // Спочатку спробуємо знайти по auth_user_id, потім по id
       const { data: creators, error: creatorsError } = await supabase
         .from('user_profiles')
-        .select('auth_user_id, name, last_name, avatar')
-        .in('auth_user_id', creatorIds);
+        .select('id, auth_user_id, name, last_name, avatar')
+        .or(`auth_user_id.in.(${creatorIds.map(id => `"${id}"`).join(',')}),id.in.(${creatorIds.map(id => `"${id}"`).join(',')})`);
 
       if (creatorsError) {
         console.error('❌ GroupsService: Error fetching creators:', creatorsError);
@@ -68,13 +69,20 @@ export class GroupsService {
         return groups;
       }
 
-      // Створюємо мапу створників
+      // Створюємо мапу створників (підтримуємо як auth_user_id, так і id)
       const creatorsMap = (creators || []).reduce((acc, creator) => {
-        acc[creator.auth_user_id] = {
+        const creatorInfo = {
           name: creator.name,
           last_name: creator.last_name || '',
           avatar: creator.avatar
         };
+        // Додаємо по обох ключах для сумісності
+        if (creator.auth_user_id) {
+          acc[creator.auth_user_id] = creatorInfo;
+        }
+        if (creator.id) {
+          acc[creator.id] = creatorInfo;
+        }
         return acc;
       }, {} as Record<string, any>);
 
@@ -254,4 +262,4 @@ export class GroupsService {
       throw error;
     }
   }
-} 
+}

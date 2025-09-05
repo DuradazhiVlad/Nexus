@@ -10,7 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 
 export function People() {
-  const { showError } = useErrorNotifications();
+  const { addNotification } = useErrorNotifications();
   const navigate = useNavigate();
 
   // State
@@ -95,7 +95,7 @@ export function People() {
     } catch (error) {
       console.error('❌ Error fetching friend requests:', error);
       const errorMessage = error instanceof Error ? error.message : 'Помилка завантаження запитів на дружбу';
-      showError(errorMessage, 'error');
+      addNotification({ type: 'error', title: 'Помилка', message: errorMessage });
     }
   };
 
@@ -188,12 +188,12 @@ export function People() {
       console.log('🔍 Adding friend:', friendId);
       await PeopleService.sendFriendRequest(friendId);
       await fetchFriendRequests(); // Refresh friend requests
-      showError('Запит на дружбу відправлено', 'success');
+      addNotification({ type: 'success', title: 'Успіх', message: 'Запит на дружбу відправлено' });
       console.log('✅ Friend request sent successfully');
     } catch (error) {
       console.error('❌ Error adding friend:', error);
       const errorMessage = error instanceof Error ? error.message : 'Помилка відправки запиту на дружбу';
-      showError(errorMessage, 'error');
+      addNotification({ type: 'error', title: 'Помилка', message: errorMessage });
     }
   };
 
@@ -203,10 +203,10 @@ export function People() {
       
       if (action === 'accept') {
         await PeopleService.acceptFriendRequest(requestId);
-        showError('Запит на дружбу прийнято', 'success');
+        addNotification({ type: 'success', title: 'Успіх', message: 'Запит на дружбу прийнято' });
       } else {
         await PeopleService.rejectFriendRequest(requestId);
-        showError('Запит на дружбу відхилено', 'success');
+        addNotification({ type: 'success', title: 'Успіх', message: 'Запит на дружбу відхилено' });
       }
       
       await fetchFriendRequests(); // Refresh friend requests
@@ -214,7 +214,7 @@ export function People() {
     } catch (error) {
       console.error('❌ Error handling friend request:', error);
       const errorMessage = error instanceof Error ? error.message : 'Помилка обробки запиту на дружбу';
-      showError(errorMessage, 'error');
+      addNotification({ type: 'error', title: 'Помилка', message: errorMessage });
     }
   };
 
@@ -222,7 +222,7 @@ export function People() {
     try {
       console.log('🔍 Removing friend:', friendId);
       await PeopleService.removeFriend(friendId);
-      showError('Друга видалено', 'success');
+      addNotification({ type: 'success', title: 'Успіх', message: 'Друга видалено' });
       console.log('✅ Friend removed successfully');
     } catch (error) {
       console.error('❌ Error removing friend:', error);
@@ -312,6 +312,7 @@ export function People() {
               <UserCard
                 key={user.id}
                 user={user}
+                currentUserId={currentUser}
                 friendRequests={friendRequests}
                 onAddFriend={addFriend}
                 onAcceptFriendRequest={(requestId) => handleFriendRequest(requestId, 'accept')}
