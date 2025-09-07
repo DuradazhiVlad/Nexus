@@ -119,22 +119,31 @@ export class PeopleService {
         throw profileError;
       }
 
-      // Перевіряємо чи вже існує запит на дружбу
-      const { data: existingRequest, error: checkError } = await supabase
+      // Перевіряємо чи вже існує запит на дружбу (в обох напрямках)
+      const { data: existingRequests, error: checkError } = await supabase
         .from('friend_requests')
-        .select('id, status')
-        .or(`and(user_id.eq.${userProfile.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userProfile.id})`)
-        .maybeSingle();
+        .select('id, status, user_id, friend_id')
+        .or(`and(user_id.eq.${userProfile.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userProfile.id})`);
 
-      if (checkError && checkError.code !== 'PGRST116') {
+      if (checkError) {
         console.error('❌ PeopleService: Error checking existing request:', checkError);
         throw checkError;
       }
 
-      if (existingRequest) {
-        if (existingRequest.status === 'pending') {
-          throw new Error('Запит на дружбу вже відправлено');
-        } else if (existingRequest.status === 'accepted') {
+      // Перевіряємо всі існуючі запити
+      if (existingRequests && existingRequests.length > 0) {
+        const pendingRequest = existingRequests.find(req => req.status === 'pending');
+        const acceptedRequest = existingRequests.find(req => req.status === 'accepted');
+        
+        if (pendingRequest) {
+          if (pendingRequest.user_id === userProfile.id) {
+            throw new Error('Запит на дружбу вже відправлено');
+          } else {
+            throw new Error('Цей користувач вже надіслав вам запит на дружбу');
+          }
+        }
+        
+        if (acceptedRequest) {
           throw new Error('Ви вже друзі');
         }
       }

@@ -202,8 +202,8 @@ export function Settings() {
     
     try {
       const safeSettings = { ...settings };
-      if (!safeSettings.birth_date) safeSettings.birth_date = null;
-      if (!safeSettings.birthday) safeSettings.birthday = null;
+      if (!safeSettings.birth_date || safeSettings.birth_date.trim() === '') safeSettings.birth_date = null;
+      if (!safeSettings.birthday || safeSettings.birthday.trim() === '') safeSettings.birthday = null;
       if (!safeSettings.hobbies) safeSettings.hobbies = [];
       if (!safeSettings.languages) safeSettings.languages = [];
       
@@ -211,6 +211,7 @@ export function Settings() {
       const updateData = {
         name: safeSettings.name,
         last_name: safeSettings.last_name,
+        email: safeSettings.email,
         bio: safeSettings.bio,
         city: safeSettings.city,
         birth_date: safeSettings.birth_date,
@@ -254,19 +255,50 @@ export function Settings() {
   const uploadAvatarToSupabase = async (file: File): Promise<string | null> => {
     setAvatarUploading(true);
     try {
+      // Перевірка розміру файлу (максимум 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error('Розмір файлу не повинен перевищувати 5MB');
+      }
+
+      // Перевірка типу файлу
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Можна завантажувати тільки зображення');
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Не авторизовано');
+      
       const fileExt = file.name.split('.').pop();
       const filePath = `${user.id}_${Date.now()}.${fileExt}`;
+      
       const { error: uploadError } = await supabase.storage.from('avatar').upload(filePath, file, {
         upsert: true,
         contentType: file.type,
       });
-      if (uploadError) throw uploadError;
+      
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        if (uploadError.message.includes('Bucket not found')) {
+          throw new Error('Сховище не знайдено. Зверніться до адміністратора.');
+        }
+        if (uploadError.message.includes('The resource already exists')) {
+          throw new Error('Файл з таким іменем вже існує. Спробуйте ще раз.');
+        }
+        throw new Error(`Помилка завантаження: ${uploadError.message}`);
+      }
+      
       const { data } = supabase.storage.from('avatar').getPublicUrl(filePath);
+      
+      if (!data?.publicUrl) {
+        throw new Error('Не вдалося отримати URL завантаженого файлу');
+      }
+      
+      console.log('Avatar uploaded successfully:', data.publicUrl);
       return data.publicUrl;
     } catch (e) {
-      alert('Помилка при завантаженні аватара');
+      const errorMessage = e instanceof Error ? e.message : 'Невідома помилка при завантаженні аватара';
+      console.error('Avatar upload error:', errorMessage);
+      setSaveMessage(`Помилка: ${errorMessage}`);
       return null;
     } finally {
       setAvatarUploading(false);
@@ -364,19 +396,34 @@ export function Settings() {
                           onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
+                              setSaveMessage(''); // Очищуємо попередні повідомлення
                               const url = await uploadAvatarToSupabase(file);
-                              if (url) setSettings(s => ({ ...s, avatar: url }));
+                              if (url) {
+                                setSettings(s => ({ ...s, avatar: url }));
+                                setSaveMessage('Аватар успішно завантажено!');
+                              }
                             }
+                            // Очищуємо input для можливості повторного завантаження того ж файлу
+                            e.target.value = '';
                           }}
                         />
                         <button
                           type="button"
-                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           onClick={() => avatarInputRef.current?.click()}
                           disabled={avatarUploading}
                         >
                           {avatarUploading ? 'Завантаження...' : 'Завантажити аватар'}
                         </button>
+                        {settings.avatar && (
+                          <button
+                            type="button"
+                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                            onClick={() => setSettings(s => ({ ...s, avatar: undefined }))}
+                          >
+                            Видалити
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

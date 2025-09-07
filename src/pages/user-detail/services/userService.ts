@@ -179,22 +179,33 @@ export class UserService {
         throw profileError;
       }
 
-      // Перевіряємо чи вже існує запит дружби
-      const { data: existingRequest, error: checkError } = await supabase
+      // Перевіряємо чи вже існує запит на дружбу (в обох напрямках)
+      const { data: existingRequests, error: checkError } = await supabase
         .from('friend_requests')
-        .select('*')
-        .or(`and(user_id.eq.${userProfile.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userProfile.id})`)
-        .eq('status', 'pending')
-        .single();
+        .select('id, status, user_id, friend_id')
+        .or(`and(user_id.eq.${userProfile.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userProfile.id})`);
 
-      if (checkError && checkError.code !== 'PGRST116') {
+      if (checkError) {
         console.error('❌ UserService: Error checking existing request:', checkError);
         throw checkError;
       }
 
-      if (existingRequest) {
-        console.log('⚠️ UserService: Friend request already exists');
-        throw new Error('Запит на дружбу вже надіслано');
+      // Перевіряємо всі існуючі запити
+      if (existingRequests && existingRequests.length > 0) {
+        const pendingRequest = existingRequests.find(req => req.status === 'pending');
+        const acceptedRequest = existingRequests.find(req => req.status === 'accepted');
+        
+        if (pendingRequest) {
+          if (pendingRequest.user_id === userProfile.id) {
+            throw new Error('Запит на дружбу вже відправлено');
+          } else {
+            throw new Error('Цей користувач вже надіслав вам запит на дружбу');
+          }
+        }
+        
+        if (acceptedRequest) {
+          throw new Error('Ви вже друзі');
+        }
       }
 
       // Перевіряємо чи вже є дружба
@@ -202,7 +213,7 @@ export class UserService {
         .from('friendships')
         .select('*')
         .or(`and(user1_id.eq.${userProfile.id},user2_id.eq.${friendId}),and(user1_id.eq.${friendId},user2_id.eq.${userProfile.id})`)
-        .single();
+        .maybeSingle();
 
       if (friendshipError && friendshipError.code !== 'PGRST116') {
         console.error('❌ UserService: Error checking existing friendship:', friendshipError);
@@ -224,9 +235,8 @@ export class UserService {
 
       if (error) {
         console.error('❌ UserService: Error sending friend request:', error);
-        // Якщо це помилка дублювання, повертаємо більш зрозуміле повідомлення
         if (error.code === '23505') {
-          throw new Error('Запит на дружбу вже надіслано');
+          throw new Error('Запит на дружбу вже існує');
         }
         throw error;
       }

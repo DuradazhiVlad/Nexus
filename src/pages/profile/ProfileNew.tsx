@@ -10,7 +10,6 @@ import {
   CreatePostForm, 
   PostsSection 
 } from './components';
-import { supabase } from '../../lib/supabase';
 import { ErrorNotification } from '../../components/ErrorNotification';
 
 export function ProfileNew() {
@@ -165,10 +164,6 @@ export function ProfileNew() {
               onClose={() => setError(null)}
             />
           )}
-
-
-
-
 
           {/* Profile Header */}
           <ProfileHeader

@@ -252,6 +252,13 @@ export class AuthUserService {
         delete cleanExtension.avatar; // Видаляємо поле, щоб не перезаписати існуюче значення
       }
       
+      // Обробляємо birth_date - порожні рядки перетворюємо на null
+      if (cleanExtension.birth_date !== undefined && cleanExtension.birth_date !== null) {
+        if (typeof cleanExtension.birth_date === 'string' && cleanExtension.birth_date.trim() === '') {
+          cleanExtension.birth_date = null;
+        }
+      }
+      
       console.log('📝 Clean extension data for update:', cleanExtension);
       
       // Перевіряємо чи існує запис

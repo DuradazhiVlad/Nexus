@@ -243,7 +243,7 @@ export const useProfile = () => {
         email: editForm.email,
         bio: editForm.bio,
         city: editForm.city,
-        birth_date: editForm.birth_date,
+        birth_date: editForm.birth_date && editForm.birth_date.trim() !== '' ? editForm.birth_date : null,
         gender: editForm.gender,
         age: editForm.age,
         avatar: editForm.avatar,

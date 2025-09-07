@@ -73,6 +73,14 @@ export function UserCard({
       req.user_id === userId && req.friend_id === currentUserId && req.status === 'pending'
     );
     
+    // Перевіряємо прийняті запити (дружба)
+    const acceptedRequest = friendRequests.find(req => 
+      ((req.user_id === currentUserId && req.friend_id === userId) || 
+       (req.user_id === userId && req.friend_id === currentUserId)) && 
+      req.status === 'accepted'
+    );
+    
+    if (acceptedRequest) return 'friends';
     if (sentRequest) return 'sent';
     if (receivedRequest) return 'received';
     return 'not_friends';
@@ -105,7 +113,7 @@ export function UserCard({
           className="flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
           onClick={() => navigate(`/user/${user.id}`)}
         >
-          <div className="w-20 h-24 rounded-lg bg-gray-200 flex items-center justify-center overflow-hidden">
+          <div className="w-32 h-40 rounded-lg bg-gray-200 flex items-center justify-center overflow-hidden">
             {user.avatar ? (
               <img 
                 src={user.avatar} 
@@ -122,7 +130,10 @@ export function UserCard({
         
         {/* User name below avatar */}
         <div className="text-center mt-2">
-          <h3 className="text-base font-semibold text-gray-900">
+          <h3 
+            className="text-base font-semibold text-gray-900 cursor-pointer hover:text-blue-600 transition-colors"
+            onClick={() => navigate(`/user/${user.id}`)}
+          >
             {user.last_name} {user.name}
           </h3>
           
@@ -185,7 +196,9 @@ export function UserCard({
             <button
               onClick={() => {
                 try {
-                  const request = friendRequests.find(req => req.friend_id === user.id);
+                  const request = friendRequests.find(req => 
+                    req.user_id === user.id && req.friend_id === currentUserId && req.status === 'pending'
+                  );
                   if (request) {
                     onAcceptFriendRequest(request.id);
                   } else {
@@ -204,7 +217,9 @@ export function UserCard({
             <button
               onClick={() => {
                 try {
-                  const request = friendRequests.find(req => req.friend_id === user.id);
+                  const request = friendRequests.find(req => 
+                    req.user_id === user.id && req.friend_id === currentUserId && req.status === 'pending'
+                  );
                   if (request) {
                     onRejectFriendRequest(request.id);
                   } else {

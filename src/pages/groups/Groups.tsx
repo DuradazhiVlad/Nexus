@@ -188,15 +188,7 @@ export function Groups() {
       // First, get all public groups
       const { data: allPublicGroups, error: publicError } = await supabase
         .from('groups')
-        .select(`
-          *,
-          created_by_user:user_profiles!created_by (
-            id,
-            name,
-            last_name,
-            avatar
-          )
-        `)
+        .select('*')
         .eq('is_public', true)
         .order('created_at', { ascending: false });
 
@@ -209,6 +201,23 @@ export function Groups() {
           details: publicError.message
         });
         return;
+      }
+
+      // Get creators info for groups
+      const groupsWithCreators = [];
+      if (allPublicGroups && allPublicGroups.length > 0) {
+        for (const group of allPublicGroups) {
+          const { data: creator } = await supabase
+            .from('user_profiles')
+            .select('id, name, last_name, avatar')
+            .eq('id', group.created_by)
+            .single();
+          
+          groupsWithCreators.push({
+            ...group,
+            created_by_user: creator
+          });
+        }
       }
 
       // Then, get user's group memberships
@@ -243,7 +252,7 @@ export function Groups() {
       });
 
       // Combine the data
-      const allGroups = allPublicGroups?.map(group => ({
+      const allGroups = groupsWithCreators?.map(group => ({
         ...group,
         user_membership: userGroupMap.get(group.id) || null
       })) || [];
@@ -531,7 +540,11 @@ export function Groups() {
     const isAdmin = group.user_membership?.role === 'admin';
 
     return (
-      <div key={group.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+      <div 
+        key={group.id} 
+        className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+        onClick={() => navigate(`/groups/${group.id}`)}
+      >
         {/* Group Cover */}
         <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600 relative">
           {group.cover_image ? (
@@ -619,7 +632,10 @@ export function Groups() {
             <div className="flex items-center space-x-2">
               {!isMember ? (
                 <button
-                  onClick={() => joinGroup(group.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    joinGroup(group.id);
+                  }}
                   className="flex items-center px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
                 >
                   <UserPlus size={14} className="mr-1" />
@@ -628,7 +644,10 @@ export function Groups() {
               ) : (
                 <div className="flex items-center space-x-1">
                   <button
-                    onClick={() => navigate(`/groups/${group.id}`)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/groups/${group.id}`);
+                    }}
                     className="flex items-center px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
                   >
                     <Eye size={14} className="mr-1" />
@@ -636,7 +655,10 @@ export function Groups() {
                   </button>
                   {isAdmin && (
                     <button
-                      onClick={() => navigate(`/groups/${group.id}?tab=settings`)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/groups/${group.id}?tab=settings`);
+                      }}
                       className="p-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
                       title="Керувати групою"
                     >
@@ -657,7 +679,11 @@ export function Groups() {
     const isAdmin = group.user_membership?.role === 'admin';
 
     return (
-      <div key={group.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+      <div 
+        key={group.id} 
+        className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer"
+        onClick={() => navigate(`/groups/${group.id}`)}
+      >
         <div className="flex items-center space-x-4">
           <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
             {group.avatar ? (
@@ -707,7 +733,10 @@ export function Groups() {
           <div className="flex items-center space-x-2">
             {!isMember ? (
               <button
-                onClick={() => joinGroup(group.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  joinGroup(group.id);
+                }}
                 className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
               >
                 <UserPlus size={16} className="mr-2" />
@@ -716,7 +745,10 @@ export function Groups() {
             ) : (
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => navigate(`/groups/${group.id}`)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/groups/${group.id}`);
+                  }}
                   className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
                 >
                   <Eye size={16} className="mr-2" />
@@ -724,7 +756,10 @@ export function Groups() {
                 </button>
                 {isAdmin && (
                   <button
-                    onClick={() => navigate(`/groups/${group.id}?tab=settings`)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/groups/${group.id}?tab=settings`);
+                    }}
                     className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
                     title="Керувати групою"
                   >

@@ -78,7 +78,7 @@ export function People() {
       console.log('✅ Users fetched successfully');
     } catch (error) {
       console.error('❌ Error fetching users:', error);
-      showError('Помилка завантаження користувачів');
+      addNotification({ type: 'error', title: 'Помилка', message: 'Помилка завантаження користувачів' });
     } finally {
       setLoading(false);
     }
@@ -227,7 +227,7 @@ export function People() {
     } catch (error) {
       console.error('❌ Error removing friend:', error);
       const errorMessage = error instanceof Error ? error.message : 'Помилка видалення друга';
-      showError(errorMessage, 'error');
+      addNotification({ type: 'error', title: 'Помилка', message: errorMessage });
     }
   };
 
