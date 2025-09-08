@@ -371,7 +371,7 @@ export class AuthUserService {
         })
         .eq('auth_user_id', authUser.id)
         .select('*')
-        .single();
+        .maybeSingle();
       
       if (profileError) {
         console.error(`Profile field ${fieldName} update error:`, profileError);

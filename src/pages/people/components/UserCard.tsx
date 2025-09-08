@@ -94,8 +94,20 @@ export function UserCard({
 
   const friendStatus = getFriendStatus(user.id);
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Перевіряємо чи натискання було на кнопці
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) {
+      return; // Не переходимо до профілю якщо натиснули на кнопку
+    }
+    navigate(`/user/${user.id}`);
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow h-full flex flex-col">
+    <div 
+      className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow h-full flex flex-col cursor-pointer"
+      onClick={handleCardClick}
+    >
       {error && (
         <ErrorNotification
           type="error"
@@ -108,11 +120,8 @@ export function UserCard({
       )}
       {/* Avatar section */}
       <div className="flex flex-col items-center mb-4">
-        {/* Clickable Avatar */}
-        <div 
-          className="flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => navigate(`/user/${user.id}`)}
-        >
+        {/* Avatar */}
+        <div className="flex-shrink-0">
           <div className="w-32 h-40 rounded-lg bg-gray-200 flex items-center justify-center overflow-hidden">
             {user.avatar ? (
               <img 
@@ -130,10 +139,7 @@ export function UserCard({
         
         {/* User name below avatar */}
         <div className="text-center mt-2">
-          <h3 
-            className="text-base font-semibold text-gray-900 cursor-pointer hover:text-blue-600 transition-colors"
-            onClick={() => navigate(`/user/${user.id}`)}
-          >
+          <h3 className="text-base font-semibold text-gray-900 hover:text-blue-600 transition-colors">
             {user.last_name} {user.name}
           </h3>
           

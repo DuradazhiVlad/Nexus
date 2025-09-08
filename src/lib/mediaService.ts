@@ -102,12 +102,12 @@ export class MediaService {
         throw new Error('Підтримуються тільки зображення');
       }
 
-      // Перевіряємо розмір файлу (максимум 20MB)
-      if (file.size > 20 * 1024 * 1024) {
-        throw new Error('Розмір файлу не може перевищувати 20MB');
+      // Перевіряємо розмір файлу (максимум 5MB для аватарів)
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error('Розмір файлу не може перевищувати 5MB');
       }
 
-      const result = await this.uploadFile(file, 'avatars', 'profile');
+      const result = await this.uploadFile(file, 'avatar', 'profile');
       return result.url;
     } catch (error) {
       console.error('❌ Profile image upload error:', error instanceof Error ? error.message : String(error));
@@ -166,9 +166,15 @@ export class MediaService {
         .from('user_profiles')
         .select('id')
         .eq('auth_user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (profileError || !profile) {
+      if (profileError) {
+        console.error('❌ MediaService: Error getting user profile:', profileError);
+        throw new Error('Помилка отримання профілю користувача');
+      }
+
+      if (!profile) {
+        console.error('❌ MediaService: User profile not found');
         throw new Error('Профіль користувача не знайдено');
       }
 
@@ -290,7 +296,7 @@ export async function addMediaToDatabase(mediaData: {
     .from('media')
     .insert([mediaData])
     .select()
-    .single();
+    .maybeSingle();
   
   if (error) throw error;
   return data;
@@ -319,7 +325,7 @@ export async function createAlbum(albumData: {
     .from('albums')
     .insert([albumData])
     .select()
-    .single();
+    .maybeSingle();
   
   if (error) throw error;
   return data;

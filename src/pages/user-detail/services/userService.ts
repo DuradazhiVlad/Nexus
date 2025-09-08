@@ -13,11 +13,16 @@ export class UserService {
         .from('user_profiles')
         .select('*')
         .eq('auth_user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('❌ UserService: Error fetching user detail:', error);
         throw error;
+      }
+
+      if (!data) {
+        console.log('⚠️ UserService: User not found:', userId);
+        return null;
       }
 
       console.log('✅ UserService: User detail fetched:', data);
@@ -172,11 +177,16 @@ export class UserService {
         .from('user_profiles')
         .select('id')
         .eq('auth_user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError) {
         console.error('❌ UserService: Error getting user profile:', profileError);
         throw profileError;
+      }
+
+      if (!userProfile) {
+        console.error('❌ UserService: User profile not found');
+        throw new Error('Профіль користувача не знайдено');
       }
 
       // Перевіряємо чи вже існує запит на дружбу (в обох напрямках)
@@ -265,11 +275,16 @@ export class UserService {
         .from('friend_requests')
         .select('*')
         .eq('id', requestId)
-        .single();
+        .maybeSingle();
 
       if (getError) {
         console.error('❌ UserService: Error getting friend request:', getError);
         throw getError;
+      }
+
+      if (!request) {
+        console.error('❌ UserService: Friend request not found:', requestId);
+        throw new Error('Запит на дружбу не знайдено');
       }
 
       // Оновлюємо статус запиту

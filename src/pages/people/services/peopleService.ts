@@ -71,10 +71,15 @@ export class PeopleService {
         .from('user_profiles')
         .select('id')
         .eq('auth_user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError) {
         console.error('❌ PeopleService: Error getting user profile:', profileError);
+        return [];
+      }
+
+      if (!userProfile) {
+        console.error('❌ PeopleService: User profile not found');
         return [];
       }
 
@@ -112,11 +117,16 @@ export class PeopleService {
         .from('user_profiles')
         .select('id')
         .eq('auth_user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError) {
         console.error('❌ PeopleService: Error getting user profile:', profileError);
         throw profileError;
+      }
+
+      if (!userProfile) {
+        console.error('❌ PeopleService: User profile not found');
+        throw new Error('Профіль користувача не знайдено');
       }
 
       // Перевіряємо чи вже існує запит на дружбу (в обох напрямках)
@@ -205,7 +215,12 @@ export class PeopleService {
         .from('friend_requests')
         .select('*')
         .eq('id', requestId)
-        .single();
+        .maybeSingle();
+
+      if (!request) {
+        console.error('❌ PeopleService: Friend request not found:', requestId);
+        throw new Error('Запит на дружбу не знайдено');
+      }
 
       if (getError) {
         console.error('❌ PeopleService: Error getting friend request:', getError);
@@ -284,11 +299,16 @@ export class PeopleService {
         .from('user_profiles')
         .select('id')
         .eq('auth_user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError) {
         console.error('❌ PeopleService: Error getting user profile:', profileError);
         throw profileError;
+      }
+
+      if (!userProfile) {
+        console.error('❌ PeopleService: User profile not found');
+        throw new Error('Профіль користувача не знайдено');
       }
       
       // Видаляємо дружбу
