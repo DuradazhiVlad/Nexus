@@ -438,12 +438,39 @@ export class DatabaseService {
         .from('user_profiles')
         .select('id')
         .eq('auth_user_id', authUser.id)
-        .single();
+        .maybeSingle();
         
       if (profileError) {
         console.error('❌ Error getting user profile:', profileError);
         throw profileError;
       }
+      
+      if (!userProfile) {
+        console.error('❌ User profile not found');
+        throw new Error('Профіль користувача не знайдено');
+      }
+      
+      // Перевіряємо чи вже існує запит на дружбу (в обох напрямках)
+      const { data: existingRequests, error: checkError } = await supabase
+        .from('friend_requests')
+        .select('id, status, user_id, friend_id')
+        .or(`and(user_id.eq.${userProfile.id},friend_id.eq.${receiverId}),and(user_id.eq.${receiverId},friend_id.eq.${userProfile.id})`);
+
+      if (checkError) {
+        console.error('❌ Error checking existing request:', checkError);
+        throw checkError;
+      }
+      
+      if (existingRequests && existingRequests.length > 0) {
+        const existingRequest = existingRequests[0];
+        if (existingRequest.status === 'pending') {
+          console.log('⚠️ Friend request already exists');
+          throw new Error('Запит на дружбу вже надіслано');
+        } else if (existingRequest.status === 'accepted') {
+          console.log('⚠️ Users are already friends');
+          throw new Error('Ви вже друзі');
+        }
+       }
       
       const { data, error } = await supabase
         .from('posts')
@@ -583,6 +610,44 @@ export class DatabaseService {
       if (profileError) {
         console.error('❌ Error getting user profile:', profileError);
         throw profileError;
+      }
+      
+      // Перевіряємо чи вже існує запит на дружбу або дружба
+      const { data: existingRequests, error: checkError } = await supabase
+        .from('friend_requests')
+        .select('*')
+        .or(`and(user_id.eq.${userProfile.id},friend_id.eq.${receiverId}),and(user_id.eq.${receiverId},friend_id.eq.${userProfile.id})`);
+        
+      if (checkError) {
+        console.error('❌ Error checking existing requests:', checkError);
+        throw checkError;
+      }
+      
+      if (existingRequests && existingRequests.length > 0) {
+        const existingRequest = existingRequests[0];
+        if (existingRequest.status === 'pending') {
+          console.log('⚠️ Friend request already exists');
+          throw new Error('Запит на дружбу вже надіслано');
+        } else if (existingRequest.status === 'accepted') {
+          console.log('⚠️ Users are already friends');
+          throw new Error('Ви вже друзі');
+        }
+      }
+      
+      // Перевіряємо чи вже існує дружба
+      const { data: existingFriendship, error: friendshipError } = await supabase
+        .from('friendships')
+        .select('*')
+        .or(`and(user1_id.eq.${userProfile.id},user2_id.eq.${receiverId}),and(user1_id.eq.${receiverId},user2_id.eq.${userProfile.id})`);
+        
+      if (friendshipError) {
+        console.error('❌ Error checking existing friendship:', friendshipError);
+        throw friendshipError;
+      }
+      
+      if (existingFriendship && existingFriendship.length > 0) {
+        console.log('⚠️ Users are already friends');
+        throw new Error('Ви вже друзі');
       }
       
       const { error } = await supabase

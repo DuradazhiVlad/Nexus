@@ -18,6 +18,7 @@ export interface UserProfile {
   work?: string;
   website?: string;
   languages?: string[];
+  online_status?: 'online' | 'offline' | 'away';
   notifications?: {
     email: boolean;
     messages: boolean;
@@ -49,6 +50,7 @@ export interface EditFormData {
   languages: string[];
   newHobby: string;
   newLanguage: string;
+  online_status: 'online' | 'offline' | 'away';
   notifications: {
     email: boolean;
     messages: boolean;

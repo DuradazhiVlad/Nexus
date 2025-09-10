@@ -3,7 +3,7 @@ import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
 import { AuthUserService } from '../../lib/authUserService';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Send, UserCircle, MessageCircle } from 'lucide-react';
+import { Send, UserCircle, MessageCircle, Trash2 } from 'lucide-react';
 import { ErrorNotification, useErrorNotifications } from '../../components/ErrorNotification';
 
 function useQuery() {
@@ -170,7 +170,7 @@ export function Messages() {
         return;
       }
       
-      // Шукаємо існуючу розмову
+      // Шукаємо існуючу розмову в локальному стані
       let conv = conversations.find(
         c => c.participant && c.participant.auth_user_id === userId
       );
@@ -188,19 +188,41 @@ export function Messages() {
           throw new Error('Користувач не знайдений');
         }
         
-        // Якщо немає, створюємо нову
-        const { data, error } = await supabase
+        // Перевіряємо чи існує розмова в базі даних
+        const { data: existingConversation, error: existingError } = await supabase
           .from('conversations')
-          .insert([
-            {
-              participant1_id: authUser.id,
-              participant2_id: targetUserProfile.auth_user_id,
-            },
-          ])
           .select('*')
-          .single();
+          .or(`and(participant1_id.eq.${authUser.id},participant2_id.eq.${targetUserProfile.auth_user_id}),and(participant1_id.eq.${targetUserProfile.auth_user_id},participant2_id.eq.${authUser.id})`)
+          .maybeSingle();
           
-        if (error) throw error;
+        if (existingError) {
+          console.error('Error checking existing conversation:', existingError);
+          throw existingError;
+        }
+        
+        let conversationData;
+        
+        if (existingConversation) {
+          // Використовуємо існуючу розмову
+          conversationData = existingConversation;
+          console.log('✅ Found existing conversation:', conversationData.id);
+        } else {
+          // Створюємо нову розмову
+          const { data, error } = await supabase
+            .from('conversations')
+            .insert([
+              {
+                participant1_id: authUser.id,
+                participant2_id: targetUserProfile.auth_user_id,
+              },
+            ])
+            .select('*')
+            .single();
+            
+          if (error) throw error;
+          conversationData = data;
+          console.log('✅ Created new conversation:', conversationData.id);
+        }
         
         // Отримуємо профіль учасника
         const { data: participantProfile } = await supabase
@@ -211,13 +233,16 @@ export function Messages() {
         
         // Створюємо об'єкт розмови
         conv = {
-          id: data.id,
+          id: conversationData.id,
           participant: participantProfile,
-          updated_at: data.updated_at,
+          updated_at: conversationData.updated_at,
         };
         
-        // Додаємо до списку розмов
-        setConversations(prev => [conv, ...prev]);
+        // Додаємо до списку розмов тільки якщо її там немає
+        const existsInLocal = conversations.find(c => c.id === conv.id);
+        if (!existsInLocal) {
+          setConversations(prev => [conv, ...prev]);
+        }
       }
       
       // Відкриваємо розмову
@@ -263,6 +288,56 @@ export function Messages() {
   async function handleSelectConversation(conv) {
     setSelectedConversation(conv);
     loadMessages(conv.id);
+  }
+
+  async function deleteConversation(conversationId, e) {
+    e.stopPropagation(); // Запобігаємо відкриттю чату при кліку на видалення
+    
+    if (!window.confirm('Ви впевнені, що хочете видалити цю розмову?')) {
+      return;
+    }
+    
+    try {
+      // Видаляємо всі повідомлення розмови
+      const { error: messagesError } = await supabase
+        .from('messages')
+        .delete()
+        .eq('conversation_id', conversationId);
+        
+      if (messagesError) throw messagesError;
+      
+      // Видаляємо саму розмову
+      const { error: conversationError } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('id', conversationId);
+        
+      if (conversationError) throw conversationError;
+      
+      // Оновлюємо локальний стан
+      setConversations(prev => prev.filter(conv => conv.id !== conversationId));
+      
+      // Якщо видалена розмова була вибрана, очищаємо вибір
+      if (selectedConversation?.id === conversationId) {
+        setSelectedConversation(null);
+        setMessages([]);
+      }
+      
+      addNotification({
+        type: 'success',
+        title: 'Успіх',
+        message: 'Розмову видалено'
+      });
+      
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      addNotification({
+        type: 'error',
+        title: 'Помилка',
+        message: 'Не вдалося видалити розмову',
+        details: error instanceof Error ? error.message : 'Невідома помилка'
+      });
+    }
   }
 
   const handleSendMessage = async () => {
@@ -372,6 +447,17 @@ export function Messages() {
                         <p className="text-xs text-gray-500">
                           {conversation.updated_at ? new Date(conversation.updated_at).toLocaleDateString('uk-UA') : ''}
                         </p>
+                      </div>
+                      
+                      {/* Delete Button */}
+                      <div className={`${selectedConversation && !isHovered ? 'hidden' : 'block'}`}>
+                        <button
+                          onClick={(e) => deleteConversation(conversation.id, e)}
+                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                          title="Видалити розмову"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   </div>

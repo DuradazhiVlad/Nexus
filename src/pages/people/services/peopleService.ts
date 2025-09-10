@@ -105,102 +105,10 @@ export class PeopleService {
   /**
    * Відправити запит на дружбу
    */
+  // Використовуємо DatabaseService для надсилання запитів на дружбу
   static async sendFriendRequest(friendId: string): Promise<boolean> {
-    try {
-      console.log('🔍 PeopleService: Sending friend request to:', friendId);
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      // Отримуємо ID користувача з таблиці user_profiles
-      const { data: userProfile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error('❌ PeopleService: Error getting user profile:', profileError);
-        throw profileError;
-      }
-
-      if (!userProfile) {
-        console.error('❌ PeopleService: User profile not found');
-        throw new Error('Профіль користувача не знайдено');
-      }
-
-      // Перевіряємо чи вже існує запит на дружбу (в обох напрямках)
-      const { data: existingRequests, error: checkError } = await supabase
-        .from('friend_requests')
-        .select('id, status, user_id, friend_id')
-        .or(`and(user_id.eq.${userProfile.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userProfile.id})`);
-
-      if (checkError) {
-        console.error('❌ PeopleService: Error checking existing request:', checkError);
-        throw checkError;
-      }
-
-      // Перевіряємо всі існуючі запити
-      if (existingRequests && existingRequests.length > 0) {
-        const pendingRequest = existingRequests.find(req => req.status === 'pending');
-        const acceptedRequest = existingRequests.find(req => req.status === 'accepted');
-        
-        if (pendingRequest) {
-          if (pendingRequest.user_id === userProfile.id) {
-            throw new Error('Запит на дружбу вже відправлено');
-          } else {
-            throw new Error('Цей користувач вже надіслав вам запит на дружбу');
-          }
-        }
-        
-        if (acceptedRequest) {
-          throw new Error('Ви вже друзі');
-        }
-      }
-
-      // Перевіряємо чи вже є дружба
-      const { data: existingFriendship, error: friendshipError } = await supabase
-        .from('friendships')
-        .select('*')
-        .or(`and(user1_id.eq.${userProfile.id},user2_id.eq.${friendId}),and(user1_id.eq.${friendId},user2_id.eq.${userProfile.id})`)
-        .maybeSingle();
-
-      if (friendshipError && friendshipError.code !== 'PGRST116') {
-        console.error('❌ PeopleService: Error checking existing friendship:', friendshipError);
-        throw friendshipError;
-      }
-
-      if (existingFriendship) {
-        console.log('⚠️ PeopleService: Users are already friends');
-        throw new Error('Ви вже друзі з цим користувачем');
-      }
-
-      const { error } = await supabase
-        .from('friend_requests')
-        .insert([{
-          user_id: userProfile.id,
-          friend_id: friendId,
-          status: 'pending'
-        }]);
-
-      if (error) {
-        console.error('❌ PeopleService: Error sending friend request:', error);
-        if (error.code === '23505') {
-          throw new Error('Запит на дружбу вже існує');
-        }
-        throw error;
-      }
-
-      console.log('✅ PeopleService: Friend request sent successfully');
-      return true;
-    } catch (error) {
-      console.error('❌ PeopleService: Unexpected error:', error);
-      // Обробляємо помилку дублювання на верхньому рівні
-      if (error instanceof Error && error.message.includes('duplicate key')) {
-        throw new Error('Запит на дружбу вже надіслано');
-      }
-      throw error;
-    }
+    const { DatabaseService } = await import('../../../lib/database');
+    return DatabaseService.sendFriendRequest(friendId);
   }
 
   /**

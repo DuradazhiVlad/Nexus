@@ -4,16 +4,49 @@ import { FileUpload } from '../../../components/FileUpload';
 import { EditFormData } from '../types';
 
 // Константи для випадаючих списків
-const RELATIONSHIP_STATUS_OPTIONS = [
-  { value: '', label: 'Не вказано' },
-  { value: 'single', label: 'Неодружений/Незаміжня' },
-  { value: 'in_relationship', label: 'У стосунках' },
-  { value: 'engaged', label: 'Заручений/Зарученна' },
-  { value: 'married', label: 'Одружений/Заміжня' },
-  { value: 'divorced', label: 'Розлучений/Розлучена' },
-  { value: 'widowed', label: 'Вдівець/Вдова' },
-  { value: 'complicated', label: 'Все складно' }
-];
+const getRelationshipStatusOptions = (gender: string) => {
+  const baseOptions = [
+    { value: '', label: 'Не вказано' },
+    { value: 'in_relationship', label: 'У стосунках' },
+    { value: 'complicated', label: 'Все складно' }
+  ];
+
+  if (gender === 'male') {
+    return [
+      ...baseOptions.slice(0, 1),
+      { value: 'single', label: 'Неодружений' },
+      ...baseOptions.slice(1, 2),
+      { value: 'engaged', label: 'Заручений' },
+      { value: 'married', label: 'Одружений' },
+      { value: 'divorced', label: 'Розлучений' },
+      { value: 'widowed', label: 'Вдівець' },
+      ...baseOptions.slice(2)
+    ];
+  } else if (gender === 'female') {
+    return [
+      ...baseOptions.slice(0, 1),
+      { value: 'single', label: 'Незаміжня' },
+      ...baseOptions.slice(1, 2),
+      { value: 'engaged', label: 'Зарученна' },
+      { value: 'married', label: 'Заміжня' },
+      { value: 'divorced', label: 'Розлучена' },
+      { value: 'widowed', label: 'Вдова' },
+      ...baseOptions.slice(2)
+    ];
+  } else {
+    // Для "other" або не вказаної статі використовуємо універсальні варіанти
+    return [
+      ...baseOptions.slice(0, 1),
+      { value: 'single', label: 'Неодружений/Незаміжня' },
+      ...baseOptions.slice(1, 2),
+      { value: 'engaged', label: 'Заручений/Зарученна' },
+      { value: 'married', label: 'Одружений/Заміжня' },
+      { value: 'divorced', label: 'Розлучений/Розлучена' },
+      { value: 'widowed', label: 'Вдівець/Вдова' },
+      ...baseOptions.slice(2)
+    ];
+  }
+};
 
 const LANGUAGE_OPTIONS = [
   'Українська',
@@ -38,6 +71,29 @@ const LANGUAGE_OPTIONS = [
   'Хорватська'
 ];
 
+const UKRAINE_CITIES = [
+  'Київ', 'Харків', 'Одеса', 'Дніпро', 'Донецьк', 'Запоріжжя', 'Львів', 'Кривий Ріг',
+  'Миколаїв', 'Маріуполь', 'Луганськ', 'Вінниця', 'Макіївка', 'Севастополь', 'Сімферополь',
+  'Херсон', 'Полтава', 'Чернігів', 'Черкаси', 'Житомир', 'Суми', 'Хмельницький', 'Чернівці',
+  'Горлівка', 'Рівне', 'Кропивницький', 'Кам'янське', 'Тернопіль', 'Кременчук', 'Івано-Франківск',
+  'Білгород-Дністровський', 'Керч', 'Мелітополь', 'Нікополь', 'Слов'янськ', 'Бердянськ',
+  'Ужгород', 'Алчевськ', 'Павлоград', 'Сєвєродонецьк', 'Євпаторія', 'Лисичанськ', 'Кам'янець-Подільський',
+  'Краматорськ', 'Мукачево', 'Конотоп', 'Умань', 'Бровари', 'Шостка', 'Біла Церква', 'Дрогобич',
+  'Александрія', 'Красний Луч', 'Стаханов', 'Енергодар', 'Коломия', 'Нововолинськ', 'Бердичів',
+  'Первомайськ', 'Дунаївці', 'Фастів', 'Лубни', 'Ізмаїл', 'Костянтинівка', 'Бахмут', 'Чорноморськ'
+];
+
+const EDUCATION_OPTIONS = [
+  { value: '', label: 'Не вказано' },
+  { value: 'secondary', label: 'Середня освіта' },
+  { value: 'vocational', label: 'Професійно-технічна освіта' },
+  { value: 'college', label: 'Коледж' },
+  { value: 'bachelor', label: 'Бакалавр' },
+  { value: 'master', label: 'Магістр' },
+  { value: 'phd', label: 'Доктор наук' },
+  { value: 'other', label: 'Інше' }
+];
+
 interface ProfileEditFormProps {
   editForm: EditFormData;
   setEditForm: (form: EditFormData) => void;
@@ -57,6 +113,7 @@ export const ProfileEditForm = ({
   removeLanguage,
   setError
 }) => {
+  const relationshipOptions = getRelationshipStatusOptions(editForm.gender);
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {/* Ліва колонка */}
@@ -75,19 +132,7 @@ export const ProfileEditForm = ({
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Email
-          </label>
-          <input
-            type="email"
-            value={editForm.email}
-            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="Введіть email"
-            disabled={true}
-          />
-        </div>
+
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -110,24 +155,34 @@ export const ProfileEditForm = ({
           </label>
           <input
             type="text"
+            list="ukraine-cities"
             value={editForm.city}
             onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="Введіть місто"
           />
+          <datalist id="ukraine-cities">
+            {UKRAINE_CITIES.map((city) => (
+              <option key={city} value={city} />
+            ))}
+          </datalist>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Освіта
           </label>
-          <input
-            type="text"
+          <select
             value={editForm.education}
             onChange={(e) => setEditForm({ ...editForm, education: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="Введіть освіту"
-          />
+          >
+            {EDUCATION_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>
@@ -184,7 +239,7 @@ export const ProfileEditForm = ({
             onChange={(e) => setEditForm({ ...editForm, relationship_status: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            {RELATIONSHIP_STATUS_OPTIONS.map((option) => (
+            {relationshipOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>

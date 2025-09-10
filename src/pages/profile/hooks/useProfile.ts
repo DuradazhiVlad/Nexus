@@ -32,6 +32,7 @@ export const useProfile = () => {
     languages: [],
     newHobby: '',
     newLanguage: '',
+    online_status: 'online',
     notifications: {
       email: true,
       messages: true,
@@ -151,6 +152,7 @@ export const useProfile = () => {
           languages: savedProfile.languages || [],
           newHobby: '',
           newLanguage: '',
+          online_status: savedProfile.online_status || 'online',
           notifications: savedProfile.notifications || {
             email: true,
             messages: true,
@@ -186,6 +188,7 @@ export const useProfile = () => {
           languages: Array.isArray(userProfileData.languages) ? userProfileData.languages : [],
           newHobby: '',
           newLanguage: '',
+          online_status: userProfileData.online_status || 'online',
           notifications: userProfileData.notifications || {
             email: true,
             messages: true,
@@ -222,12 +225,19 @@ export const useProfile = () => {
   };
 
   const saveProfile = async () => {
+    // Перевірка чи вже відбувається збереження
+    if (saving) {
+      console.log('⚠️ Save already in progress, skipping...');
+      return;
+    }
+
     const validationErrors = validateForm();
     if (validationErrors.length > 0) {
       setError(validationErrors.join(', '));
       return;
     }
 
+    console.log('💾 Starting profile save...');
     setSaving(true);
     setError(null);
 
@@ -237,27 +247,39 @@ export const useProfile = () => {
         throw new Error('Користувач не авторизований');
       }
 
+      // Очищення даних перед відправкою
       const updateData = {
-        name: editForm.name,
-        last_name: editForm.last_name,
-        email: editForm.email,
-        bio: editForm.bio,
-        city: editForm.city,
+        name: editForm.name?.trim() || '',
+        last_name: editForm.last_name?.trim() || '',
+        email: editForm.email?.trim() || '',
+        bio: editForm.bio?.trim() || '',
+        city: editForm.city?.trim() || '',
         birth_date: editForm.birth_date && editForm.birth_date.trim() !== '' ? editForm.birth_date : null,
-        gender: editForm.gender,
-        age: editForm.age,
-        avatar: editForm.avatar,
-        education: editForm.education,
-        phone: editForm.phone,
-        hobbies: editForm.hobbies,
-        relationship_status: editForm.relationship_status,
-        work: editForm.work,
-        website: editForm.website,
-        languages: editForm.languages,
-        notifications: editForm.notifications,
-        privacy: editForm.privacy,
+        gender: editForm.gender || '',
+        age: editForm.age || null,
+        avatar: editForm.avatar || '',
+        education: editForm.education?.trim() || '',
+        phone: editForm.phone?.trim() || '',
+        hobbies: Array.isArray(editForm.hobbies) ? editForm.hobbies : [],
+        relationship_status: editForm.relationship_status || '',
+        work: editForm.work?.trim() || '',
+        website: editForm.website?.trim() || '',
+        languages: Array.isArray(editForm.languages) ? editForm.languages : [],
+        online_status: editForm.online_status || 'online',
+        notifications: editForm.notifications || {
+          email: true,
+          messages: true,
+          friendRequests: true
+        },
+        privacy: editForm.privacy || {
+          profileVisibility: 'public',
+          showBirthDate: true,
+          showEmail: false
+        },
         updated_at: new Date().toISOString()
       };
+
+      console.log('📤 Sending update data:', updateData);
 
       const { data, error } = await supabase
         .from('user_profiles')
@@ -267,18 +289,22 @@ export const useProfile = () => {
         .single();
 
       if (error) {
+        console.error('❌ Supabase error:', error);
         throw error;
       }
 
+      console.log('✅ Profile saved successfully:', data);
       setProfile(data);
       setSuccess('Профіль успішно збережено!');
       setIsEditing(false);
       
+      // Очищення повідомлення про успіх через 3 секунди
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
-      console.error('Error saving profile:', error);
+      console.error('❌ Error saving profile:', error);
       setError(error instanceof Error ? error.message : 'Помилка збереження профілю');
     } finally {
+      console.log('🏁 Save process completed');
       setSaving(false);
     }
   };

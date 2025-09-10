@@ -113,7 +113,12 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             ) : (
               <div className="flex space-x-2">
                 <button
-                  onClick={onSave}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (!saving) {
+                      onSave();
+                    }
+                  }}
                   disabled={saving}
                   className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
