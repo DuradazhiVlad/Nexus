@@ -36,11 +36,7 @@ export const MediaUpload = ({
         throw new Error('Непідтримуваний тип файлу. Підтримуються: JPG, PNG, GIF, WebP, MP4, WebM, OGG');
       }
 
-      // Перевіряємо розмір файлу
-      const maxSizeBytes = maxSize * 1024 * 1024;
-      if (file.size > maxSizeBytes) {
-        throw new Error(`Розмір файлу не може перевищувати ${maxSize}MB`);
-      }
+      // Розмір файлу не обмежується
 
       // Перевіряємо тип файлу відповідно до accept
       if (accept === 'image' && !file.type.startsWith('image/')) {

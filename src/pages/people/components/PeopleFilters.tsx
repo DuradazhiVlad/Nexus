@@ -6,7 +6,8 @@ import {
   Grid, 
   List,
   Sort,
-  ArrowUpDown
+  ArrowUpDown,
+  Settings
 } from 'lucide-react';
 import { Filters, ViewMode } from '../types';
 
@@ -42,33 +43,35 @@ export function PeopleFilters({
         <div className="flex items-center space-x-4 flex-1">
           {/* Search */}
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
               placeholder="Пошук користувачів..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm transition-all duration-200 hover:shadow-md"
             />
           </div>
 
           {/* Filters Toggle */}
-          <button
-            onClick={onToggleFilters}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              showFilters 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <Filter size={16} />
-            Фільтри
-            {activeFiltersCount > 0 && (
-              <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
+          <div className="relative">
+            <button
+              onClick={onToggleFilters}
+              className={`p-3 rounded-xl border transition-all duration-200 ${
+                showFilters
+                  ? 'bg-blue-500 text-white border-blue-500 shadow-lg'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:shadow-md'
+              }`}
+              title="Фільтри"
+            >
+              <Settings className="w-5 h-5" />
+              {activeFiltersCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+          </div>
 
           {/* Reset Filters */}
           {activeFiltersCount > 0 && (
@@ -83,26 +86,28 @@ export function PeopleFilters({
         </div>
 
         {/* View Mode */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center bg-gray-100 rounded-xl p-1">
           <button
             onClick={() => onViewModeChange('grid')}
-            className={`p-2 rounded-lg transition-colors ${
+            className={`p-2 rounded-lg transition-all duration-200 ${
               viewMode === 'grid' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-white text-blue-600 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-800'
             }`}
+            title="Сітка"
           >
-            <Grid size={16} />
+            <Grid size={18} />
           </button>
           <button
             onClick={() => onViewModeChange('list')}
-            className={`p-2 rounded-lg transition-colors ${
+            className={`p-2 rounded-lg transition-all duration-200 ${
               viewMode === 'list' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-white text-blue-600 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-800'
             }`}
+            title="Список"
           >
-            <List size={16} />
+            <List size={18} />
           </button>
         </div>
       </div>
@@ -233,4 +238,4 @@ export function PeopleFilters({
       )}
     </div>
   );
-} 
+}

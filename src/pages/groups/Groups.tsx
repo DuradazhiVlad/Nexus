@@ -539,93 +539,136 @@ export function Groups() {
     const isMember = !!group.user_membership;
     const isAdmin = group.user_membership?.role === 'admin';
 
+    // Генеруємо унікальний градієнт для кожної групи
+    const gradients = [
+      'from-blue-500 to-purple-600',
+      'from-green-500 to-teal-600', 
+      'from-pink-500 to-rose-600',
+      'from-orange-500 to-red-600',
+      'from-indigo-500 to-blue-600',
+      'from-purple-500 to-pink-600',
+      'from-teal-500 to-green-600',
+      'from-yellow-500 to-orange-600'
+    ];
+    const gradientIndex = group.id.charCodeAt(0) % gradients.length;
+    const gradient = gradients[gradientIndex];
+
     return (
       <div 
         key={group.id} 
-        className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+        className="group bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer"
         onClick={() => navigate(`/groups/${group.id}`)}
       >
         {/* Group Cover */}
-        <div className="h-32 bg-gradient-to-r from-blue-500 to-purple-600 relative">
+        <div className={`h-40 bg-gradient-to-br ${gradient} relative overflow-hidden`}>
           {group.cover_image ? (
-            <img src={group.cover_image} alt={group.name} className="w-full h-full object-cover" />
+            <>
+              <img src={group.cover_image} alt={group.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              <div className="absolute inset-0 bg-black bg-opacity-20 group-hover:bg-opacity-10 transition-all duration-300"></div>
+            </>
           ) : (
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600"></div>
+            <>
+              <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`}></div>
+              <div className="absolute inset-0 opacity-20">
+                <div className="absolute top-4 right-4 w-16 h-16 bg-white bg-opacity-20 rounded-full"></div>
+                <div className="absolute bottom-4 left-4 w-8 h-8 bg-white bg-opacity-20 rounded-full"></div>
+                <div className="absolute top-1/2 left-1/2 w-12 h-12 bg-white bg-opacity-10 rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
+              </div>
+            </>
           )}
-          <div className="absolute top-3 right-3">
-            {!group.is_public ? (
-              <Lock size={16} className="text-white" />
-            ) : (
-              <Globe size={16} className="text-white" />
+          
+          {/* Badges */}
+          <div className="absolute top-3 right-3 flex space-x-2">
+            {group.is_verified && (
+              <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-full p-1.5">
+                <Star size={14} className="text-yellow-300 fill-current" />
+              </div>
             )}
-          </div>
-          {group.is_verified && (
-            <div className="absolute top-3 left-3">
-              <Star size={16} className="text-yellow-400 fill-current" />
+            <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-full p-1.5">
+              {!group.is_public ? (
+                <Lock size={14} className="text-white" />
+              ) : (
+                <Globe size={14} className="text-white" />
+              )}
             </div>
-          )}
+          </div>
+          
+          {/* Member count overlay */}
+          <div className="absolute bottom-3 left-3 bg-black bg-opacity-50 backdrop-blur-sm text-white px-2 py-1 rounded-full text-xs font-medium">
+            <Users size={12} className="inline mr-1" />
+            {group.member_count}
+          </div>
         </div>
 
         {/* Group Info */}
-        <div className="p-4">
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
+        <div className="p-5">
+          {/* Avatar positioned to overlap cover */}
+          <div className="flex items-start justify-between mb-4 -mt-8">
+            <div className="flex items-start space-x-3">
+              <div className="w-16 h-16 bg-white rounded-xl shadow-lg border-4 border-white flex items-center justify-center flex-shrink-0 group-hover:shadow-xl transition-shadow duration-300">
                 {group.avatar ? (
-                  <img src={group.avatar} alt={group.name} className="w-full h-full rounded-full object-cover" />
+                  <img src={group.avatar} alt={group.name} className="w-full h-full rounded-lg object-cover" />
                 ) : (
-                  <span className="text-gray-600 font-semibold text-sm">
+                  <span className="text-gray-700 font-bold text-lg">
                     {getInitials(group.name)}
                   </span>
                 )}
               </div>
-              <div className="min-w-0 flex-1">
-                <h3 
-                  className="font-semibold text-gray-900 truncate cursor-pointer hover:text-blue-600 transition-colors"
-                  onClick={() => navigate(`/groups/${group.id}`)}
-                >
-                  {group.name}
-                </h3>
-                <p className="text-sm text-gray-600">
-                  {group.member_count} учасників
-                </p>
+              <div className="min-w-0 flex-1 mt-2">
+                <div className="flex items-center space-x-2 mb-1">
+                  <h3 
+                    className="font-bold text-gray-900 truncate cursor-pointer hover:text-blue-600 transition-colors text-lg"
+                    onClick={() => navigate(`/groups/${group.id}`)}
+                  >
+                    {group.name}
+                  </h3>
+                  {group.is_verified && (
+                    <Star size={16} className="text-yellow-500 fill-current flex-shrink-0" />
+                  )}
+                </div>
+                <div className="flex items-center space-x-3 text-sm text-gray-600">
+                  <span className="font-medium">{group.member_count} учасників</span>
+                  {group.post_count > 0 && (
+                    <span>• {group.post_count} постів</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          <p className="text-gray-700 text-sm mb-3 line-clamp-2">
+          <p className="text-gray-700 text-sm mb-4 line-clamp-2 leading-relaxed">
             {group.description || 'Опис відсутній'}
           </p>
 
-          <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-            <div className="flex items-center space-x-3">
-              {group.category && (
-                <span className="bg-gray-100 px-2 py-1 rounded-full">
-                  {group.category}
-                </span>
-              )}
-              {group.location && (
-                <div className="flex items-center">
-                  <MapPin size={12} className="mr-1" />
-                  {group.location}
-                </div>
-              )}
-            </div>
-            <div className="flex items-center">
-              <Calendar size={12} className="mr-1" />
+          {/* Tags and metadata */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            {group.category && (
+              <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-200">
+                {group.category}
+              </span>
+            )}
+            {group.location && (
+              <span className="bg-gray-50 text-gray-700 px-3 py-1 rounded-full text-xs font-medium border border-gray-200 flex items-center">
+                <MapPin size={10} className="mr-1" />
+                {group.location}
+              </span>
+            )}
+            <span className="bg-gray-50 text-gray-600 px-3 py-1 rounded-full text-xs font-medium border border-gray-200 flex items-center ml-auto">
+              <Calendar size={10} className="mr-1" />
               {formatDate(group.created_at)}
-            </div>
+            </span>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-xs text-gray-500">
-              <div className="flex items-center">
-                <MessageCircle size={12} className="mr-1" />
-                {group.post_count || 0}
+          {/* Action buttons */}
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+            <div className="flex items-center space-x-4 text-xs text-gray-500">
+              <div className="flex items-center hover:text-gray-700 transition-colors">
+                <MessageCircle size={14} className="mr-1" />
+                <span className="font-medium">{group.post_count || 0}</span>
               </div>
-              <div className="flex items-center">
-                <Eye size={12} className="mr-1" />
-                {group.member_count}
+              <div className="flex items-center hover:text-gray-700 transition-colors">
+                <TrendingUp size={14} className="mr-1" />
+                <span className="font-medium">Активна</span>
               </div>
             </div>
 
@@ -636,21 +679,21 @@ export function Groups() {
                     e.stopPropagation();
                     joinGroup(group.id);
                   }}
-                  className="flex items-center px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md transform hover:scale-105"
                 >
-                  <UserPlus size={14} className="mr-1" />
+                  <UserPlus size={14} className="mr-2" />
                   Приєднатися
                 </button>
               ) : (
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center space-x-2">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(`/groups/${group.id}`);
                     }}
-                    className="flex items-center px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    className="flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md transform hover:scale-105"
                   >
-                    <Eye size={14} className="mr-1" />
+                    <Eye size={14} className="mr-2" />
                     Переглянути
                   </button>
                   {isAdmin && (
@@ -659,10 +702,10 @@ export function Groups() {
                         e.stopPropagation();
                         navigate(`/groups/${group.id}?tab=settings`);
                       }}
-                      className="p-1 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
+                      className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                       title="Керувати групою"
                     >
-                      <Settings size={14} />
+                      <Settings size={16} />
                     </button>
                   )}
                 </div>

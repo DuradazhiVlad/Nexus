@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Database Tables</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Database Tables Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        // Ініціалізація Supabase
+        const supabaseUrl = 'https://gtfgvqttfydelzgvgwly.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0Zmd2cXR0ZnlkZWx6Z3Znd2x5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwMjE0OTEsImV4cCI6MjA1OTU5NzQ5MX0.nBdVMHZ6LJ8ZvdSuXk_uDVMb6DxB5iTeFdc0dM7zolI';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        
+        async function testTables() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Testing database tables...</p>';
+            
+            try {
+                // Тест таблиці media
+                console.log('Testing media table...');
+                const { data: mediaData, error: mediaError } = await supabase
+                    .from('media')
+                    .select('*')
+                    .limit(1);
+                    
+                if (mediaError) {
+                    results.innerHTML += `<p style="color: red;">❌ Media table error: ${mediaError.message}</p>`;
+                } else {
+                    results.innerHTML += '<p style="color: green;">✅ Media table exists</p>';
+                }
+                
+                // Тест таблиці posts
+                console.log('Testing posts table...');
+                const { data: postsData, error: postsError } = await supabase
+                    .from('posts')
+                    .select('*')
+                    .limit(1);
+                    
+                if (postsError) {
+                    results.innerHTML += `<p style="color: red;">❌ Posts table error: ${postsError.message}</p>`;
+                } else {
+                    results.innerHTML += '<p style="color: green;">✅ Posts table exists</p>';
+                }
+                
+                // Тест таблиці friendships
+                console.log('Testing friendships table...');
+                const { data: friendshipsData, error: friendshipsError } = await supabase
+                    .from('friendships')
+                    .select('*')
+                    .limit(1);
+                    
+                if (friendshipsError) {
+                    results.innerHTML += `<p style="color: red;">❌ Friendships table error: ${friendshipsError.message}</p>`;
+                } else {
+                    results.innerHTML += '<p style="color: green;">✅ Friendships table exists</p>';
+                }
+                
+                // Тест таблиці user_profiles
+                console.log('Testing user_profiles table...');
+                const { data: profilesData, error: profilesError } = await supabase
+                    .from('user_profiles')
+                    .select('*')
+                    .limit(1);
+                    
+                if (profilesError) {
+                    results.innerHTML += `<p style="color: red;">❌ User_profiles table error: ${profilesError.message}</p>`;
+                } else {
+                    results.innerHTML += '<p style="color: green;">✅ User_profiles table exists</p>';
+                }
+                
+            } catch (error) {
+                results.innerHTML += `<p style="color: red;">❌ General error: ${error.message}</p>`;
+                console.error('Database test error:', error);
+            }
+        }
+        
+        // Запуск тесту при завантаженні сторінки
+        window.onload = testTables;
+    </script>
+</body>
+</html>

@@ -428,7 +428,7 @@ export function Friends() {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto ml-64">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="bg-white rounded-lg shadow-sm">
             {/* Header */}
@@ -476,14 +476,14 @@ export function Friends() {
             <div className="p-6">
               {/* Friend Requests */}
               {requests.length > 0 && (
-                <div className="mb-8">
+                <div className="mb-8 relative z-10">
                   <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                     <UserPlus className="h-5 w-5 text-orange-500 mr-2" />
                     Запити на дружбу ({requests.length})
                   </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {requests.map((request) => (
-                      <div key={request.id} className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                      <div key={request.id} className="bg-orange-50 border border-orange-200 rounded-lg p-4 relative z-20 shadow-sm">
                         <div className="flex items-center space-x-3">
                           <div className="flex-shrink-0">
                             <img

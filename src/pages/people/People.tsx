@@ -276,20 +276,22 @@ export function People() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
       <Sidebar />
       <div className="flex-1 overflow-y-auto lg:ml-64">
         <div className="max-w-7xl mx-auto p-6">
           <ErrorNotification />
           
           {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Користувачі
-            </h1>
-            <p className="text-gray-600">
-              Знайдіть нових друзів та знайомих
-            </p>
+          <div className="mb-8">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-3">
+                Користувачі
+              </h1>
+              <p className="text-gray-600 text-lg">
+                Знайдіть нових друзів та знайомих 👥
+              </p>
+            </div>
           </div>
 
           {/* Filters */}
@@ -307,35 +309,42 @@ export function People() {
           />
 
           {/* Users Grid/List */}
-          <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4' : 'space-y-4'}>
-            {filteredUsers.map((user) => (
-              <UserCard
+          <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6' : 'space-y-4'}>
+            {filteredUsers.map((user, index) => (
+              <div
                 key={user.id}
-                user={user}
-                currentUserId={currentUser}
-                friendRequests={friendRequests}
-                onAddFriend={addFriend}
-                onAcceptFriendRequest={(requestId) => handleFriendRequest(requestId, 'accept')}
-                onRejectFriendRequest={(requestId) => handleFriendRequest(requestId, 'reject')}
-                onRemoveFriend={removeFriend}
-              />
+                className="animate-fadeIn"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <UserCard
+                  user={user}
+                  currentUserId={currentUser}
+                  friendRequests={friendRequests}
+                  onAddFriend={addFriend}
+                  onAcceptFriendRequest={(requestId) => handleFriendRequest(requestId, 'accept')}
+                  onRejectFriendRequest={(requestId) => handleFriendRequest(requestId, 'reject')}
+                  onRemoveFriend={removeFriend}
+                />
+              </div>
             ))}
           </div>
 
           {/* Empty State */}
           {filteredUsers.length === 0 && !loading && (
-            <div className="text-center py-12">
-              <div className="text-gray-400 mb-4">
-                <div className="w-16 h-16 bg-gray-200 rounded-full mx-auto flex items-center justify-center">
-                  <span className="text-2xl">👥</span>
+            <div className="text-center py-16">
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/20 max-w-md mx-auto">
+                <div className="text-gray-400 mb-6">
+                  <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full mx-auto flex items-center justify-center shadow-lg">
+                    <span className="text-3xl">👥</span>
+                  </div>
                 </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                  Користувачів не знайдено
+                </h3>
+                <p className="text-gray-600">
+                  Спробуйте змінити фільтри або пошуковий запит
+                </p>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Користувачів не знайдено
-              </h3>
-              <p className="text-gray-500">
-                Спробуйте змінити фільтри або пошуковий запит
-              </p>
             </div>
           )}
         </div>
