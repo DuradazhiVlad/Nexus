@@ -864,11 +864,26 @@ export function GroupDetail() {
             </>
           ) : (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
-              {isPrivateGroup ? (
-                <p className="text-gray-500">Це приватна група. Приєднайтесь до групи, щоб переглядати її вміст.</p>
-              ) : (
-                <p className="text-gray-500">Завантаження вмісту групи...</p>
-              )}
+              <div className="py-8">
+                <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Lock size={32} className="text-blue-500" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                  {isPrivateGroup ? "Приватна група" : "Доступ обмежено"}
+                </h3>
+                <p className="text-gray-600 max-w-md mx-auto mb-4">
+                  {isPrivateGroup 
+                    ? "Це приватна група з обмеженим доступом. Щоб переглядати вміст та публікації, вам потрібно стати учасником групи." 
+                    : "Для перегляду вмісту цієї групи необхідно бути її учасником."}
+                </p>
+                <button
+                  onClick={joinGroup}
+                  className="mt-4 flex items-center px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mx-auto transition-all duration-200 shadow-sm"
+                >
+                  <UserPlus size={18} className="mr-2" />
+                  Приєднатися до групи
+                </button>
+              </div>
             </div>
           )}
         </div>
