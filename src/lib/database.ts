@@ -616,7 +616,8 @@ export class DatabaseService {
       const { data: existingRequests, error: checkError } = await supabase
         .from('friend_requests')
         .select('*')
-        .or(`and(user_id.eq.${userProfile.id},friend_id.eq.${receiverId}),and(user_id.eq.${receiverId},friend_id.eq.${userProfile.id})`);
+        .or(`user_id.eq.${userProfile.id},user_id.eq.${receiverId}`)
+        .or(`friend_id.eq.${receiverId},friend_id.eq.${userProfile.id}`);
         
       if (checkError) {
         console.error('❌ Error checking existing requests:', checkError);
@@ -638,7 +639,8 @@ export class DatabaseService {
       const { data: existingFriendship, error: friendshipError } = await supabase
         .from('friendships')
         .select('*')
-        .or(`and(user1_id.eq.${userProfile.id},user2_id.eq.${receiverId}),and(user1_id.eq.${receiverId},user2_id.eq.${userProfile.id})`);
+        .or(`user1_id.eq.${userProfile.id},user1_id.eq.${receiverId}`)
+        .or(`user2_id.eq.${receiverId},user2_id.eq.${userProfile.id}`);
         
       if (friendshipError) {
         console.error('❌ Error checking existing friendship:', friendshipError);

@@ -58,6 +58,11 @@ export class GroupsService {
     description: string;
     privacy: 'public' | 'private';
     avatar?: string;
+    category?: string;
+    location?: string;
+    website?: string;
+    contactemail?: string;
+    rules?: string[];
   }): Promise<Group | null> {
     try {
       const currentUser = await DatabaseService.getCurrentUserProfile();
@@ -71,6 +76,15 @@ export class GroupsService {
           is_public: groupData.privacy === 'public',
           avatar: groupData.avatar,
           created_by: currentUser.id,
+          category: groupData.category || '',
+          location: groupData.location || '',
+          website: groupData.website || '',
+          contactemail: groupData.contactemail || '',
+          rules: groupData.rules || [],
+          member_count: 1,
+          post_count: 0,
+          is_active: true,
+          last_activity: new Date().toISOString()
         }])
         .select()
         .single();
@@ -84,6 +98,7 @@ export class GroupsService {
           group_id: group.id,
           user_id: currentUser.id,
           role: 'admin',
+          joined_at: new Date().toISOString()
         }]);
 
       if (memberError) throw memberError;
@@ -100,16 +115,52 @@ export class GroupsService {
     try {
       const currentUser = await DatabaseService.getCurrentUserProfile();
       if (!currentUser) return false;
-
+      
+      // Перевіряємо, чи користувач вже є учасником групи
+      const { data: existingMember, error: checkError } = await supabase
+        .from('group_members')
+        .select('id')
+        .eq('group_id', groupId)
+        .eq('user_id', currentUser.id)
+        .single();
+      
+      if (checkError && checkError.code !== 'PGRST116') throw checkError;
+      
+      // Якщо користувач вже є учасником, повертаємо true
+      if (existingMember) return true;
+      
+      // Перевіряємо, чи група існує і чи вона публічна або приватна
+      const { data: group, error: groupError } = await supabase
+        .from('groups')
+        .select('is_public')
+        .eq('id', groupId)
+        .single();
+      
+      if (groupError) throw groupError;
+      
+      // Додаємо користувача як учасника групи
       const { error } = await supabase
         .from('group_members')
         .insert([{
           group_id: groupId,
           user_id: currentUser.id,
           role: 'member',
+          joined_at: new Date().toISOString()
         }]);
 
       if (error) throw error;
+      
+      // Оновлюємо кількість учасників групи
+      const { error: updateError } = await supabase
+        .from('groups')
+        .update({ 
+          member_count: supabase.rpc('increment', { row_id: groupId, table_name: 'groups', column_name: 'member_count' }),
+          last_activity: new Date().toISOString()
+        })
+        .eq('id', groupId);
+      
+      if (updateError) console.error('Error updating group member count:', updateError);
+      
       return true;
     } catch (error) {
       console.error('Error joining group:', error);
@@ -186,6 +237,38 @@ export class GroupsService {
     } catch (error) {
       console.error('Error checking group membership:', error);
       return { isMember: false };
+    }
+  }
+  
+  // Check if user can access group content
+  static async canAccessGroupContent(groupId: string): Promise<{ canAccess: boolean; isPrivate: boolean; isMember: boolean }> {
+    try {
+      // Перевіряємо, чи група існує і чи вона публічна або приватна
+      const { data: group, error: groupError } = await supabase
+        .from('groups')
+        .select('is_public')
+        .eq('id', groupId)
+        .single();
+      
+      if (groupError) throw groupError;
+      
+      const isPrivate = !group.is_public;
+      
+      // Якщо група публічна, користувач може переглядати контент без приєднання
+      if (!isPrivate) {
+        // Перевіряємо, чи користувач є учасником публічної групи
+        const { isMember } = await this.isGroupMember(groupId);
+        return { canAccess: true, isPrivate, isMember };
+      }
+      
+      // Якщо група приватна, перевіряємо, чи користувач є учасником
+      const { isMember } = await this.isGroupMember(groupId);
+      
+      // Користувач може переглядати контент приватної групи, тільки якщо він є учасником
+      return { canAccess: isMember, isPrivate, isMember };
+    } catch (error) {
+      console.error('Error checking group access:', error);
+      return { canAccess: false, isPrivate: true, isMember: false };
     }
   }
 
@@ -335,6 +418,45 @@ export class GroupsService {
     } catch (error) {
       console.error('Error deleting group:', error);
       return false;
+    }
+  }
+
+  // Check if user can access group content
+  static async canAccessGroupContent(groupId: string): Promise<{ canAccess: boolean; isPrivate: boolean; isMember: boolean }> {
+    try {
+      const currentUser = await DatabaseService.getCurrentUserProfile();
+      if (!currentUser) return { canAccess: false, isPrivate: false, isMember: false };
+
+      // Перевіряємо, чи група існує і чи вона публічна або приватна
+      const { data: group, error: groupError } = await supabase
+        .from('groups')
+        .select('is_public')
+        .eq('id', groupId)
+        .single();
+      
+      if (groupError) {
+        console.error('Error checking group:', groupError);
+        return { canAccess: false, isPrivate: false, isMember: false };
+      }
+      
+      // Перевіряємо, чи користувач є учасником групи
+      const { data: membership, error: membershipError } = await supabase
+        .from('group_members')
+        .select('id')
+        .eq('group_id', groupId)
+        .eq('user_id', currentUser.id)
+        .single();
+      
+      const isMember = !!membership;
+      const isPrivate = !group.is_public;
+      
+      // Якщо група публічна або користувач є учасником, надаємо доступ
+      const canAccess = !isPrivate || isMember;
+      
+      return { canAccess, isPrivate, isMember };
+    } catch (error) {
+      console.error('Error checking group access:', error);
+      return { canAccess: false, isPrivate: false, isMember: false };
     }
   }
 }

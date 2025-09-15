@@ -1,7 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
 import type { ChangeEvent } from 'react';
-import { Camera, X, AlertCircle, CheckCircle, Upload } from 'lucide-react';
+import { Camera, X, AlertCircle, CheckCircle, Upload, Crop } from 'lucide-react';
 import { MediaService } from '../lib/mediaService';
+import { ImageCropper } from './ImageCropper';
 
 interface ProfileImageUploadProps {
   currentAvatar?: string;
@@ -19,12 +20,13 @@ export const ProfileImageUpload = ({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [showCropper, setShowCropper] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
   const fileInputRef = useRef(null);
 
   const handleFileSelect = useCallback(async (file: File) => {
     try {
       setError(null);
-      setUploading(true);
 
       // Перевіряємо тип файлу
       if (!file.type.startsWith('image/')) {
@@ -36,32 +38,20 @@ export const ProfileImageUpload = ({
         throw new Error('Розмір файлу не може перевищувати 5MB');
       }
 
-      // Створюємо прев'ю
+      // Створюємо прев'ю та показуємо кропер
       const reader = new FileReader();
       reader.onload = (e) => {
         setPreviewUrl(e.target?.result as string);
+        setSelectedFile(file);
+        setShowCropper(true);
       };
       reader.readAsDataURL(file);
-
-      console.log('🔍 Uploading profile image:', {
-        name: file.name,
-        size: file.size,
-        type: file.type
-      });
-
-      // Завантажуємо файл
-      const avatarUrl = await MediaService.uploadProfileImage(file);
-      
-      console.log('✅ Profile image uploaded successfully:', avatarUrl);
-      onUpload(avatarUrl);
       
     } catch (err: any) {
       console.error('❌ Profile image upload error:', err instanceof Error ? err.message : String(err));
       setError(err.message || 'Помилка завантаження зображення');
-    } finally {
-      setUploading(false);
     }
-  }, [onUpload]);
+  }, []);
 
   const handleFileInputChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -77,8 +67,40 @@ export const ProfileImageUpload = ({
   const handleCancel = useCallback(() => {
     setPreviewUrl(null);
     setError(null);
+    setShowCropper(false);
+    setSelectedFile(null);
     onCancel?.();
   }, [onCancel]);
+  
+  const handleCrop = useCallback(async (croppedImageBlob: Blob) => {
+    try {
+      setUploading(true);
+      setShowCropper(false);
+      
+      // Створюємо файл з обрізаного зображення
+      const croppedFile = new File([croppedImageBlob], selectedFile?.name || 'cropped-image.jpg', {
+        type: croppedImageBlob.type
+      });
+      
+      console.log('🔍 Uploading cropped profile image:', {
+        name: croppedFile.name,
+        size: croppedFile.size,
+        type: croppedFile.type
+      });
+
+      // Завантажуємо файл
+      const avatarUrl = await MediaService.uploadProfileImage(croppedFile);
+      
+      console.log('✅ Profile image uploaded successfully:', avatarUrl);
+      onUpload(avatarUrl);
+      
+    } catch (err: any) {
+      console.error('❌ Profile image upload error:', err instanceof Error ? err.message : String(err));
+      setError(err.message || 'Помилка завантаження зображення');
+    } finally {
+      setUploading(false);
+    }
+  }, [selectedFile, onUpload]);
 
   const getInitials = (name?: string, lastname?: string) => {
     const first = name ? name[0].toUpperCase() : '';
@@ -96,6 +118,32 @@ export const ProfileImageUpload = ({
         onChange={handleFileInputChange}
         className="hidden"
       />
+      
+      {/* Компонент для обрізки зображення */}
+      {showCropper && previewUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg overflow-hidden max-w-lg w-full">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="font-semibold text-lg">Обрізати зображення</h3>
+              <button 
+                onClick={() => setShowCropper(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-4">
+              <ImageCropper
+                imageUrl={previewUrl}
+                onCrop={handleCrop}
+                onCancel={() => setShowCropper(false)}
+                aspectRatio={1}
+                cropSize={{ width: 300, height: 300 }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Помилка */}
       {error && (

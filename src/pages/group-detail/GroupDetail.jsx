@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
+import { GroupsService } from '../../lib/groupsService';
 import { 
   ArrowLeft, 
   Users, 
@@ -41,6 +42,9 @@ export function GroupDetail() {
   const [editDescription, setEditDescription] = useState('');
   const [editAvatar, setEditAvatar] = useState(null);
   const [saving, setSaving] = useState(false);
+  // Додаємо стейт для перевірки доступу до групи
+  const [canAccessContent, setCanAccessContent] = useState(false);
+  const [isPrivateGroup, setIsPrivateGroup] = useState(false);
 
   useEffect(() => {
     fetchCurrentUser();
@@ -49,11 +53,16 @@ export function GroupDetail() {
   useEffect(() => {
     if (currentUser && groupId) {
       fetchGroupDetails();
-      fetchGroupPosts();
-      fetchGroupMembers();
       checkUserMembership();
     }
   }, [currentUser, groupId]);
+  
+  useEffect(() => {
+    if (group) {
+      fetchGroupMembers();
+      checkGroupAccess();
+    }
+  }, [group]);
 
   const fetchCurrentUser = async () => {
     try {
@@ -92,11 +101,18 @@ export function GroupDetail() {
         .eq('id', groupId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching group details:', error);
+        navigate('/groups');
+        return;
+      }
+
       setGroup(data);
+      setIsPrivateGroup(data.is_private);
+      setEditDescription(data.description || '');
+      fetchGroupPosts();
     } catch (error) {
       console.error('Error fetching group details:', error);
-      navigate('/groups');
     } finally {
       setLoading(false);
     }
@@ -108,14 +124,32 @@ export function GroupDetail() {
         .from('group_posts')
         .select(`
           *,
-          author:user_profiles!group_posts_author_id_fkey(name, last_name, avatar),
-          media:group_post_media(*)
+          author:user_profiles(*)
         `)
         .eq('group_id', groupId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setPosts(data || []);
+      if (error) {
+        console.error('Error fetching group posts:', error);
+        return;
+      }
+
+      // Fetch media for each post
+      const postsWithMedia = await Promise.all(data.map(async (post) => {
+        const { data: media, error: mediaError } = await supabase
+          .from('post_media')
+          .select('*')
+          .eq('post_id', post.id);
+
+        if (mediaError) {
+          console.error('Error fetching post media:', mediaError);
+          return { ...post, media: [] };
+        }
+
+        return { ...post, media };
+      }));
+
+      setPosts(postsWithMedia);
     } catch (error) {
       console.error('Error fetching group posts:', error);
     }
@@ -127,13 +161,16 @@ export function GroupDetail() {
         .from('group_members')
         .select(`
           *,
-          user:user_profiles!group_members_user_id_fkey(name, last_name, avatar)
+          user:user_profiles(*)
         `)
-        .eq('group_id', groupId)
-        .order('joined_at', { ascending: false });
+        .eq('group_id', groupId);
 
-      if (error) throw error;
-      setMembers(data || []);
+      if (error) {
+        console.error('Error fetching group members:', error);
+        return;
+      }
+
+      setMembers(data);
     } catch (error) {
       console.error('Error fetching group members:', error);
     }
@@ -141,8 +178,6 @@ export function GroupDetail() {
 
   const checkUserMembership = async () => {
     try {
-      if (!currentUser) return;
-
       const { data, error } = await supabase
         .from('group_members')
         .select('*')
@@ -150,183 +185,217 @@ export function GroupDetail() {
         .eq('user_id', currentUser.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
-      setUserMembership(data);
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking user membership:', error);
+        return;
+      }
+
+      setUserMembership(data || null);
     } catch (error) {
       console.error('Error checking user membership:', error);
     }
   };
 
+  const checkGroupAccess = async () => {
+    try {
+      const groupsService = new GroupsService();
+      const { canAccess, isMember } = await groupsService.canAccessGroupContent(groupId, currentUser?.id);
+      
+      setCanAccessContent(canAccess);
+    } catch (error) {
+      console.error('Error checking group access:', error);
+    }
+  };
+
   const joinGroup = async () => {
     try {
-      if (!currentUser) return;
-
-      const { error } = await supabase
-        .from('group_members')
-        .insert([{
+      const groupsService = new GroupsService();
+      const result = await groupsService.joinGroup(groupId, currentUser.id);
+      
+      if (result.success) {
+        // Update local state
+        const newMembership = {
+          id: result.data.id,
           group_id: groupId,
           user_id: currentUser.id,
-          role: 'member'
-        }]);
-
-      if (error) throw error;
-
-      checkUserMembership();
-      fetchGroupMembers();
-      alert('Ви успішно приєдналися до групи!');
+          role: 'member',
+          joined_at: new Date().toISOString(),
+          user: currentUser
+        };
+        
+        setUserMembership(newMembership);
+        setMembers([...members, newMembership]);
+        setCanAccessContent(true);
+        
+        // Update group member count
+        if (group) {
+          setGroup({
+            ...group,
+            member_count: (group.member_count || 0) + 1
+          });
+        }
+      }
     } catch (error) {
       console.error('Error joining group:', error);
-      alert('Помилка при приєднанні до групи');
     }
   };
 
   const leaveGroup = async () => {
+    if (!window.confirm('Ви впевнені, що хочете покинути цю групу?')) {
+      return;
+    }
+    
     try {
-      if (!currentUser || !userMembership) return;
-
-      if (userMembership.role === 'admin') {
-        alert('Адміністратор не може покинути групу');
-        return;
+      const groupsService = new GroupsService();
+      const result = await groupsService.leaveGroup(groupId, currentUser.id);
+      
+      if (result.success) {
+        // Update local state
+        setUserMembership(null);
+        setMembers(members.filter(m => m.user_id !== currentUser.id));
+        
+        // Update group member count
+        if (group) {
+          setGroup({
+            ...group,
+            member_count: Math.max((group.member_count || 0) - 1, 0)
+          });
+        }
+        
+        // If private group, redirect to groups page
+        if (group.is_private) {
+          setCanAccessContent(false);
+        }
       }
-
-      const { error } = await supabase
-        .from('group_members')
-        .delete()
-        .eq('group_id', groupId)
-        .eq('user_id', currentUser.id);
-
-      if (error) throw error;
-
-      setUserMembership(null);
-      fetchGroupMembers();
-      alert('Ви покинули групу');
     } catch (error) {
       console.error('Error leaving group:', error);
-      alert('Помилка при виході з групи');
     }
-  };
-
-  const handleMediaSelect = (e) => {
-    const files = Array.from(e.target.files);
-    setSelectedMedia(files);
-  };
-
-  const removeMedia = (index) => {
-    setSelectedMedia(prev => prev.filter((_, i) => i !== index));
   };
 
   const createPost = async (e) => {
     e.preventDefault();
-    if (!currentUser || !userMembership || (!newPost.trim() && selectedMedia.length === 0)) {
-      alert('Ви не є членом цієї групи або не авторизовані.');
+    
+    if ((!newPost.trim() && selectedMedia.length === 0) || posting) {
       return;
     }
-
+    
+    setPosting(true);
+    
     try {
-      setPosting(true);
-
-      // Перевірка: чи є currentUser у таблиці users
-      if (!currentUser.id) {
-        alert('Ваш профіль не знайдено. Спробуйте перелогінитися або зверніться до підтримки.');
-        setPosting(false);
-        return;
-      }
-
-      // Створюємо пост
+      // Create post
       const { data: postData, error: postError } = await supabase
         .from('group_posts')
-        .insert([
-          {
-            group_id: groupId,
-            author_id: currentUser.id, // user_profiles.id
-            content: newPost.trim(),
-          },
-        ])
+        .insert({
+          group_id: groupId,
+          user_id: currentUser.id,
+          content: newPost.trim(),
+          created_at: new Date().toISOString()
+        })
         .select()
         .single();
 
       if (postError) {
-        // RLS або 403
-        if (postError.code === '42501' || postError.status === 403) {
-          alert('Ви не є членом цієї групи або у вас немає прав на створення поста.');
-        } else {
-          alert('Помилка при створенні поста: ' + (postError.message || postError.details || ''));
-        }
-        throw postError;
+        console.error('Error creating post:', postError);
+        return;
       }
 
-      // Завантажуємо медіа якщо є
+      // Upload media if any
+      const mediaItems = [];
+      
       if (selectedMedia.length > 0) {
         for (const file of selectedMedia) {
           const fileExt = file.name.split('.').pop();
           const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
           const filePath = `group-posts/${groupId}/${fileName}`;
-          const fileType = file.type.startsWith('video/') ? 'video' : 'image';
-
+          
           const { error: uploadError } = await supabase.storage
             .from('media')
             .upload(filePath, file);
 
-          if (uploadError) throw uploadError;
+          if (uploadError) {
+            console.error('Error uploading media:', uploadError);
+            continue;
+          }
 
           const { data: { publicUrl } } = supabase.storage
             .from('media')
             .getPublicUrl(filePath);
 
-          await supabase
-            .from('group_post_media')
-            .insert([
-              {
-                post_id: postData.id,
-                type: fileType,
-                url: publicUrl,
-                filename: file.name,
-                file_size: file.size,
-              },
-            ]);
+          const mediaType = file.type.startsWith('image/') ? 'image' : 'video';
+          
+          const { data: mediaData, error: mediaError } = await supabase
+            .from('post_media')
+            .insert({
+              post_id: postData.id,
+              url: publicUrl,
+              type: mediaType,
+              created_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+          if (mediaError) {
+            console.error('Error saving media record:', mediaError);
+            continue;
+          }
+
+          mediaItems.push(mediaData);
         }
       }
 
+      // Add the new post to the posts list
+      const newPostWithDetails = {
+        ...postData,
+        author: currentUser,
+        media: mediaItems
+      };
+
+      setPosts([newPostWithDetails, ...posts]);
       setNewPost('');
       setSelectedMedia([]);
-      fetchGroupPosts();
     } catch (error) {
-      // Додатковий захист: якщо це RLS або 403
-      if (error?.code === '42501' || error?.status === 403) {
-        alert('Ви не є членом цієї групи або у вас немає прав на створення поста.');
-      } else {
-        alert('Помилка при створенні поста: ' + (error.message || error.details || ''));
-      }
       console.error('Error creating post:', error);
     } finally {
       setPosting(false);
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('uk-UA', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getRoleLabel = (role) => {
-    switch (role) {
-      case 'admin': return 'Адміністратор';
-      case 'moderator': return 'Модератор';
-      default: return 'Учасник';
+  const handleMediaSelect = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      setSelectedMedia([...selectedMedia, ...files]);
     }
   };
 
+  const removeMedia = (index) => {
+    const updatedMedia = [...selectedMedia];
+    updatedMedia.splice(index, 1);
+    setSelectedMedia(updatedMedia);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    
+    const date = new Date(dateString);
+    return date.toLocaleDateString('uk-UA', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
+  // Check if user is admin
+  const isAdmin = userMembership?.role === 'admin';
+  
+  // Check if user is member
+  const isMember = !!userMembership;
+
   if (loading) {
     return (
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
-        <div className="flex-1 lg:ml-64 p-8">
-          <div className="text-center">Завантаження...</div>
+        <div className="flex-1 p-8 flex items-center justify-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
         </div>
       </div>
     );
@@ -334,32 +403,39 @@ export function GroupDetail() {
 
   if (!group) {
     return (
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
-        <div className="flex-1 lg:ml-64 p-8">
-          <div className="text-center">Група не знайдена</div>
+        <div className="flex-1 p-8">
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Групу не знайдено</h2>
+            <p className="text-gray-600 mb-6">Групу, яку ви шукаєте, не існує або була видалена.</p>
+            <button
+              onClick={() => navigate('/groups')}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mx-auto"
+            >
+              <ArrowLeft size={18} className="mr-2" />
+              Повернутися до списку груп
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  const isMember = !!userMembership;
-  const isAdmin = userMembership?.role === 'admin';
-
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 lg:ml-64">
+      <div className="flex-1">
         {/* Header */}
         <div className="bg-white border-b border-gray-200">
           <div className="max-w-6xl mx-auto px-8 py-6">
             <div className="flex items-center justify-between">
-              <div className="flex items-center">
+              <div className="flex items-center space-x-4">
                 <button
                   onClick={() => navigate('/groups')}
-                  className="mr-4 p-2 hover:bg-gray-100 rounded-lg"
+                  className="p-2 hover:bg-gray-100 rounded-full"
                 >
-                  <ArrowLeft size={20} />
+                  <ArrowLeft size={20} className="text-gray-600" />
                 </button>
                 <div className="flex items-center">
                   <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mr-4">
@@ -432,7 +508,7 @@ export function GroupDetail() {
 
         {/* Content */}
         <div className="max-w-6xl mx-auto px-8 py-6">
-          {isMember ? (
+          {canAccessContent ? (
             <>
               {/* Tabs */}
               <div className="mb-6">
@@ -469,92 +545,94 @@ export function GroupDetail() {
               {activeTab === 'posts' && (
                 <div className="space-y-6">
                   {/* Create Post */}
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <form onSubmit={createPost}>
-                      <div className="flex items-start space-x-3">
-                        <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                          {currentUser?.avatar ? (
-                            <img
-                              src={currentUser.avatar}
-                              alt={currentUser.name}
-                              className="w-full h-full rounded-full object-cover"
+                  {isMember && (
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                      <form onSubmit={createPost}>
+                        <div className="flex items-start space-x-3">
+                          <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                            {currentUser?.avatar ? (
+                              <img
+                                src={currentUser.avatar}
+                                alt={currentUser.name}
+                                className="w-full h-full rounded-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-sm text-gray-600">
+                                {currentUser?.name?.[0]?.toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <textarea
+                              value={newPost}
+                              onChange={(e) => setNewPost(e.target.value)}
+                              placeholder="Поділіться чимось з групою..."
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                              rows={3}
                             />
-                          ) : (
-                            <span className="text-sm text-gray-600">
-                              {currentUser?.name?.[0]?.toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <textarea
-                            value={newPost}
-                            onChange={(e) => setNewPost(e.target.value)}
-                            placeholder="Поділіться чимось з групою..."
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                            rows={3}
-                          />
-                          
-                          {/* Selected Media Preview */}
-                          {selectedMedia.length > 0 && (
-                            <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
-                              {selectedMedia.map((file, index) => (
-                                <div key={index} className="relative">
-                                  <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                                    {file.type.startsWith('image/') ? (
-                                      <img
-                                        src={URL.createObjectURL(file)}
-                                        alt=""
-                                        className="w-full h-full object-cover"
-                                      />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center">
-                                        <Video size={24} className="text-gray-400" />
-                                      </div>
-                                    )}
+                            
+                            {/* Selected Media Preview */}
+                            {selectedMedia.length > 0 && (
+                              <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                                {selectedMedia.map((file, index) => (
+                                  <div key={index} className="relative">
+                                    <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                                      {file.type.startsWith('image/') ? (
+                                        <img
+                                          src={URL.createObjectURL(file)}
+                                          alt=""
+                                          className="w-full h-full object-cover"
+                                        />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                          <Video size={24} className="text-gray-400" />
+                                        </div>
+                                      )}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeMedia(index)}
+                                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center"
+                                    >
+                                      <X size={12} />
+                                    </button>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => removeMedia(index)}
-                                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center"
-                                  >
-                                    <X size={12} />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                                ))}
+                              </div>
+                            )}
 
-                          <div className="flex items-center justify-between mt-3">
-                            <div className="flex items-center space-x-2">
-                              <label className="flex items-center px-3 py-1 text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">
-                                <ImageIcon size={18} className="mr-1" />
-                                <span className="text-sm">Фото/Відео</span>
-                                <input
-                                  type="file"
-                                  multiple
-                                  accept="image/*,video/*"
-                                  className="hidden"
-                                  onChange={handleMediaSelect}
-                                />
-                              </label>
+                            <div className="flex items-center justify-between mt-3">
+                              <div className="flex items-center space-x-2">
+                                <label className="flex items-center px-3 py-1 text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">
+                                  <ImageIcon size={18} className="mr-1" />
+                                  <span className="text-sm">Фото/Відео</span>
+                                  <input
+                                    type="file"
+                                    multiple
+                                    accept="image/*,video/*"
+                                    className="hidden"
+                                    onChange={handleMediaSelect}
+                                  />
+                                </label>
+                              </div>
+                              <button
+                                type="submit"
+                                disabled={posting || (!newPost.trim() && selectedMedia.length === 0)}
+                                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {posting ? (
+                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                ) : (
+                                  <Send size={16} className="mr-2" />
+                                )}
+                                {posting ? 'Публікація...' : 'Опублікувати'}
+                              </button>
                             </div>
-                            <button
-                              type="submit"
-                              disabled={posting || (!newPost.trim() && selectedMedia.length === 0)}
-                              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {posting ? (
-                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                              ) : (
-                                <Send size={16} className="mr-2" />
-                              )}
-                              {posting ? 'Публікація...' : 'Опублікувати'}
-                            </button>
                           </div>
                         </div>
-                      </div>
-                    </form>
-                  </div>
+                      </form>
+                    </div>
+                  )}
 
                   {/* Posts */}
                   {posts.length > 0 ? (
@@ -679,34 +757,23 @@ export function GroupDetail() {
                                   className="w-full h-full rounded-full object-cover"
                                 />
                               ) : (
-                                <span className="text-lg text-gray-600">
+                                <span className="text-sm text-gray-600">
                                   {member.user?.name?.[0]?.toUpperCase()}
                                 </span>
                               )}
                             </div>
-                            <div className="ml-4">
+                            <div className="ml-3">
                               <p className="font-medium text-gray-900">
                                 {member.user?.name} {member.user?.last_name}
                               </p>
-                              <div className="flex items-center text-sm text-gray-500">
-                                <span className={`px-2 py-1 rounded-full text-xs ${
-                                  member.role === 'admin' 
-                                    ? 'bg-red-100 text-red-800'
-                                    : member.role === 'moderator'
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {getRoleLabel(member.role)}
-                                </span>
-                                <span className="ml-2">
-                                  Приєднався {formatDate(member.joined_at)}
-                                </span>
-                              </div>
+                              <p className="text-sm text-gray-500">
+                                {member.role === 'admin' ? 'Адміністратор' : 'Учасник'} • Приєднався {formatDate(member.joined_at)}
+                              </p>
                             </div>
                           </div>
-                          {isAdmin && member.user?.id !== currentUser?.id && (
-                            <button className="text-gray-400 hover:text-gray-600">
-                              <MoreHorizontal size={16} />
+                          {isAdmin && member.user_id !== currentUser.id && (
+                            <button className="p-2 text-gray-500 hover:text-red-500">
+                              <UserMinus size={18} />
                             </button>
                           )}
                         </div>
@@ -796,23 +863,12 @@ export function GroupDetail() {
               )}
             </>
           ) : (
-            <div className="text-center py-12">
-              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Lock size={32} className="text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Приєднайтеся до групи
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Щоб переглядати пости та брати участь в обговореннях, приєднайтеся до групи
-              </p>
-              <button
-                onClick={joinGroup}
-                className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mx-auto"
-              >
-                <UserPlus size={18} className="mr-2" />
-                Приєднатися до групи
-              </button>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
+              {isPrivateGroup ? (
+                <p className="text-gray-500">Це приватна група. Приєднайтесь до групи, щоб переглядати її вміст.</p>
+              ) : (
+                <p className="text-gray-500">Завантаження вмісту групи...</p>
+              )}
             </div>
           )}
         </div>

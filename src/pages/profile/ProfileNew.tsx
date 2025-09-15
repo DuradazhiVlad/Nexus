@@ -1064,24 +1064,45 @@ export const ProfileNew = () => {
 
             {/* Statistics Summary */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="grid grid-cols-4 gap-4 text-center">
-                <div>
-                  <div className="text-2xl font-bold text-gray-900">245</div>
-                  <div className="text-sm text-gray-600">друзів</div>
+              {loadingFriends || loadingPhotos || loadingVideos || loadingPosts ? (
+                <div className="grid grid-cols-4 gap-4 text-center">
+                  <div>
+                    <div className="h-8 bg-gray-200 rounded w-16 mx-auto mb-2 animate-pulse"></div>
+                    <div className="h-4 bg-gray-200 rounded w-12 mx-auto animate-pulse"></div>
+                  </div>
+                  <div>
+                    <div className="h-8 bg-gray-200 rounded w-16 mx-auto mb-2 animate-pulse"></div>
+                    <div className="h-4 bg-gray-200 rounded w-12 mx-auto animate-pulse"></div>
+                  </div>
+                  <div>
+                    <div className="h-8 bg-gray-200 rounded w-16 mx-auto mb-2 animate-pulse"></div>
+                    <div className="h-4 bg-gray-200 rounded w-12 mx-auto animate-pulse"></div>
+                  </div>
+                  <div>
+                    <div className="h-8 bg-gray-200 rounded w-16 mx-auto mb-2 animate-pulse"></div>
+                    <div className="h-4 bg-gray-200 rounded w-12 mx-auto animate-pulse"></div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-2xl font-bold text-gray-900">89</div>
-                  <div className="text-sm text-gray-600">фото</div>
+              ) : (
+                <div className="grid grid-cols-4 gap-4 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-gray-900">{friends.length}</div>
+                    <div className="text-sm text-gray-600">друзів</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-gray-900">{photos.length}</div>
+                    <div className="text-sm text-gray-600">фото</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-gray-900">{videos.length}</div>
+                    <div className="text-sm text-gray-600">відео</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-gray-900">{userPosts.length}</div>
+                    <div className="text-sm text-gray-600">постів</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-2xl font-bold text-gray-900">12</div>
-                  <div className="text-sm text-gray-600">відео</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-gray-900">156</div>
-                  <div className="text-sm text-gray-600">постів</div>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Suggested Friends */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   X, 
   Plus, 
@@ -7,8 +7,11 @@ import {
   MapPin,
   Globe as WebsiteIcon,
   Mail,
-  FileText
+  FileText,
+  Camera,
+  Upload
 } from 'lucide-react';
+import { supabase } from '../../../lib/supabase';
 
 interface CreateGroupModalProps {
   isOpen: boolean;
@@ -22,6 +25,7 @@ interface CreateGroupModalProps {
     website: string;
     contactemail: string;
     rules: string[];
+    avatar?: File;
   }) => void;
   loading?: boolean;
 }
@@ -55,6 +59,10 @@ export function CreateGroupModal({ isOpen, onClose, onSubmit, loading = false }:
     rules: [] as string[],
     newRule: ''
   });
+  
+  const [avatar, setAvatar] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +80,8 @@ export function CreateGroupModal({ isOpen, onClose, onSubmit, loading = false }:
       location: formData.location.trim(),
       website: formData.website.trim(),
       contactemail: formData.contactemail.trim(),
-      rules: formData.rules
+      rules: formData.rules,
+      avatar: avatar || undefined
     });
 
     // Reset form
@@ -87,6 +96,8 @@ export function CreateGroupModal({ isOpen, onClose, onSubmit, loading = false }:
       rules: [],
       newRule: ''
     });
+    setAvatar(null);
+    setAvatarPreview(null);
   };
 
   const addRule = () => {
@@ -104,6 +115,40 @@ export function CreateGroupModal({ isOpen, onClose, onSubmit, loading = false }:
       ...formData,
       rules: formData.rules.filter((_, i) => i !== index)
     });
+  };
+  
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Перевірка розміру файлу (максимум 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Розмір файлу не повинен перевищувати 5MB');
+      return;
+    }
+    
+    // Перевірка типу файлу
+    if (!file.type.startsWith('image/')) {
+      alert('Можна завантажувати тільки зображення');
+      return;
+    }
+    
+    setAvatar(file);
+    
+    // Створюємо URL для превью
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setAvatarPreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+  
+  const removeAvatar = () => {
+    setAvatar(null);
+    setAvatarPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   if (!isOpen) return null;
@@ -124,6 +169,45 @@ export function CreateGroupModal({ isOpen, onClose, onSubmit, loading = false }:
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Avatar Upload */}
+          <div className="space-y-4 flex flex-col items-center mb-6">
+            <div className="relative">
+              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center">
+                {avatarPreview ? (
+                  <img
+                    src={avatarPreview}
+                    alt="Group avatar preview"
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <Camera className="h-8 w-8 text-gray-400" />
+                )}
+              </div>
+              
+              {avatarPreview && (
+                <button
+                  type="button"
+                  onClick={removeAvatar}
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              
+              <label className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-2 cursor-pointer hover:bg-blue-700 transition-colors">
+                <Upload className="w-4 h-4" />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
+              </label>
+            </div>
+            <p className="text-sm text-gray-500">Аватар групи</p>
+          </div>
+          
           {/* Basic Info */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900">Основна інформація</h3>
@@ -310,4 +394,4 @@ export function CreateGroupModal({ isOpen, onClose, onSubmit, loading = false }:
       </div>
     </div>
   );
-} 
+}

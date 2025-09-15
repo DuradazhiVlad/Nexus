@@ -107,8 +107,17 @@ export class PeopleService {
    */
   // Використовуємо DatabaseService для надсилання запитів на дружбу
   static async sendFriendRequest(friendId: string): Promise<boolean> {
-    const { DatabaseService } = await import('../../../lib/database');
-    return DatabaseService.sendFriendRequest(friendId);
+    try {
+      console.log('🔍 PeopleService: Sending friend request to:', friendId);
+      if (!friendId) {
+        throw new Error('ID користувача не вказано');
+      }
+      const { DatabaseService } = await import('../../../lib/database');
+      return await DatabaseService.sendFriendRequest(friendId);
+    } catch (error) {
+      console.error('❌ PeopleService: Error sending friend request:', error);
+      throw error;
+    }
   }
 
   /**

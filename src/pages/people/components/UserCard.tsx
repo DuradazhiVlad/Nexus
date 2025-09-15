@@ -78,8 +78,8 @@ export function UserCard({
   };
 
   const canSendMessage = (user: User) => {
-    const friendStatus = getFriendStatus(user.id);
-    return user.privacy?.profileVisibility === 'public' || friendStatus === 'friends';
+    // Дозволяємо відправляти повідомлення всім користувачам
+    return true;
   };
 
   const friendStatus = getFriendStatus(user.id);
@@ -154,27 +154,65 @@ export function UserCard({
           {/* Action Buttons */}
           <div className="space-y-2">
             {friendStatus === 'not_friends' && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  try {
-                    onAddFriend(user.id);
-                  } catch (error) {
-                    console.error('Error adding friend:', error);
-                    showError('Помилка додавання в друзі');
-                  }
-                }}
-                className="flex items-center justify-center px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full hover:from-blue-600 hover:to-purple-700 transition-all duration-200 text-sm font-medium w-full shadow-lg"
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Додати в друзі
-              </button>
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    try {
+                      onAddFriend(user.id);
+                    } catch (error) {
+                      console.error('Error adding friend:', error);
+                      showError('Помилка додавання в друзі');
+                    }
+                  }}
+                  className="flex items-center justify-center px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full hover:from-blue-600 hover:to-purple-700 transition-all duration-200 text-sm font-medium w-full shadow-lg"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Додати в друзі
+                </button>
+                {canSendMessage(user) && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      try {
+                        navigate(`/messages?user=${user.id}`);
+                      } catch (error) {
+                        console.error('Error navigating to messages:', error);
+                        showError('Помилка відкриття повідомлень');
+                      }
+                    }}
+                    className="flex items-center justify-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full hover:from-green-600 hover:to-emerald-700 transition-all duration-200 text-sm font-medium w-full shadow-lg"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    💬 Повідомлення
+                  </button>
+                )}
+              </>
             )}
             
             {friendStatus === 'sent' && (
-              <div className="flex items-center justify-center px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-full text-sm font-medium w-full">
-                <Check className="w-4 h-4 mr-2" />
-                Запит надіслано
+              <div className="flex flex-col space-y-2">
+                <div className="flex items-center justify-center px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-full text-sm font-medium w-full">
+                  <Check className="w-4 h-4 mr-2" />
+                  Запит надіслано
+                </div>
+                {canSendMessage(user) && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      try {
+                        navigate(`/messages?user=${user.id}`);
+                      } catch (error) {
+                        console.error('Error navigating to messages:', error);
+                        showError('Помилка відкриття повідомлень');
+                      }
+                    }}
+                    className="flex items-center justify-center px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full hover:from-green-600 hover:to-emerald-700 transition-all duration-200 text-sm font-medium w-full shadow-lg"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    💬 Повідомлення
+                  </button>
+                )}
               </div>
             )}
             
@@ -224,6 +262,23 @@ export function UserCard({
                   <UserX className="w-4 h-4 mr-2" />
                   Відхилити
                 </button>
+                {canSendMessage(user) && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      try {
+                        navigate(`/messages?user=${user.id}`);
+                      } catch (error) {
+                        console.error('Error navigating to messages:', error);
+                        showError('Помилка відкриття повідомлень');
+                      }
+                    }}
+                    className="flex items-center justify-center px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full hover:from-blue-600 hover:to-purple-700 transition-all duration-200 text-sm font-medium w-full shadow-lg"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    💬 Повідомлення
+                  </button>
+                )}
               </div>
             )}
             

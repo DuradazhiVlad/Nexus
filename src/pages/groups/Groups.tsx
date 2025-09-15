@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Sidebar } from '../../components/Sidebar';
 import { supabase } from '../../lib/supabase';
 import { DatabaseService } from '../../lib/database';
+import { CreateGroupModal } from './components/CreateGroupModal';
 import { 
   Search, 
   Plus, 
@@ -326,8 +327,17 @@ export function Groups() {
     setFilteredGroups(filtered);
   };
 
-  const createGroup = async (e: FormEvent) => {
-    e.preventDefault();
+  const createGroup = async (groupData: {
+    name: string;
+    description: string;
+    is_private: boolean;
+    category: string;
+    location: string;
+    website: string;
+    contactemail: string;
+    rules: string[];
+    avatar?: File;
+  }) => {
     
     if (!currentUser) {
       addNotification({
@@ -338,7 +348,7 @@ export function Groups() {
       return;
     }
 
-    if (!createForm.name.trim()) {
+    if (!groupData.name.trim()) {
       addNotification({
         type: 'warning',
         title: 'Невірні дані',
@@ -350,24 +360,56 @@ export function Groups() {
     try {
       setCreating(true);
 
-      const { data: groupData, error: groupError } = await supabase
+      // Створюємо запис групи
+      const { data: newGroupData, error: groupError } = await supabase
         .from('groups')
         .insert([{
-          name: createForm.name.trim(),
-          description: createForm.description.trim(),
-          is_public: !createForm.is_private,
+          name: groupData.name.trim(),
+          description: groupData.description.trim(),
+          is_public: !groupData.is_private,
           created_by: currentUser.id,
+          category: groupData.category,
+          location: groupData.location,
+          website: groupData.website,
+          contact_email: groupData.contactemail,
+          rules: groupData.rules.length > 0 ? groupData.rules : null
         }])
         .select()
         .single();
 
       if (groupError) throw groupError;
+      
+      // Завантажуємо аватар, якщо він є
+      if (groupData.avatar) {
+        const fileExt = groupData.avatar.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `group-avatars/${newGroupData.id}/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('media')
+          .upload(filePath, groupData.avatar);
+          
+        if (uploadError) {
+          console.error('Error uploading avatar:', uploadError);
+          // Продовжуємо створення групи навіть якщо аватар не завантажився
+        } else {
+          // Оновлюємо запис групи з посиланням на аватар
+          const { error: updateError } = await supabase
+            .from('groups')
+            .update({ avatar: filePath })
+            .eq('id', newGroupData.id);
+            
+          if (updateError) {
+            console.error('Error updating group with avatar:', updateError);
+          }
+        }
+      }
 
       // Додаємо створювача як адміністратора
       const { error: memberError } = await supabase
         .from('group_members')
         .insert([{
-          group_id: groupData.id,
+          group_id: newGroupData.id,
           user_id: currentUser.id,
           role: 'admin'
         }]);
@@ -1048,190 +1090,15 @@ export function Groups() {
 
         {/* Create Group Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-900">Створити нову групу</h2>
-                <button
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    resetCreateForm();
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X size={24} />
-                </button>
-              </div>
-
-              <form onSubmit={createGroup} className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Назва групи *
-                    </label>
-                    <input
-                      type="text"
-                      value={createForm.name}
-                      onChange={(e) => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Введіть назву групи"
-                      required
-                      maxLength={100}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Категорія
-                    </label>
-                    <select
-                      value={createForm.category}
-                      onChange={(e) => setCreateForm(prev => ({ ...prev, category: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Оберіть категорію</option>
-                      {categories.map(category => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Опис групи
-                  </label>
-                  <textarea
-                    value={createForm.description}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, description: e.target.value }))}
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                    placeholder="Розкажіть про вашу групу"
-                    maxLength={500}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">{createForm.description.length}/500</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Локація
-                    </label>
-                    <input
-                      type="text"
-                      value={createForm.location}
-                      onChange={(e) => setCreateForm(prev => ({ ...prev, location: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Місто, країна"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Веб-сайт
-                    </label>
-                    <input
-                      type="url"
-                      value={createForm.website}
-                      onChange={(e) => setCreateForm(prev => ({ ...prev, website: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="https://example.com"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email для зв'язку
-                  </label>
-                  <input
-                    type="email"
-                    value={createForm.contactemail}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, contactemail: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="contact@example.com"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Правила групи
-                  </label>
-                  <div className="space-y-2">
-                    {createForm.rules.map((rule, index) => (
-                      <div key={index} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg">
-                        <span className="text-sm text-gray-700">{rule}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeRule(rule)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ))}
-                    <div className="flex space-x-2">
-                      <input
-                        type="text"
-                        value={createForm.newRule}
-                        onChange={(e) => setCreateForm(prev => ({ ...prev, newRule: e.target.value }))}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            addRule();
-                          }
-                        }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Додати правило"
-                      />
-                      <button
-                        type="button"
-                        onClick={addRule}
-                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                      >
-                        Додати
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={createForm.is_private}
-                      onChange={(e) => setCreateForm(prev => ({ ...prev, is_private: e.target.checked }))}
-                      className="rounded border-gray-300 text-blue-600"
-                    />
-                    <span className="text-sm font-medium text-gray-700">Приватна група</span>
-                  </label>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Приватні групи видимі тільки учасникам
-                  </p>
-                </div>
-
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      resetCreateForm();
-                    }}
-                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
-                  >
-                    Скасувати
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={creating || !createForm.name.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {creating ? 'Створення...' : 'Створити групу'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+          <CreateGroupModal
+            isOpen={showCreateModal}
+            onClose={() => {
+              setShowCreateModal(false);
+              resetCreateForm();
+            }}
+            onSubmit={createGroup}
+            loading={creating}
+          />
         )}
       </div>
     </div>
