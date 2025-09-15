@@ -14,7 +14,7 @@
     "deploy:force": "npm run build && gh-pages -d dist --force"
   },
   "dependencies": {
-    "@headlessui/react": "^2.2.4",
+    "@headlessui/react": "^2.2.8",
     "@supabase/supabase-js": "^2.39.7",
     "dotenv": "^17.2.2",
     "lucide-react": "^0.344.0",
