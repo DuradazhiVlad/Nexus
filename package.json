@@ -14,7 +14,7 @@
     "deploy:force": "npm run build && gh-pages -d dist --force"
   },
   "dependencies": {
-    "@headlessui/react": "^2.2.4",
+    "@headlessui/react": "^2.2.9",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-select": "^2.2.6",
