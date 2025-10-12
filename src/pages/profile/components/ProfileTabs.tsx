@@ -1,57 +1,14 @@
 import React, { useState } from 'react';
 import { MessageSquare, Image, Video, Users, Calendar } from 'lucide-react';
-import { CreatePostForm } from './CreatePostForm';
-import { PostsSection } from './PostsSection';
+import { ProfilePostsDisplaySection } from './ProfilePostsDisplaySection';
+import { useProfileEdit } from '../context/ProfileEditContext';
 
-interface ProfileTabsProps {
-  profile: any;
-  postContent: string;
-  setPostContent: (content: string) => void;
-  postMediaUrl: string;
-  setPostMediaUrl: (url: string) => void;
-  postMediaType: 'image' | 'video' | null;
-  setPostMediaType: (type: 'image' | 'video' | null) => void;
-  creatingPost: boolean;
-  showEmojiPicker: boolean;
-  setShowEmojiPicker: (show: boolean) => void;
-  showMediaInput: boolean;
-  setShowMediaInput: (show: boolean) => void;
-  characterCount: number;
-  MAX_CHARACTERS: number;
-  EMOJIS: string[];
-  addEmoji: (emoji: string) => void;
-  handleCreatePost: () => void;
-  loadingPosts: boolean;
-  userPosts: any[];
-  currentUser: any;
-  setUserPosts: (posts: any[]) => void;
-}
+
 
 type TabType = 'posts' | 'photos' | 'videos' | 'friends' | 'info';
 
-export function ProfileTabs({
-  profile,
-  postContent,
-  setPostContent,
-  postMediaUrl,
-  setPostMediaUrl,
-  postMediaType,
-  setPostMediaType,
-  creatingPost,
-  showEmojiPicker,
-  setShowEmojiPicker,
-  showMediaInput,
-  setShowMediaInput,
-  characterCount,
-  MAX_CHARACTERS,
-  EMOJIS,
-  addEmoji,
-  handleCreatePost,
-  loadingPosts,
-  userPosts,
-  currentUser,
-  setUserPosts,
-}: ProfileTabsProps) {
+export function ProfileTabs() {
+  const { profile, loadingPosts, userPosts, currentUser, setUserPosts } = useProfileEdit();
   const [activeTab, setActiveTab] = useState<TabType>('posts');
 
   const tabs = [
@@ -92,30 +49,11 @@ export function ProfileTabs({
       case 'posts':
         return (
           <div className="space-y-6">
-            <CreatePostForm
+            <ProfilePostsDisplaySection
               profile={profile}
-              postContent={postContent}
-              setPostContent={setPostContent}
-              postMediaUrl={postMediaUrl}
-              setPostMediaUrl={setPostMediaUrl}
-              postMediaType={postMediaType}
-              setPostMediaType={setPostMediaType}
-              creatingPost={creatingPost}
-              showEmojiPicker={showEmojiPicker}
-              setShowEmojiPicker={setShowEmojiPicker}
-              showMediaInput={showMediaInput}
-              setShowMediaInput={setShowMediaInput}
-              characterCount={characterCount}
-              MAX_CHARACTERS={MAX_CHARACTERS}
-              EMOJIS={EMOJIS}
-              addEmoji={addEmoji}
-              handleCreatePost={handleCreatePost}
-            />
-            <PostsSection
               loadingPosts={loadingPosts}
               userPosts={userPosts}
               currentUser={currentUser}
-              profile={profile}
               setUserPosts={setUserPosts}
             />
           </div>

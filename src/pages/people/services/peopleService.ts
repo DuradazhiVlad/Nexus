@@ -1,33 +1,29 @@
 import { supabase } from '../../../lib/supabase';
-import { AuthUserService } from '../../../lib/authUserService';
 import { User, FriendRequest } from '../types';
+import { DatabaseService } from '../../../lib/database';
 
 export class PeopleService {
   /**
-   * Отримати всіх користувачів
+   * Fetch all users from the database.
+   * @returns A promise that resolves to an array of User objects.
    */
   static async getAllUsers(): Promise<User[]> {
     try {
-      console.log('🔍 PeopleService: Fetching all users');
-      
-      // Отримуємо користувачів з user_profiles (як fallback, оскільки auth.users недоступна через RLS)
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('❌ PeopleService: Error fetching users:', error);
         throw error;
       }
 
-      // Конвертуємо дані в формат User
-      const users: User[] = (data || []).map(profile => ({
-        id: profile.id || profile.auth_user_id,
+      return (data || []).map(profile => ({
+        id: profile.id,
         auth_user_id: profile.auth_user_id,
-        name: profile.name || '',
-        last_name: profile.last_name || '',
-        email: profile.email || '',
+        name: profile.name,
+        last_name: profile.last_name,
+        email: profile.email,
         avatar: profile.avatar,
         bio: profile.bio,
         city: profile.city,
@@ -41,199 +37,180 @@ export class PeopleService {
         languages: profile.languages || [],
         notifications: profile.notifications,
         privacy: profile.privacy,
-        email_verified: false, // Поле тимчасово відключене через проблеми зі схемою кешу
         created_at: profile.created_at,
         updated_at: profile.updated_at,
-        isOnline: false, // TODO: Implement online status
-        lastSeen: profile.updated_at
-      }));
-
-      console.log('✅ PeopleService: Users fetched:', users.length);
-      return users;
+      })) as User[];
     } catch (error) {
-      console.error('❌ PeopleService: Unexpected error:', error);
+      console.error('Error fetching users:', error);
       return [];
     }
   }
 
   /**
-   * Отримати запити на дружбу
+   * Fetch pending friend requests for the current user.
+   * @returns A promise that resolves to an array of FriendRequest objects.
    */
   static async getFriendRequests(): Promise<FriendRequest[]> {
     try {
-      console.log('🔍 PeopleService: Fetching friend requests');
-      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
 
-      // Отримуємо ID користувача з таблиці user_profiles
       const { data: userProfile, error: profileError } = await supabase
         .from('user_profiles')
         .select('id')
         .eq('auth_user_id', user.id)
         .maybeSingle();
 
-      if (profileError) {
-        console.error('❌ PeopleService: Error getting user profile:', profileError);
-        return [];
-      }
-
-      if (!userProfile) {
-        console.error('❌ PeopleService: User profile not found');
+      if (profileError || !userProfile) {
         return [];
       }
 
       const { data, error } = await supabase
         .from('friend_requests')
         .select('*')
-        .or(`user_id.eq.${userProfile.id},friend_id.eq.${userProfile.id}`)
-        .eq('status', 'pending');
+        .or(`user_id.eq.${userProfile.id},friend_id.eq.${userProfile.id}`);
 
       if (error) {
-        console.error('❌ PeopleService: Error fetching friend requests:', error);
         throw error;
       }
 
-      console.log('✅ PeopleService: Friend requests fetched:', data);
       return data || [];
     } catch (error) {
-      console.error('❌ PeopleService: Unexpected error:', error);
+      console.error('Error fetching friend requests:', error);
       return [];
     }
   }
 
   /**
-   * Відправити запит на дружбу
+   * Send a friend request to a user.
+   * @param friendId The ID of the user to send a request to.
+   * @returns A promise that resolves to a boolean indicating success.
    */
-  // Використовуємо DatabaseService для надсилання запитів на дружбу
   static async sendFriendRequest(friendId: string): Promise<boolean> {
-    const { DatabaseService } = await import('../../../lib/database');
-    return DatabaseService.sendFriendRequest(friendId);
-  }
-
-  /**
-   * Прийняти запит на дружбу
-   */
-  static async acceptFriendRequest(requestId: string): Promise<boolean> {
     try {
-      console.log('🔍 PeopleService: Accepting friend request:', requestId);
-      
-      // Отримуємо запит
-      const { data: request, error: getError } = await supabase
-        .from('friend_requests')
-        .select('*')
-        .eq('id', requestId)
-        .maybeSingle();
-
-      if (!request) {
-        console.error('❌ PeopleService: Friend request not found:', requestId);
-        throw new Error('Запит на дружбу не знайдено');
-      }
-
-      if (getError) {
-        console.error('❌ PeopleService: Error getting friend request:', getError);
-        throw getError;
-      }
-
-      // Оновлюємо статус запиту
-      const { error: updateError } = await supabase
-        .from('friend_requests')
-        .update({ status: 'accepted' })
-        .eq('id', requestId);
-
-      if (updateError) {
-        console.error('❌ PeopleService: Error updating friend request:', updateError);
-        throw updateError;
-      }
-
-      // Створюємо дружбу
-      const { error: friendshipError } = await supabase
-        .from('friendships')
-        .insert([{
-          user1_id: request.user_id,
-          user2_id: request.friend_id
-        }]);
-
-      if (friendshipError) {
-        console.error('❌ PeopleService: Error creating friendship:', friendshipError);
-        throw friendshipError;
-      }
-
-      console.log('✅ PeopleService: Friend request accepted successfully');
-      return true;
-    } catch (error) {
-      console.error('❌ PeopleService: Unexpected error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Відхилити запит на дружбу
-   */
-  static async rejectFriendRequest(requestId: string): Promise<boolean> {
-    try {
-      console.log('🔍 PeopleService: Rejecting friend request:', requestId);
-      
-      const { error } = await supabase
-        .from('friend_requests')
-        .update({ status: 'rejected' })
-        .eq('id', requestId);
-
-      if (error) {
-        console.error('❌ PeopleService: Error rejecting friend request:', error);
-        throw error;
-      }
-
-      console.log('✅ PeopleService: Friend request rejected successfully');
-      return true;
-    } catch (error) {
-      console.error('❌ PeopleService: Unexpected error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Видалити друга
-   */
-  static async removeFriend(friendId: string): Promise<boolean> {
-    try {
-      console.log('🔍 PeopleService: Removing friend:', friendId);
-      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Отримуємо ID користувача з таблиці user_profiles
       const { data: userProfile, error: profileError } = await supabase
         .from('user_profiles')
         .select('id')
         .eq('auth_user_id', user.id)
         .maybeSingle();
 
-      if (profileError) {
-        console.error('❌ PeopleService: Error getting user profile:', profileError);
-        throw profileError;
+      if (profileError || !userProfile) {
+        throw new Error('User profile not found');
       }
 
-      if (!userProfile) {
-        console.error('❌ PeopleService: User profile not found');
-        throw new Error('Профіль користувача не знайдено');
+      const { error } = await supabase
+        .from('friend_requests')
+        .insert({
+          user_id: userProfile.id,
+          friend_id: friendId,
+          status: 'pending',
+        });
+
+      if (error) {
+        throw error;
       }
-      
-      // Видаляємо дружбу
+
+      return true;
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Accept a pending friend request.
+   * @param requestId The ID of the request to accept.
+   * @returns A promise that resolves to a boolean indicating success.
+   */
+  static async acceptFriendRequest(requestId: string): Promise<boolean> {
+    try {
+      const { data: request, error: getError } = await supabase
+        .from('friend_requests')
+        .select('*')
+        .eq('id', requestId)
+        .maybeSingle();
+
+      if (!request || getError) {
+        throw new Error('Friend request not found');
+      }
+
+      await supabase
+        .from('friend_requests')
+        .update({ status: 'accepted' })
+        .eq('id', requestId);
+
+      await supabase
+        .from('friendships')
+        .insert({
+          user1_id: request.user_id,
+          user2_id: request.friend_id,
+        });
+
+      return true;
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reject a pending friend request.
+   * @param requestId The ID of the request to reject.
+   * @returns A promise that resolves to a boolean indicating success.
+   */
+  static async rejectFriendRequest(requestId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('friend_requests')
+        .update({ status: 'rejected' })
+        .eq('id', requestId);
+
+      if (error) {
+        throw error;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error rejecting friend request:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Remove a friend.
+   * @param friendId The ID of the friend to remove.
+   * @returns A promise that resolves to a boolean indicating success.
+   */
+  static async removeFriend(friendId: string): Promise<boolean> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data: userProfile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      if (profileError || !userProfile) {
+        throw new Error('User profile not found');
+      }
+
       const { error } = await supabase
         .from('friendships')
         .delete()
         .or(`and(user1_id.eq.${userProfile.id},user2_id.eq.${friendId}),and(user1_id.eq.${friendId},user2_id.eq.${userProfile.id})`);
 
       if (error) {
-        console.error('❌ PeopleService: Error removing friend:', error);
         throw error;
       }
 
-      console.log('✅ PeopleService: Friend removed successfully');
       return true;
     } catch (error) {
-      console.error('❌ PeopleService: Unexpected error:', error);
+      console.error('Error removing friend:', error);
       throw error;
     }
   }

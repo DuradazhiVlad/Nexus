@@ -9,6 +9,7 @@ import {
   Mail,
   FileText
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface CreateGroupModalProps {
   isOpen: boolean;
@@ -60,7 +61,7 @@ export function CreateGroupModal({ isOpen, onClose, onSubmit, loading = false }:
     e.preventDefault();
     
     if (!formData.name.trim()) {
-      alert('Назва групи є обов\'язковою');
+      toast.error('Назва групи є обов\'язковою');
       return;
     }
 
@@ -310,4 +311,4 @@ export function CreateGroupModal({ isOpen, onClose, onSubmit, loading = false }:
       </div>
     </div>
   );
-} 
+}

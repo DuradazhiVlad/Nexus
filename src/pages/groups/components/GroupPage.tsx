@@ -1,7 +1,6 @@
 // src/pages/groups/GroupPage.tsx
 import React, { useState } from "react";
 import { Users, Globe, Lock, MapPin, Link, Mail } from "lucide-react";
-import { GroupCard } from "../../components/GroupCard";
 import { CreatePostForm } from "../../components/CreatePostForm";
 import { PostsSection } from "../../components/PostsSection";
 
@@ -20,7 +19,6 @@ interface GroupPageProps {
     rules?: string[];
     members?: { id: string; name: string; avatar?: string }[];
   };
-  currentUserId?: string;
   isMember?: boolean;
   onJoinGroup?: () => void;
   onLeaveGroup?: () => void;
@@ -28,7 +26,6 @@ interface GroupPageProps {
 
 export function GroupPage({
   group,
-  currentUserId,
   isMember = false,
   onJoinGroup,
   onLeaveGroup,
@@ -217,9 +214,9 @@ export function GroupPage({
             <div>
               {isMember && (
                 <CreatePostForm
-                  onCreate={(data) =>
-                    console.log("Створити пост у групі", data)
-                  }
+                  onCreate={() => {
+                    // Handle post creation
+                  }}
                 />
               )}
               <PostsSection posts={[]} />

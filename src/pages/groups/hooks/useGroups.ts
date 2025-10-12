@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { DatabaseService } from '../../../lib/database';
 import { GroupsService } from '../services/groupsService';
 import { GroupsFilters } from '../utils/groupsFilters';
@@ -10,76 +10,80 @@ export function useGroups() {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentFilters, setCurrentFilters] = useState<GroupFilters>({
+    searchQuery: '',
+    category: '',
+    type: 'all',
+    membership: 'all',
+    sortBy: 'activity',
+  });
 
-  const fetchCurrentUser = async () => {
+  const fetchCurrentUser = useCallback(async () => {
     try {
       const user = await DatabaseService.getCurrentUser();
       setCurrentUser(user);
     } catch (error) {
-      console.error('Error fetching current user:', error);
       setError('Failed to load user data');
     }
-  };
+  }, []);
 
-  const fetchGroups = async () => {
+  const fetchGroups = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-
-      // Get current user first
+      
       const user = await DatabaseService.getCurrentUser();
       if (!user) {
+        setCurrentUser(null);
+        setGroups([]);
+        setFilteredGroups([]);
         setError('User not authenticated');
         return;
       }
+      setCurrentUser(user);
 
-      console.log('🔍 useGroups: Fetching groups for user:', user.id);
-
-      // Use the new method that doesn't rely on foreign key relationships
       const groupsWithCreators = await GroupsService.getGroupsWithCreators();
-      console.log('✅ useGroups: Groups with creators:', groupsWithCreators);
-
-      // Fetch user memberships
       const membershipsMap = await GroupsService.getUserMemberships(user.id);
-      console.log('✅ useGroups: Memberships map:', membershipsMap);
 
-      // Add membership info to groups
       const processedGroups = groupsWithCreators.map(group => ({
         ...group,
         user_membership: membershipsMap[group.id] || null
       }));
 
-      console.log('✅ useGroups: Final processed groups:', processedGroups);
       setGroups(processedGroups);
-      setFilteredGroups(processedGroups);
+      applyFilters(currentFilters, processedGroups); // Застосовуємо фільтри до свіжих даних
     } catch (error) {
-      console.error('❌ useGroups: Unexpected error in fetchGroups:', error);
       setError('Failed to load groups');
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentFilters]);
 
-  const applyFilters = (filters: GroupFilters) => {
-    const filtered = GroupsFilters.applyFilters(groups, filters);
+  const applyFilters = useCallback((filters: GroupFilters, groupsToFilter = groups) => {
+    setCurrentFilters(filters);
+    const filtered = GroupsFilters.applyFilters(groupsToFilter, filters);
     setFilteredGroups(filtered);
-  };
+  }, [groups]);
 
   const joinGroup = async (groupId: string) => {
     try {
-      const user = await DatabaseService.getCurrentUser();
-      if (!user) {
+      if (!currentUser) {
         setError('User not authenticated');
         return false;
       }
 
-      await GroupsService.joinGroup(groupId, user.id);
+      await GroupsService.joinGroup(groupId, currentUser.id);
       
-      // Refresh groups
-      await fetchGroups();
+      const newGroups = groups.map(group =>
+        group.id === groupId
+          ? { ...group, user_membership: { role: 'member', joined_at: new Date().toISOString() }, member_count: (group.member_count || 0) + 1 }
+          : group
+      );
+      setGroups(newGroups);
+      applyFilters(currentFilters, newGroups);
+      
       return true;
     } catch (error) {
-      console.error('❌ useGroups: Error joining group:', error);
       setError('Failed to join group');
       return false;
     }
@@ -87,19 +91,23 @@ export function useGroups() {
 
   const leaveGroup = async (groupId: string) => {
     try {
-      const user = await DatabaseService.getCurrentUser();
-      if (!user) {
+      if (!currentUser) {
         setError('User not authenticated');
         return false;
       }
 
-      await GroupsService.leaveGroup(groupId, user.id);
+      await GroupsService.leaveGroup(groupId, currentUser.id);
       
-      // Refresh groups
-      await fetchGroups();
+      const newGroups = groups.map(group =>
+        group.id === groupId
+          ? { ...group, user_membership: null, member_count: Math.max(0, (group.member_count || 0) - 1) }
+          : group
+      );
+      setGroups(newGroups);
+      applyFilters(currentFilters, newGroups);
+      
       return true;
     } catch (error) {
-      console.error('❌ useGroups: Error leaving group:', error);
       setError('Failed to leave group');
       return false;
     }
@@ -116,25 +124,35 @@ export function useGroups() {
     rules: string[];
   }) => {
     try {
-      const user = await DatabaseService.getCurrentUser();
-      if (!user) {
+      if (!currentUser) {
         setError('User not authenticated');
         return null;
       }
 
       const newGroup = await GroupsService.createGroup({
         ...groupData,
-        created_by: user.id
+        created_by: currentUser.id
       });
 
       if (newGroup) {
-        // Refresh groups
-        await fetchGroups();
+        const updatedGroups = [
+          {
+            ...newGroup,
+            creator: {
+              name: currentUser.name,
+              last_name: currentUser.last_name,
+              avatar: currentUser.avatar
+            },
+            user_membership: { role: 'admin', joined_at: new Date().toISOString() }
+          },
+          ...groups
+        ];
+        setGroups(updatedGroups);
+        applyFilters(currentFilters, updatedGroups);
       }
 
       return newGroup;
     } catch (error) {
-      console.error('❌ useGroups: Error creating group:', error);
       setError('Failed to create group');
       return null;
     }
@@ -143,7 +161,7 @@ export function useGroups() {
   useEffect(() => {
     fetchCurrentUser();
     fetchGroups();
-  }, []);
+  }, [fetchCurrentUser, fetchGroups]);
 
   return {
     groups,
@@ -157,4 +175,4 @@ export function useGroups() {
     leaveGroup,
     createGroup
   };
-} 
+}

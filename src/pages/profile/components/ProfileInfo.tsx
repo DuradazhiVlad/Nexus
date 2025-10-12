@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { AuthUserProfile } from '../../../lib/authUserService';
 import { ChevronDown, ChevronUp, Heart, MessageCircle, X, Play, Pause, Volume2, VolumeX } from 'lucide-react';
-import { LocationLanguageSelector } from '../../../components/LocationLanguageSelector';
+// Removed LocationLanguageSelector per VK-style requirements
+import { useProfileEdit } from '../context/ProfileEditContext';
 
 // Функція для перекладу сімейного стану
 const getRelationshipStatusLabel = (status: string, gender?: string) => {
@@ -25,11 +26,11 @@ const getRelationshipStatusLabel = (status: string, gender?: string) => {
   return statusInfo.other;
 };
 
-interface ProfileInfoProps {
-  profile: AuthUserProfile;
-}
-
-export const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile }) => {
+export const ProfileInfo: React.FC = () => {
+  const { profile } = useProfileEdit();
+  if (!profile) {
+    return null;
+  }
   const [expandedSections, setExpandedSections] = useState({
     hobbies: false,
     languages: false
@@ -42,10 +43,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile }) => {
   const [playingVideo, setPlayingVideo] = useState<number | null>(null);
   const [videoMuted, setVideoMuted] = useState<{[key: number]: boolean}>({});
   
-  // Стан для LocationLanguageSelector
-  const [selectedCountry, setSelectedCountry] = useState(profile.country || '');
-  const [selectedCity, setSelectedCity] = useState(profile.city || '');
-  const [selectedLanguage, setSelectedLanguage] = useState('');
+  // Removed location/language picker
   
   // Заглушка для фото
   const photos = Array.from({length: 9}, (_, i) => ({
@@ -399,18 +397,7 @@ export const ProfileInfo: React.FC<ProfileInfoProps> = ({ profile }) => {
           </div>
         </div>
 
-        {/* Компонент вибору локації та мови */}
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Локація та мова</h3>
-          <LocationLanguageSelector
-            selectedCountry={selectedCountry}
-            selectedCity={selectedCity}
-            selectedLanguage={selectedLanguage}
-            onCountryChange={setSelectedCountry}
-            onCityChange={setSelectedCity}
-            onLanguageChange={setSelectedLanguage}
-          />
-        </div>
+        {/* Локація та мова блок видалено */}
 
         {/* Lightbox */}
        {lightboxOpen && selectedPhoto !== null && (

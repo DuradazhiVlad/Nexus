@@ -22,7 +22,6 @@ export class GroupsService {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching groups:', error);
       return [];
     }
   }
@@ -47,7 +46,6 @@ export class GroupsService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error fetching group:', error);
       return null;
     }
   }
@@ -77,20 +75,19 @@ export class GroupsService {
 
       if (groupError) throw groupError;
 
-      // Add creator as admin member
+      // Add creator as owner member
       const { error: memberError } = await supabase
         .from('group_members')
         .insert([{
           group_id: group.id,
           user_id: currentUser.id,
-          role: 'admin',
+          role: 'owner',
         }]);
 
       if (memberError) throw memberError;
 
       return group;
     } catch (error) {
-      console.error('Error creating group:', error);
       return null;
     }
   }
@@ -112,7 +109,6 @@ export class GroupsService {
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error joining group:', error);
       return false;
     }
   }
@@ -132,7 +128,6 @@ export class GroupsService {
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error leaving group:', error);
       return false;
     }
   }
@@ -157,7 +152,6 @@ export class GroupsService {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching group members:', error);
       return [];
     }
   }
@@ -184,7 +178,6 @@ export class GroupsService {
 
       return { isMember: true, role: data.role };
     } catch (error) {
-      console.error('Error checking group membership:', error);
       return { isMember: false };
     }
   }
@@ -210,7 +203,6 @@ export class GroupsService {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Error fetching group posts:', error);
       return [];
     }
   }
@@ -249,7 +241,6 @@ export class GroupsService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error creating group post:', error);
       return null;
     }
   }
@@ -265,7 +256,6 @@ export class GroupsService {
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error deleting group post:', error);
       return false;
     }
   }
@@ -295,7 +285,6 @@ export class GroupsService {
       if (error) throw error;
       return data?.map(item => item.group) || [];
     } catch (error) {
-      console.error('Error fetching user groups:', error);
       return [];
     }
   }
@@ -317,7 +306,6 @@ export class GroupsService {
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error updating group:', error);
       return false;
     }
   }
@@ -333,7 +321,6 @@ export class GroupsService {
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error deleting group:', error);
       return false;
     }
   }

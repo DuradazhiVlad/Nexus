@@ -12,7 +12,7 @@ import { Friends } from './src/pages/friends';
 import { Settings } from './src/pages/settings';
 import { Groups } from './src/pages/groups';
 import { GroupDetail } from './src/pages/group-detail/GroupDetail';
-import { GroupPage } from './src/pages/groups/GroupPage';
+
 import { People } from './src/pages/people';
 import { UserDetailPage } from './src/pages/user-detail';
 import { Games } from './src/pages/games';
@@ -112,7 +112,7 @@ function App() {
         <Route path="/user/:userId" element={<UserDetailPage />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/groups" element={<Groups />} />
-        <Route path="/group/:groupId" element={<GroupPage />} />
+
         <Route path="/groups/:groupId" element={<GroupDetail />} />
         <Route path="/dating" element={<Dating />} />
         <Route path="/games" element={<Games />} />

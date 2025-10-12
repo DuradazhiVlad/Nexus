@@ -27,8 +27,6 @@ export class UserStatsService {
    */
   static async getUserStats(userId: string): Promise<UserStats> {
     try {
-      console.log('🔍 UserStatsService: Fetching stats for user:', userId);
-      
       // Отримуємо кількість друзів
       const friendsCount = await this.getFriendsCount(userId);
       
@@ -48,10 +46,8 @@ export class UserStatsService {
         postsCount
       };
       
-      console.log('✅ UserStatsService: Stats fetched:', stats);
       return stats;
     } catch (error) {
-      console.error('❌ UserStatsService: Error fetching stats:', error);
       return {
         friendsCount: 0,
         photosCount: 0,
@@ -79,13 +75,11 @@ export class UserStatsService {
         .eq('user2_id', userId);
 
       if (error1 || error2) {
-        console.error('❌ UserStatsService: Error counting friends:', error1 || error2);
         return 0;
       }
 
       return (count1 || 0) + (count2 || 0);
     } catch (error) {
-      console.error('❌ UserStatsService: Error counting friends:', error);
       return 0;
     }
   }
@@ -102,13 +96,11 @@ export class UserStatsService {
         .eq('type', 'photo');
 
       if (error) {
-        console.error('❌ UserStatsService: Error counting photos:', error);
         return 0;
       }
 
       return count || 0;
     } catch (error) {
-      console.error('❌ UserStatsService: Error counting photos:', error);
       return 0;
     }
   }
@@ -125,13 +117,11 @@ export class UserStatsService {
         .eq('type', 'video');
 
       if (error) {
-        console.error('❌ UserStatsService: Error counting videos:', error);
         return 0;
       }
 
       return count || 0;
     } catch (error) {
-      console.error('❌ UserStatsService: Error counting videos:', error);
       return 0;
     }
   }
@@ -147,13 +137,11 @@ export class UserStatsService {
         .eq('user_id', userId);
 
       if (error) {
-        console.error('❌ UserStatsService: Error counting posts:', error);
         return 0;
       }
 
       return count || 0;
     } catch (error) {
-      console.error('❌ UserStatsService: Error counting posts:', error);
       return 0;
     }
   }
@@ -163,8 +151,6 @@ export class UserStatsService {
    */
   static async getUserFriends(userId: string, limit: number = 6): Promise<UserFriend[]> {
     try {
-      console.log('🔍 UserStatsService: Fetching friends for user:', userId);
-      
       // Отримуємо дружби де користувач є user1
       const { data: friendships1, error: error1 } = await supabase
         .from('friendships')
@@ -180,7 +166,6 @@ export class UserStatsService {
         .limit(limit);
 
       if (error1 || error2) {
-        console.error('❌ UserStatsService: Error fetching friendships:', error1 || error2);
         return [];
       }
 
@@ -201,14 +186,11 @@ export class UserStatsService {
         .in('id', friendIds);
 
       if (friendsError) {
-        console.error('❌ UserStatsService: Error fetching friends:', friendsError);
         return [];
       }
 
-      console.log('✅ UserStatsService: Friends fetched:', friends);
       return friends || [];
     } catch (error) {
-      console.error('❌ UserStatsService: Unexpected error:', error);
       return [];
     }
   }
@@ -218,8 +200,6 @@ export class UserStatsService {
    */
   static async getUserPhotos(userId: string, limit: number = 6): Promise<UserPhoto[]> {
     try {
-      console.log('🔍 UserStatsService: Fetching photos for user:', userId);
-      
       const { data: photos, error } = await supabase
         .from('media')
         .select('id, url, created_at')
@@ -229,14 +209,11 @@ export class UserStatsService {
         .limit(limit);
 
       if (error) {
-        console.error('❌ UserStatsService: Error fetching photos:', error);
         return [];
       }
 
-      console.log('✅ UserStatsService: Photos fetched:', photos);
       return photos || [];
     } catch (error) {
-      console.error('❌ UserStatsService: Unexpected error:', error);
       return [];
     }
   }

@@ -37,7 +37,7 @@ export function UserDetailPage() {
           setCurrentUserId(user.id);
         }
       } catch (error) {
-        console.error('Error getting current user:', error);
+        // Error getting current user
       }
     };
 
@@ -51,7 +51,6 @@ export function UserDetailPage() {
     const loadUserData = async () => {
       try {
         setLoading(true);
-        console.log('🔍 Loading user data for:', userId);
 
         // Load user detail
         const userData = await UserService.getUserDetail(userId);
@@ -68,9 +67,7 @@ export function UserDetailPage() {
           setFriendshipStatus(status);
         }
 
-        console.log('✅ User data loaded successfully');
       } catch (error) {
-        console.error('❌ Error loading user data:', error);
         showError('Помилка завантаження даних користувача');
       } finally {
         setLoading(false);
@@ -87,14 +84,11 @@ export function UserDetailPage() {
     const loadPosts = async () => {
       try {
         setPostsLoading(true);
-        console.log('🔍 Loading posts for user:', userId);
         
         const postsData = await UserService.getUserPosts(userId);
         setPosts(postsData);
         
-        console.log('✅ Posts loaded successfully');
       } catch (error) {
-        console.error('❌ Error loading posts:', error);
         showError('Помилка завантаження постів');
       } finally {
         setPostsLoading(false);
@@ -111,14 +105,11 @@ export function UserDetailPage() {
     const loadFriends = async () => {
       try {
         setFriendsLoading(true);
-        console.log('🔍 Loading friends for user:', userId);
         
         const friendsData = await UserService.getUserFriends(userId);
         setFriends(friendsData);
         
-        console.log('✅ Friends loaded successfully');
       } catch (error) {
-        console.error('❌ Error loading friends:', error);
         showError('Помилка завантаження друзів');
       } finally {
         setFriendsLoading(false);
@@ -133,13 +124,10 @@ export function UserDetailPage() {
     if (!userId || !currentUserId) return;
 
     try {
-      console.log('🔍 Sending friend request to:', userId);
       await UserService.sendFriendRequest(userId);
       setFriendshipStatus('pending');
       showError('Запит на дружбу відправлено', 'success');
-      console.log('✅ Friend request sent successfully');
     } catch (error) {
-      console.error('❌ Error sending friend request:', error);
       showError('Помилка відправки запиту на дружбу');
     }
   };
@@ -148,13 +136,10 @@ export function UserDetailPage() {
     if (!userId || !currentUserId) return;
 
     try {
-      console.log('🔍 Accepting friend request from:', userId);
       await UserService.acceptFriendRequest(userId);
       setFriendshipStatus('friends');
       showError('Запит на дружбу прийнято', 'success');
-      console.log('✅ Friend request accepted successfully');
     } catch (error) {
-      console.error('❌ Error accepting friend request:', error);
       showError('Помилка прийняття запиту на дружбу');
     }
   };
@@ -163,13 +148,10 @@ export function UserDetailPage() {
     if (!userId || !currentUserId) return;
 
     try {
-      console.log('🔍 Rejecting friend request from:', userId);
       await UserService.rejectFriendRequest(userId);
       setFriendshipStatus('none');
       showError('Запит на дружбу відхилено', 'success');
-      console.log('✅ Friend request rejected successfully');
     } catch (error) {
-      console.error('❌ Error rejecting friend request:', error);
       showError('Помилка відхилення запиту на дружбу');
     }
   };
@@ -178,13 +160,10 @@ export function UserDetailPage() {
     if (!userId || !currentUserId) return;
 
     try {
-      console.log('🔍 Removing friend:', userId);
       await UserService.removeFriend(userId);
       setFriendshipStatus('none');
       showError('Друга видалено', 'success');
-      console.log('✅ Friend removed successfully');
     } catch (error) {
-      console.error('❌ Error removing friend:', error);
       showError('Помилка видалення друга');
     }
   };
@@ -273,7 +252,6 @@ export function UserDetailPage() {
                 onSendMessage={(friendId) => navigate(`/messages?user=${friendId}`)}
                 onAddFriend={(friendId) => {
                   // TODO: Implement add friend functionality
-                  console.log('Add friend:', friendId);
                 }}
               />
             )}

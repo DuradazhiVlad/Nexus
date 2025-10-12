@@ -201,6 +201,24 @@ export class GroupsService {
       }
 
       console.log('✅ GroupsService: Group created:', group);
+
+      // Автоматично додаємо створювача до групи як адміністратора
+      const { error: memberError } = await supabase
+        .from('group_members')
+        .insert([{
+          group_id: group.id,
+          user_id: groupData.created_by,
+          role: 'admin',
+          joined_at: new Date().toISOString()
+        }]);
+
+      if (memberError) {
+        console.error('❌ GroupsService: Error adding creator to group:', memberError);
+        // Не кидаємо помилку, оскільки група вже створена
+      } else {
+        console.log('✅ GroupsService: Creator added to group as admin');
+      }
+
       return group;
     } catch (error) {
       console.error('❌ GroupsService: Error creating group:', error);

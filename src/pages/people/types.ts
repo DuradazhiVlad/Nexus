@@ -15,24 +15,17 @@ export interface User {
   relationship_status?: string;
   hobbies?: string[];
   languages?: string[];
-  notifications?: {
-    email: boolean;
-    messages: boolean;
-    friendRequests: boolean;
-  };
+  notifications?: any;
   privacy?: {
     profileVisibility: 'public' | 'friends' | 'private';
-    showBirthDate: boolean;
-    showEmail: boolean;
+    showOnlineStatus: boolean;
   };
-  email_verified?: boolean;
-  created_at?: string;
+  created_at: string;
   updated_at?: string;
-  isOnline?: boolean;
   lastSeen?: string;
+  isOnline?: boolean;
   friendsCount?: number;
   postsCount?: number;
-  friends?: { id: string; name: string; }[];
 }
 
 export interface FriendRequest {
@@ -46,8 +39,8 @@ export interface FriendRequest {
 export interface Filters {
   city: string;
   onlineStatus: 'all' | 'online' | 'offline';
-  friendStatus: 'all' | 'friends' | 'not_friends' | 'pending';
-  sortBy: 'name' | 'date' | 'city' | 'lastSeen' | 'popularity';
+  friendStatus: 'all' | 'friends' | 'not_friends' | 'sent' | 'received';
+  sortBy: 'date' | 'name' | 'city' | 'lastSeen' | 'popularity';
   sortOrder: 'asc' | 'desc';
   hasAvatar: boolean;
   hasBio: boolean;

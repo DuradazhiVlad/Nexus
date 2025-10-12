@@ -43,11 +43,11 @@ export interface CreateGroupForm {
 
 export interface GroupFilters {
   searchQuery: string;
-  categoryFilter: string;
-  typeFilter: 'all' | 'public' | 'private';
-  membershipFilter: 'all' | 'member' | 'not_member';
+  category: string;
+  type: 'all' | 'public' | 'private';
+  membership: 'all' | 'member' | 'not_member';
   sortBy: 'name' | 'members' | 'activity' | 'created';
 }
 
 export type ViewMode = 'grid' | 'list';
-export type SortBy = 'name' | 'members' | 'activity' | 'created'; 
+export type SortBy = 'name' | 'members' | 'activity' | 'created';

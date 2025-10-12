@@ -24,6 +24,7 @@ export interface AuthUserProfile {
   birth_date?: string;
   birthday?: string;
   gender?: string;
+  age?: number | null; // Додано поле age
   education?: string;
   work?: string;
   website?: string;
@@ -51,8 +52,9 @@ export interface UserProfileExtension {
   avatar?: string;
   bio?: string;
   city?: string;
-  birth_date?: string;
+  birth_date?: string | null; // Змінено тип birth_date
   gender?: string;
+  age?: number | null; // Додано поле age
   education?: string;
   work?: string;
   website?: string;
@@ -81,12 +83,8 @@ export class AuthUserService {
    */
   static async createUserProfile(profileData: any): Promise<any> {
     try {
-      console.log('📝 Creating user profile:', profileData);
-      
       // Видаляємо email_verified з даних, оскільки це поле може не існувати в схемі кешу
       const { email_verified, ...cleanProfileData } = profileData;
-      
-      console.log('📝 Clean profile data for insert:', cleanProfileData);
       
       const { data: newProfile, error } = await supabase
         .from('user_profiles')
@@ -95,14 +93,11 @@ export class AuthUserService {
         .single();
         
       if (error) {
-        console.error('❌ Error creating user profile:', error);
         throw new Error(`Failed to create user profile: ${error.message}`);
       }
       
-      console.log('✅ User profile created:', newProfile.id);
       return newProfile;
     } catch (error) {
-      console.error('❌ Error creating user profile:', error);
       throw error;
     }
   }
@@ -112,21 +107,15 @@ export class AuthUserService {
    */
   static async getCurrentUserProfile(): Promise<AuthUserProfile | null> {
     try {
-      console.log('🔍 Getting current user profile from auth.users...');
-      
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
       if (authError) {
-        console.error('Auth error:', authError);
         throw new Error(`Помилка аутентифікації: ${authError.message}`);
       }
       
       if (!authUser) {
-        console.log('No authenticated user');
         return null;
       }
-      
-      console.log('✅ Authenticated user:', authUser.email);
       
       // Отримуємо додаткові дані з user_profiles (якщо є)
       const { data: profileExtension, error: profileError } = await supabase
@@ -136,7 +125,7 @@ export class AuthUserService {
         .single();
       
       if (profileError && profileError.code !== 'PGRST116') {
-        console.warn('Warning getting profile extension:', profileError);
+        // Profile extension not found or other error - continue without it
       }
       
       // Перевіряємо, чи поля hobbies та languages є масивами
@@ -186,10 +175,8 @@ export class AuthUserService {
         }
       };
       
-      console.log('✅ Combined user profile loaded');
       return combinedProfile;
     } catch (error) {
-      console.error('❌ Error getting current user profile:', error);
       throw error;
     }
   }
@@ -215,10 +202,8 @@ export class AuthUserService {
         throw error;
       }
       
-      console.log('✅ User metadata updated');
       return true;
     } catch (error) {
-      console.error('❌ Error updating user metadata:', error);
       throw error;
     }
   }
@@ -228,8 +213,6 @@ export class AuthUserService {
    */
   static async updateProfileExtension(extension: Partial<UserProfileExtension>): Promise<boolean> {
     try {
-      console.log('📝 Updating profile extension...');
-      
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !authUser) {
@@ -259,8 +242,6 @@ export class AuthUserService {
         }
       }
       
-      console.log('📝 Clean extension data for update:', cleanExtension);
-      
       // Перевіряємо чи існує запис
       const { data: existing, error: checkError } = await supabase
         .from('user_profiles')
@@ -269,81 +250,15 @@ export class AuthUserService {
         .single();
       
       if (checkError && checkError.code !== 'PGRST116') {
-        throw checkError;
-      }
-      
-      if (existing) {
-        // Оновлюємо існуючий запис
-        const { error: updateError } = await supabase
-          .from('user_profiles')
-          .update(cleanExtension)
-          .eq('auth_user_id', authUser.id);
-          
-        if (updateError) {
-          throw updateError;
-        }
-      } else {
-        // Створюємо новий запис
-        const { error: insertError } = await supabase
-          .from('user_profiles')
-          .insert([{
-            auth_user_id: authUser.id,
-            email: authUser.email,
-            name: cleanExtension.name || '',
-            ...cleanExtension
-          }]);
-          
-        if (insertError) {
-          throw insertError;
-        }
-      }
-      
-      console.log('✅ Profile extension updated');
-      return true;
-    } catch (error) {
-      console.error('❌ Error updating profile extension:', error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Оновити окреме поле профілю користувача
-   */
-  static async updateProfileField(fieldName: string, value: any): Promise<any> {
-    try {
-      console.log(`📝 Updating profile field ${fieldName}:`, value);
-      
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError) {
-        console.error('Auth error:', authError);
-        throw new Error(`Помилка аутентифікації: ${authError.message}`);
-      }
-      
-      if (!authUser) {
-        console.log('No authenticated user');
-        throw new Error('Користувач не авторизований');
-      }
-      
-      // Перевіряємо, чи існує запис профілю
-      const { data: existingProfile, error: checkError } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('auth_user_id', authUser.id)
-        .single();
-      
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.error('Error checking profile existence:', checkError);
         throw new Error(`Помилка перевірки профілю: ${checkError.message}`);
       }
       
-      if (!existingProfile) {
-        console.log('Profile does not exist, creating new one');
+      if (!existing) {
         // Створюємо новий профіль, якщо він не існує
         const newProfile = {
           auth_user_id: authUser.id,
           email: authUser.email,
-          [fieldName]: value,
+          ...cleanExtension,
           updated_at: new Date().toISOString()
         };
         
@@ -354,19 +269,17 @@ export class AuthUserService {
           .single();
           
         if (createError) {
-          console.error('Error creating profile:', createError);
           throw new Error(`Помилка створення профілю: ${createError.message}`);
         }
         
-        console.log('✅ New profile created with field:', fieldName);
-        return createdProfile;
+        return true;
       }
       
-      // Оновлюємо одне поле в user_profiles
+      // Оновлюємо профіль в user_profiles
       const { data: updatedProfile, error: profileError } = await supabase
         .from('user_profiles')
         .update({
-          [fieldName]: value,
+          ...cleanExtension,
           updated_at: new Date().toISOString()
         })
         .eq('auth_user_id', authUser.id)
@@ -374,32 +287,31 @@ export class AuthUserService {
         .maybeSingle();
       
       if (profileError) {
-        console.error(`Profile field ${fieldName} update error:`, profileError);
-        throw new Error(`Помилка оновлення поля ${fieldName}: ${profileError.message}`);
+        throw new Error(`Помилка оновлення профілю: ${profileError.message}`);
       }
       
-      // Якщо поле є частиною метаданих користувача, оновлюємо і їх
-      if (['name', 'last_name', 'avatar'].includes(fieldName)) {
-        const { data: updatedUser, error: updateError } = await supabase.auth.updateUser({
-          data: {
-            [fieldName]: value
-          }
+      // Якщо поля є частиною метаданих користувача, оновлюємо і їх
+      const metadataUpdates: any = {};
+      if (cleanExtension.name !== undefined) metadataUpdates.name = cleanExtension.name;
+      if (cleanExtension.last_name !== undefined) metadataUpdates.last_name = cleanExtension.last_name;
+      if (cleanExtension.avatar !== undefined) metadataUpdates.avatar = cleanExtension.avatar;
+
+      if (Object.keys(metadataUpdates).length > 0) {
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: metadataUpdates
         });
         
         if (updateError) {
-          console.error('User metadata update error:', updateError);
           throw new Error(`Помилка оновлення метаданих користувача: ${updateError.message}`);
         }
       }
       
-      console.log(`✅ Profile field ${fieldName} updated successfully`);
-      return updatedProfile;
+      return true;
     } catch (error) {
-      console.error(`❌ Error updating profile field ${fieldName}:`, error);
       throw error;
     }
   }
-
+  
   /**
    * Оновити повний профіль (метадані + розширення)
    */
@@ -432,8 +344,6 @@ export class AuthUserService {
     };
   }): Promise<boolean> {
     try {
-      console.log('📝 Updating full profile...');
-      
       // Оновлюємо метадані в auth.users
       const metadata: any = {};
       if (updates.name !== undefined) metadata.name = updates.name;
@@ -472,10 +382,8 @@ export class AuthUserService {
         await this.updateProfileExtension(extension);
       }
       
-      console.log('✅ Full profile updated');
       return true;
     } catch (error) {
-      console.error('❌ Error updating full profile:', error);
       throw error;
     }
   }
@@ -485,8 +393,6 @@ export class AuthUserService {
    */
   static async searchUsers(query: string): Promise<AuthUserProfile[]> {
     try {
-      console.log('🔍 Searching users with query:', query);
-      
       // Шукаємо в user_profiles, але потім отримуємо дані з auth.users
       const { data: profiles, error } = await supabase
         .from('user_profiles')
@@ -495,7 +401,6 @@ export class AuthUserService {
         .limit(20);
         
       if (error) {
-        console.error('❌ Error searching users:', error);
         throw error;
       }
       
@@ -540,14 +445,12 @@ export class AuthUserService {
             });
           }
         } catch (err) {
-          console.warn('Error loading profile for user:', profile.auth_user_id, err);
+          // Ignore individual profile errors
         }
       }
       
-      console.log('✅ Users found:', userProfiles.length);
       return userProfiles;
     } catch (error) {
-      console.error('❌ Error searching users:', error);
       return [];
     }
   }

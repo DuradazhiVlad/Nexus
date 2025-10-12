@@ -52,9 +52,6 @@ export function Register() {
     setLoading(true);
 
     try {
-      console.log('🚀 Starting registration process...');
-      console.log('📝 Registration data:', { name, lastName, email });
-
       // Реєстрація користувача в Supabase Auth
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
@@ -69,8 +66,6 @@ export function Register() {
       });
 
       if (signUpError) {
-        console.error('❌ Auth signup error:', signUpError);
-        
         // Обробка специфічних помилок
         if (signUpError.message.includes('User already registered')) {
           setError('Користувач з таким email вже існує. Спробуйте увійти або використайте інший email.');
@@ -84,10 +79,7 @@ export function Register() {
         return;
       }
 
-      console.log('✅ Auth signup successful:', authData.user?.id);
-
       if (authData.user && authData.session) {
-        console.log('✅ User registered and logged in successfully');
         setSuccess(true);
         
         // Автоматично входимо користувача після реєстрації
@@ -95,14 +87,12 @@ export function Register() {
           navigate('/profile');
         }, 2000);
       } else {
-        console.log('⚠️ User registered but not logged in, redirecting to login');
         setSuccess(true);
         setTimeout(() => {
           navigate('/login');
         }, 2000);
       }
     } catch (err: any) {
-      console.error('❌ Unexpected registration error:', err);
       setError(err.message || 'Неочікувана помилка реєстрації');
     } finally {
       setLoading(false);

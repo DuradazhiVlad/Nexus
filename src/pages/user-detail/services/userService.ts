@@ -7,28 +7,29 @@ export class UserService {
    */
   static async getUserDetail(userId: string): Promise<UserDetail | null> {
     try {
-      console.log('🔍 UserService: Fetching user detail for:', userId);
-      
-      const { data, error } = await supabase
+      // Try by profile id first
+      let { data, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('auth_user_id', userId)
+        .eq('id', userId)
         .maybeSingle();
 
-      if (error) {
-        console.error('❌ UserService: Error fetching user detail:', error);
-        throw error;
-      }
+      if (error) throw error;
 
+      // If not found, try by auth_user_id
       if (!data) {
-        console.log('⚠️ UserService: User not found:', userId);
-        return null;
+        const res = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('auth_user_id', userId)
+          .maybeSingle();
+        if (res.error) throw res.error;
+        data = res.data as any;
       }
 
-      console.log('✅ UserService: User detail fetched:', data);
-      return data;
+      if (!data) return null;
+      return data as any;
     } catch (error) {
-      console.error('❌ UserService: Unexpected error:', error);
       throw error;
     }
   }
@@ -38,8 +39,6 @@ export class UserService {
    */
   static async getUserPosts(userId: string): Promise<UserPost[]> {
     try {
-      console.log('🔍 UserService: Fetching posts for user:', userId);
-      
       const { data, error } = await supabase
         .from('posts')
         .select('*')
@@ -47,14 +46,11 @@ export class UserService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('❌ UserService: Error fetching user posts:', error);
         throw error;
       }
 
-      console.log('✅ UserService: User posts fetched:', data);
       return data || [];
     } catch (error) {
-      console.error('❌ UserService: Unexpected error:', error);
       return [];
     }
   }
@@ -64,8 +60,6 @@ export class UserService {
    */
   static async getUserFriends(userId: string): Promise<UserDetail[]> {
     try {
-      console.log('🔍 UserService: Fetching friends for user:', userId);
-      
       // Отримуємо дружби де користувач є user1
       const { data: friendships1, error: error1 } = await supabase
         .from('friendships')
@@ -79,7 +73,6 @@ export class UserService {
         .eq('user2_id', userId);
 
       if (error1 || error2) {
-        console.error('❌ UserService: Error fetching friendships:', error1 || error2);
         throw error1 || error2;
       }
 
@@ -100,14 +93,11 @@ export class UserService {
         .in('auth_user_id', friendIds);
 
       if (friendsError) {
-        console.error('❌ UserService: Error fetching friends:', friendsError);
         throw friendsError;
       }
 
-      console.log('✅ UserService: Friends fetched:', friends);
       return friends || [];
     } catch (error) {
-      console.error('❌ UserService: Unexpected error:', error);
       return [];
     }
   }
@@ -117,8 +107,6 @@ export class UserService {
    */
   static async getFriendshipStatus(userId: string, friendId: string): Promise<'friends' | 'pending' | 'none'> {
     try {
-      console.log('🔍 UserService: Checking friendship status between:', userId, 'and', friendId);
-      
       // Перевіряємо чи є дружба
       const { data: friendship, error: friendshipError } = await supabase
         .from('friendships')
@@ -150,14 +138,11 @@ export class UserService {
       }
 
       if (request) {
-        console.log('✅ UserService: Friend request pending');
         return 'pending';
       }
 
-      console.log('✅ UserService: No friendship or request');
       return 'none';
     } catch (error) {
-      console.error('❌ UserService: Unexpected error:', error);
       return 'none';
     }
   }

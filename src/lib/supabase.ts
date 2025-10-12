@@ -38,9 +38,10 @@ function createSupabaseClient(): SupabaseClient {
       flowType: 'pkce'
     },
     global: {
-      headers: { 
+      headers: {
         'x-application-name': 'nexus-social-network',
-        'x-client-info': 'nexus/1.0.0'
+        'x-client-info': 'nexus/1.0.0',
+        'apikey': supabaseAnonKey, // Додаємо ключ API
       },
     },
     db: {
@@ -127,4 +128,4 @@ export const auth = {
 };
 
 // Експортуємо також типи для TypeScript
-export type { SupabaseClient } from '@supabase/supabase-js'; 
+export type { SupabaseClient } from '@supabase/supabase-js';

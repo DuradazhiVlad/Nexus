@@ -104,7 +104,7 @@ interface ProfileEditFormProps {
   setError: (error: string) => void;
 }
 
-export const ProfileEditForm = ({
+export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
   editForm,
   setEditForm,
   addHobby,

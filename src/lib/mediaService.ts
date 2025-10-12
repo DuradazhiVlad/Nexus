@@ -1,275 +1,140 @@
 import { supabase } from './supabase';
 
+// Тип результату завантаження
 export interface MediaUploadResult {
   url: string;
   filename: string;
   fileSize: number;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'audio';
 }
 
 export class MediaService {
   /**
-   * Завантажити файл на Supabase Storage
+   * Завантаження файлу у Supabase Storage
    */
   static async uploadFile(
-    file: File, 
+    file: File,
     bucket: string = 'media',
     folder: string = 'uploads'
   ): Promise<MediaUploadResult> {
-    try {
-      console.log('🔍 Uploading file:', {
-        name: file.name,
-        size: file.size,
-        type: file.type
-      });
-
-      // Перевіряємо тип файлу
-      if (!this.isSupportedFileType(file)) {
-        throw new Error('Непідтримуваний тип файлу. Підтримуються: JPG, PNG, GIF, WebP, MP4, WebM, OGG, MOV');
-      }
-
-      // Розмір файлу не обмежується
-
-      // Генеруємо унікальне ім'я файлу
-      const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 15);
-      const extension = file.name.split('.').pop()?.toLowerCase() || 'bin';
-      const filename = `${folder}/${timestamp}_${randomString}.${extension}`;
-
-      console.log('📤 Uploading to bucket:', bucket, 'filename:', filename);
-
-      // Завантажуємо файл
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .upload(filename, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (error) {
-        console.error('❌ Upload error:', error);
-        if (error.message.includes('Bucket not found')) {
-          throw new Error('Сховище не знайдено. Перевірте налаштування проекту.');
-        }
-        if (error.message.includes('The resource already exists')) {
-          throw new Error('Файл з таким іменем вже існує. Спробуйте ще раз.');
-        }
-        throw new Error(`Помилка завантаження: ${error.message}`);
-      }
-
-      if (!data?.path) {
-        throw new Error('Не вдалося отримати шлях до завантаженого файлу');
-      }
-
-      // Отримуємо публічний URL
-      const { data: urlData } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(data.path);
-
-      if (!urlData?.publicUrl) {
-        throw new Error('Не вдалося отримати публічний URL файлу');
-      }
-
-      console.log('✅ File uploaded successfully:', {
-        filename: data.path,
-        url: urlData.publicUrl,
-        size: file.size
-      });
-
-      return {
-        url: urlData.publicUrl,
-        filename: data.path,
-        fileSize: file.size,
-        type: file.type.startsWith('image/') ? 'image' : 'video'
-      };
-    } catch (error) {
-      console.error('❌ Media upload error:', error instanceof Error ? error.message : String(error));
-      throw error;
+    if (!this.isSupportedFileType(file)) {
+      throw new Error(
+        'Непідтримуваний тип файлу. Підтримуються: JPG, PNG, GIF, WebP, MP4, WebM, OGG, MOV, MP3, WAV'
+      );
     }
+
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 15);
+    const extension = file.name.split('.').pop()?.toLowerCase() || 'bin';
+    const filename = `${folder}/${timestamp}_${randomString}.${extension}`;
+
+    console.log(`📤 Завантаження файлу в bucket "${bucket}" → ${filename}`);
+
+    const { data, error } = await supabase.storage.from(bucket).upload(filename, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+    if (error) {
+      console.error('❌ Помилка завантаження у Storage:', error);
+      throw new Error(error.message);
+    }
+
+    if (!data?.path) {
+      throw new Error('Не вдалося отримати шлях до завантаженого файлу');
+    }
+
+    const { data: urlData, error: urlError } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(data.path);
+
+    if (urlError) {
+      console.error('❌ Помилка отримання публічного URL:', urlError);
+      throw new Error(urlError.message);
+    }
+
+    if (!urlData?.publicUrl) {
+      throw new Error('Не вдалося отримати публічний URL файлу');
+    }
+
+    let type: 'image' | 'video' | 'audio' = 'video';
+    if (file.type.startsWith('image/')) type = 'image';
+    if (file.type.startsWith('audio/')) type = 'audio';
+
+    console.log('✅ Завантаження завершено:', urlData.publicUrl);
+
+    return {
+      url: urlData.publicUrl,
+      filename: data.path,
+      fileSize: file.size,
+      type,
+    };
   }
 
   /**
-   * Завантажити зображення профілю
-   */
-  static async uploadProfileImage(file: File): Promise<string> {
-    try {
-      console.log('🔍 Uploading profile image:', file.name);
-
-      if (!file.type.startsWith('image/')) {
-        throw new Error('Підтримуються тільки зображення');
-      }
-
-      // Розмір аватара не обмежується
-
-      const result = await this.uploadFile(file, 'avatar', 'profile');
-      return result.url;
-    } catch (error) {
-      console.error('❌ Profile image upload error:', error instanceof Error ? error.message : String(error));
-      throw error;
-    }
-  }
-
-  /**
-   * Завантажити обкладинку профілю
-   */
-  static async uploadCoverImage(file: File): Promise<string> {
-    try {
-      console.log('🔍 Uploading cover image:', file.name);
-
-      if (!file.type.startsWith('image/')) {
-        throw new Error('Підтримуються тільки зображення');
-      }
-
-      // Розмір обкладинки не обмежується
-
-      const result = await this.uploadFile(file, 'covers', 'profile');
-      return result.url;
-    } catch (error) {
-      console.error('❌ Cover image upload error:', error instanceof Error ? error.message : String(error));
-      throw error;
-    }
-  }
-
-  /**
-   * Завантажити медіа для посту
+   * Завантажити медіа для посту (відео, фото, аудіо)
    */
   static async uploadPostMedia(file: File): Promise<MediaUploadResult> {
-    try {
-      console.log('🔍 Uploading post media:', file.name);
+    // ✅ Тепер завантажує у bucket 'media', папку 'posts'
+    const result = await this.uploadFile(file, 'media', 'posts');
 
-      // Розмір медіа для постів не обмежується
+    // Отримати поточного користувача
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Користувач не аутентифікований');
 
-      const result = await this.uploadFile(file, 'posts', 'media');
-      
-      // Отримуємо поточного користувача та його профіль
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('Користувач не аутентифікований');
-      }
+    // Отримати профіль користувача
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .maybeSingle();
 
-      // Отримуємо профіль користувача
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
+    if (profileError) throw new Error('Помилка отримання профілю користувача');
+    if (!profile?.id) throw new Error('Профіль користувача не знайдено');
 
-      if (profileError) {
-        console.error('❌ MediaService: Error getting user profile:', profileError);
-        throw new Error('Помилка отримання профілю користувача');
-      }
+    // Додати запис у таблицю media
+    await addMediaToDatabase({
+      user_id: profile.id,
+      type:
+        result.type === 'image'
+          ? 'photo'
+          : result.type === 'video'
+          ? 'video'
+          : 'audio',
+      url: result.url,
+      original_name: file.name,
+      size: file.size,
+      is_public: true,
+    });
 
-      if (!profile) {
-        console.error('❌ MediaService: User profile not found');
-        throw new Error('Профіль користувача не знайдено');
-      }
-
-      // Зберігаємо медіа в базі даних
-      await addMediaToDatabase({
-        user_id: profile.id,
-        type: result.type === 'image' ? 'photo' : 'video',
-        url: result.url,
-        original_name: file.name,
-        size: file.size,
-        is_public: true // Медіа постів за замовчуванням публічні
-      });
-
-      return result;
-    } catch (error) {
-      console.error('❌ Post media upload error:', error instanceof Error ? error.message : String(error));
-      throw error;
-    }
+    return result;
   }
 
-  /**
-   * Видалити файл з Storage
-   */
-  static async deleteFile(filename: string, bucket: string = 'media'): Promise<void> {
-    try {
-      console.log('🔍 Deleting file:', filename);
-
-      const { error } = await supabase.storage
-        .from(bucket)
-        .remove([filename]);
-
-      if (error) {
-        console.error('❌ Delete error:', error);
-        throw new Error(`Помилка видалення: ${error.message}`);
-      }
-
-      console.log('✅ File deleted successfully:', filename);
-    } catch (error) {
-      console.error('❌ File deletion error:', error instanceof Error ? error.message : String(error));
-      throw error;
-    }
-  }
-
-  /**
-   * Перевірити підтримувані типи файлів
-   */
+  /** Перевірити підтримувані типи */
   static isSupportedFileType(file: File): boolean {
-    const supportedImageTypes = [
-      'image/jpeg',
-      'image/jpg', 
-      'image/png',
-      'image/gif',
-      'image/webp'
-    ];
-    
-    const supportedVideoTypes = [
-      'video/mp4',
-      'video/webm',
-      'video/ogg',
-      'video/quicktime'
-    ];
-
-    return [...supportedImageTypes, ...supportedVideoTypes].includes(file.type);
+    const supportedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const supportedVideoTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
+    const supportedAudioTypes = ['audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm', 'audio/mp4'];
+    return [...supportedImageTypes, ...supportedVideoTypes, ...supportedAudioTypes].includes(file.type);
   }
 
-  /**
-   * Отримати розмір файлу в читабельному форматі
-   */
+  /** Форматування розміру файлу */
   static formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
-    
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 }
 
-export async function getUserMedia(user_id: string, type?: 'photo' | 'video') {
-  let query = supabase.from('media').select('*').eq('user_id', user_id);
-  if (type) query = query.eq('type', type);
-  const { data, error } = await query.order('created_at', { ascending: false });
-  if (error) throw error;
-  return data;
-}
+// ===========================
+// БАЗОВІ ОПЕРАЦІЇ З МЕДІА
+// ===========================
 
-// Видалення медіа (з БД і з Supabase Storage)
-export async function deleteMedia(mediaId: string, filePath: string, bucket: string = 'media') {
-  // Видалити з Storage
-  const { error: storageError } = await supabase.storage.from(bucket).remove([filePath]);
-  if (storageError) throw storageError;
-  // Видалити з БД
-  const { error: dbError } = await supabase.from('media').delete().eq('id', mediaId);
-  if (dbError) throw dbError;
-  return true;
-}
-
-// Оновлення опису медіа
-export async function updateMediaDescription(mediaId: string, description: string) {
-  const { error } = await supabase.from('media').update({ description }).eq('id', mediaId);
-  if (error) throw error;
-  return true;
-}
-
-// Додати медіа до бази даних
 export async function addMediaToDatabase(mediaData: {
   user_id: string;
-  type: 'photo' | 'video';
+  type: 'photo' | 'video' | 'audio';
   url: string;
   original_name?: string;
   size?: number;
@@ -278,53 +143,15 @@ export async function addMediaToDatabase(mediaData: {
   album_id?: string;
   is_public?: boolean;
 }) {
-  const { data, error } = await supabase
-    .from('media')
-    .insert([mediaData])
-    .select()
-    .maybeSingle();
-  
-  if (error) throw error;
+  const { data, error } = await supabase.from('media').insert([mediaData]).select().maybeSingle();
+  if (error) throw new Error(error.message);
   return data;
 }
 
-// Отримати альбоми користувача
-export async function getUserAlbums(user_id: string) {
-  const { data, error } = await supabase
-    .from('albums')
-    .select('*')
-    .eq('user_id', user_id)
-    .order('created_at', { ascending: false });
-  
-  if (error) throw error;
-  return data;
-}
-
-// Створити альбом
-export async function createAlbum(albumData: {
-  user_id: string;
-  name: string;
-  description?: string;
-  is_public?: boolean;
-}) {
-  const { data, error } = await supabase
-    .from('albums')
-    .insert([albumData])
-    .select()
-    .maybeSingle();
-  
-  if (error) throw error;
-  return data;
-}
-
-// Отримати медіа з альбому
-export async function getAlbumMedia(album_id: string) {
-  const { data, error } = await supabase
-    .from('media')
-    .select('*')
-    .eq('album_id', album_id)
-    .order('created_at', { ascending: false });
-  
-  if (error) throw error;
+export async function getUserMedia(user_id: string, type?: 'photo' | 'video' | 'audio') {
+  let query = supabase.from('media').select('*').eq('user_id', user_id);
+  if (type) query = query.eq('type', type);
+  const { data, error } = await query.order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
   return data;
 }

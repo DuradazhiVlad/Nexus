@@ -432,7 +432,7 @@ export function GroupDetail() {
 
         {/* Content */}
         <div className="max-w-6xl mx-auto px-8 py-6">
-          {isMember ? (
+          {isMember || !group.is_private ? (
             <>
               {/* Tabs */}
               <div className="mb-6">
@@ -447,16 +447,18 @@ export function GroupDetail() {
                   >
                     Пости ({posts.length})
                   </button>
-                  <button
-                    onClick={() => setActiveTab('members')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      activeTab === 'members'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Учасники ({members.length})
-                  </button>
+                  {(isMember || !group.is_private) && (
+                    <button
+                      onClick={() => setActiveTab('members')}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                        activeTab === 'members'
+                          ? 'bg-white text-blue-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Учасники ({members.length})
+                    </button>
+                  )}
                   <button
                     onClick={() => setActiveTab('info')}
                     className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'info' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
@@ -468,8 +470,9 @@ export function GroupDetail() {
 
               {activeTab === 'posts' && (
                 <div className="space-y-6">
-                  {/* Create Post */}
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  {/* Create Post - Only for members */}
+                  {isMember && (
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                     <form onSubmit={createPost}>
                       <div className="flex items-start space-x-3">
                         <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
@@ -555,6 +558,7 @@ export function GroupDetail() {
                       </div>
                     </form>
                   </div>
+                  )}
 
                   {/* Posts */}
                   {posts.length > 0 ? (
@@ -661,7 +665,7 @@ export function GroupDetail() {
                 </div>
               )}
 
-              {activeTab === 'members' && (
+              {activeTab === 'members' && (isMember || !group.is_private) && (
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                   <div className="p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">

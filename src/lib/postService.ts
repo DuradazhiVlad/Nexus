@@ -1,494 +1,351 @@
-import { supabase } from './supabase';
+import { supabase } from "./supabase";
+import { toast } from "sonner";
 
-export async function getAllPosts() {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  // Get current user's profile ID if authenticated
-  let currentUserProfileId = null;
-  if (user) {
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('id')
-      .eq('auth_user_id', user.id)
-      .single();
-    currentUserProfileId = currentProfile?.id;
-  }
-  
-  let query = supabase
-    .from('posts')
-    .select(`
-      *,
-      post_likes (id, user_id),
-      post_comments (id)
-    `)
-    .order('created_at', { ascending: false });
+// ===== Типи =====
+export type Comment = {
+  id: string;
+  post_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  author: {
+    id: string;
+    name: string;
+    last_name: string;
+    avatar: string | null;
+  };
+};
 
-  const { data, error } = await query;
+export type Post = {
+  id: string;
+  user_id: string;
+  content: string;
+  media_url: string | null;
+  media_type: "photo" | "video" | "document" | null;
+  likes_count: number;
+  comments_count: number;
+  created_at: string;
+  updated_at: string;
+  author: {
+    id: string;
+    name: string;
+    last_name: string;
+    avatar: string | null;
+  };
+  post_likes: { id: string; user_id: string }[];
+  post_photos?: { id: string; url: string }[];
+  post_videos?: { id: string; url: string }[];
+};
 
-  if (error) {
-    console.error('Error fetching posts:', error);
-    return { data: null, error };
-  }
-
-  // Обробляємо дані щоб додати кількість лайків, коментарів та перевірку лайку
-  const processedPosts = await Promise.all(
-    data?.map(async (post) => {
-      // Отримуємо інформацію про користувача
-      const { data: userProfile } = await supabase
-        .from('user_profiles')
-        .select('id, name, last_name, avatar')
-        .eq('id', post.user_id)
-        .single();
-
-      // Get friends count for the author
-      const { data: friendsData } = await supabase
-        .from('friend_requests')
-        .select('id')
-        .eq('receiver_id', post.user_id)
-        .eq('status', 'accepted');
-
-      return {
-        ...post,
-        likes_count: post.post_likes?.length || 0,
-        comments_count: post.post_comments?.length || 0,
-        isLiked: currentUserProfileId ? post.post_likes?.some((like: any) => {
-          // Перевіряємо чи лайк належить поточному користувачу
-          return like.user_id === currentUserProfileId;
-        }) : false,
-        author: {
-          id: post.user_id,
-          name: userProfile?.name || 'Користувач',
-          last_name: userProfile?.last_name || '',
-          avatar: userProfile?.avatar || null,
-          friends_count: friendsData?.length || 0
-        }
-      };
-    }) || []
-  );
-
-  return { data: processedPosts, error: null };
+// ===== Створення поста =====
+interface CreatePostParams {
+  content: string;
+  file?: File | null;
 }
 
-export async function createPost(post: { content: string, media_url?: string, media_type?: string }) {
-  console.log('🔍 Creating post with data:', post);
-  
-  // Get the current user's profile ID
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
+export const createPost = async ({ content, file }: CreatePostParams) => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  console.log('✅ User authenticated:', user.email);
+  if (!user) {
+    toast.error("Користувач не авторизований.");
+    return { data: null, error: new Error("User not authenticated.") };
+  }
 
-  // Get user profile
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single();
+  // -------------------------------------------------------------------
+  // Крок 1: Отримати ID профілю (user_profiles.id) за auth.user.id
+  // -------------------------------------------------------------------
+  const { data: profileData, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('auth_user_id', user.id) // Шукаємо ID профілю, використовуючи ID автентифікації
+    .maybeSingle();
 
-  if (profileError || !profile) {
-    console.error('❌ Profile error:', profileError);
-    throw new Error('User profile not found');
-  }
+  if (profileError || !profileData) {
+    console.error("Failed to fetch user profile ID:", profileError);
+    toast.error("Помилка: Не вдалося знайти профіль користувача.");
+    return { data: null, error: profileError || new Error("User profile not found.") };
+  }
 
-  console.log('✅ User profile found:', profile.id);
+  const profileId = profileData.id; // Це ID, який потрібен таблиці posts
+  // -------------------------------------------------------------------
 
-  const postData = { ...post, user_id: profile.id };
-  console.log('📝 Inserting post data:', postData);
+  let mediaType: "photo" | "video" | "document" | null = null;
+  let mediaUrl: string | null = null;
 
-  const result = await supabase
-    .from('posts')
-    .insert([postData])
-    .select('*');
-
-  console.log('✅ Post creation result:', result);
-  return result;
-}
-
-export async function likePost(post_id: string) {
-  // Get the current user's profile ID
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-
-  // Get user profile
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single();
-
-  if (profileError || !profile) {
-    throw new Error('User profile not found');
-  }
-
-  // Перевіряємо, чи користувач вже лайкнув цей пост
-  const { data: existingLike } = await supabase
-    .from('post_likes')
-    .select('id')
-    .eq('post_id', post_id)
-    .eq('user_id', profile.id)
-    .single();
-
-  if (existingLike) {
-    return { data: existingLike, error: null }; // Вже лайкнуто
-  }
-
-  return supabase
-    .from('post_likes')
-    .insert([{ post_id, user_id: profile.id }]);
-}
-
-export async function unlikePost(post_id: string) {
-  // Get the current user's profile ID
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-
-  // Get user profile
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single();
-
-  if (profileError || !profile) {
-    throw new Error('User profile not found');
-  }
-
-  return supabase
-    .from('post_likes')
-    .delete()
-    .eq('post_id', post_id)
-    .eq('user_id', profile.id);
-}
-
-export async function getCommentsForPost(post_id: string) {
-  console.log('🔍 Getting comments for post:', post_id);
-  
-  const { data, error } = await supabase
-    .from('post_comments')
-    .select('*')
-    .eq('post_id', post_id)
-    .order('created_at', { ascending: true });
-
-  if (error) {
-    console.error('❌ Error fetching comments:', error);
-    return { data: null, error };
-  }
-
-  // Додаємо інформацію про користувачів для кожного коментаря
-  const commentsWithUsers = await Promise.all(
-    data?.map(async (comment) => {
-      const { data: userProfile } = await supabase
-        .from('user_profiles')
-        .select('id, name, last_name, avatar')
-        .eq('id', comment.user_id)
-        .single();
-
-      return {
-        ...comment,
-        user_profiles: userProfile || {
-          id: comment.user_id,
-          name: 'Користувач',
-          last_name: '',
-          avatar: null
-        }
-      };
-    }) || []
-  );
-
-  console.log('✅ Comments fetched:', commentsWithUsers);
-  return { data: commentsWithUsers, error: null };
-}
-
-export async function addCommentToPost(post_id: string, content: string) {
-  console.log('🔍 Adding comment to post:', post_id, 'Content:', content);
-  
-  // Get the current user's profile ID
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-
-  // Get user profile
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single();
-
-  if (profileError || !profile) {
-    console.error('❌ Profile error:', profileError);
-    throw new Error('User profile not found');
-  }
-
-  console.log('✅ User profile found:', profile.id);
-
-  // Перевіряємо, чи існує пост
-  const { data: post, error: postError } = await supabase
-    .from('posts')
-    .select('id')
-    .eq('id', post_id)
-    .single();
-
-  if (postError || !post) {
-    console.error('❌ Post not found:', postError);
-    throw new Error('Post not found');
-  }
-
-  console.log('✅ Post found:', post.id);
-
-  const commentData = {
-    post_id,
-    user_id: profile.id,
-    content: content.trim()
-  };
-
-  console.log('📝 Inserting comment data:', commentData);
-
-  const result = await supabase
-    .from('post_comments')
-    .insert([commentData])
-    .select('*');
-
-  console.log('✅ Comment creation result:', result);
-  return result;
-}
-
-export async function updatePost(post_id: string, updates: { content?: string; media_url?: string; media_type?: string }) {
-  return supabase
-    .from('posts')
-    .update(updates)
-    .eq('id', post_id);
-}
-
-export async function deletePost(post_id: string) {
-  console.log('🔍 Deleting post:', post_id);
-  
-  // Get the current user's profile ID
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-
-  // Get user profile
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single();
-
-  if (profileError || !profile) {
-    console.error('❌ Profile error:', profileError);
-    throw new Error('User profile not found');
-  }
-
-  console.log('✅ User profile found:', profile.id);
-
-  // Перевіряємо чи користувач є автором поста
-  const { data: post, error: postError } = await supabase
-    .from('posts')
-    .select('user_id')
-    .eq('id', post_id)
-    .single();
-
-  if (postError || !post) {
-    console.error('❌ Post not found:', postError);
-    throw new Error('Post not found');
-  }
-
-  if (post.user_id !== profile.id) {
-    console.error('❌ User not authorized to delete this post');
-    throw new Error('You can only delete your own posts');
-  }
-
-  console.log('✅ User authorized to delete post');
-
-  // Спочатку видаляємо лайки та коментарі
-  console.log('🗑️ Deleting likes and comments...');
-  await supabase.from('post_likes').delete().eq('post_id', post_id);
-  await supabase.from('post_comments').delete().eq('post_id', post_id);
-
-  // Потім видаляємо сам пост
-  const result = await supabase
-    .from('posts')
-    .delete()
-    .eq('id', post_id);
-
-  console.log('✅ Post deletion result:', result);
-  return result;
-}
-
-// New function for sharing posts
-export async function sharePostToChat(post_id: string, targetUserId: string) {
-  console.log('🔍 Sharing post:', post_id, 'to user:', targetUserId);
-  
-  // Get the current user's profile ID
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-
-  // Get user profile
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single();
-
-  if (profileError || !profile) {
-    throw new Error('User profile not found');
-  }
-
-  // Get the post data
-  const { data: post, error: postError } = await supabase
-    .from('posts')
-    .select('*')
-    .eq('id', post_id)
-    .single();
-
-  if (postError || !post) {
-    throw new Error('Post not found');
-  }
-
-  // Find or create conversation between current user and target user
-  let conversationId: string;
-  
-  // First, try to find existing conversation
-  const { data: existingConversation, error: convError } = await supabase
-    .from('conversations')
-    .select('id')
-    .or(`and(participant1_id.eq.${profile.id},participant2_id.eq.${targetUserId}),and(participant1_id.eq.${targetUserId},participant2_id.eq.${profile.id})`)
-    .single();
-
-  if (existingConversation) {
-    conversationId = existingConversation.id;
-  } else {
-    // Create new conversation
-    const { data: newConversation, error: createError } = await supabase
-      .from('conversations')
-      .insert([{
-        participant1_id: profile.id,
-        participant2_id: targetUserId
-      }])
-      .select('id')
-      .single();
-
-    if (createError || !newConversation) {
-      throw new Error('Failed to create conversation');
-    }
+  if (file) {
+    // Логіка визначення типу медіа
+    if (file.type.startsWith("image/")) {
+      mediaType = "photo";
+    } else if (file.type.startsWith("video/")) {
+      mediaType = "video";
+    } else if (file.type.startsWith("audio/") || file.type.startsWith("application/")) {
+      mediaType = "document";
+    } else {
+      toast.error("Підтримуються лише фото, відео та документи.");
+      return { data: null, error: new Error("Unsupported file type.") };
+    }
     
-    conversationId = newConversation.id;
-  }
+    // 🔥🔥 ДОДАТКОВА ДІАГНОСТИКА 🔥🔥
+    console.log("File MIME Type:", file.type);
+    console.log("Calculated mediaType:", mediaType);
+    // 🔥🔥
 
-  // Create a message with the shared post
-  const messageData = {
-    conversation_id: conversationId,
-    sender_id: profile.id,
-    content: `Переслано: ${post.content}`,
-    is_read: false
-  };
+    try {
+      // Використовуємо profileId для шляху завантаження
+      const filePath = `${profileId}/${Date.now()}-${file.name}`; 
+      const { data: storageData, error: storageError } = await supabase.storage
+        .from("media")
+        .upload(filePath, file, { cacheControl: "3600", upsert: false });
 
-  // Insert into messages table
-  const result = await supabase
-    .from('messages')
-    .insert([messageData])
-    .select('*');
+      if (storageError) throw storageError;
 
-  console.log('✅ Share result:', result);
-  return result;
-}
+      const { data: publicUrlData } = supabase.storage
+        .from("media")
+        .getPublicUrl(storageData.path);
 
-export async function getUserPosts(userProfileId: string) {
-  console.log('🔍 Getting user posts for profile ID:', userProfileId);
-  
-  if (!userProfileId) {
-    console.error('❌ No userProfileId provided');
-    return { data: [], error: new Error('No userProfileId provided') };
-  }
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  try {
-    // First, let's check if the user profile exists
-    const { data: profileCheck, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('id, auth_user_id, name, last_name, avatar')
-      .eq('id', userProfileId)
-      .single();
-    
-    if (profileError) {
-      console.error('❌ Profile not found:', profileError);
-      return { data: [], error: profileError };
-    }
-    
-    console.log('✅ Profile found:', profileCheck);
-    
-    // Get the auth_user_id for this profile
-    const authUserId = profileCheck.auth_user_id;
-    
-    // Now fetch posts for this user using profile ID
-    const { data, error } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        post_likes (id, user_id),
-        post_comments (id)
-      `)
-      .eq('user_id', userProfileId)
-      .order('created_at', { ascending: false });
+      if (!publicUrlData?.publicUrl) throw new Error("Cannot get public URL");
 
-    if (error) {
-      console.error('❌ Error fetching posts:', error);
-      return { data: [], error };
-    }
+      mediaUrl = publicUrlData.publicUrl;
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+      toast.error("Не вдалося завантажити файл.");
+      return { data: null, error };
+    }
+  }
 
-    console.log('✅ Raw posts data:', data);
-    console.log('✅ Number of posts found:', data?.length || 0);
+  try {
+    // === 1. Створюємо сам пост ===
+    const { data: postData, error: postError } = await supabase
+      .from("posts")
+      .insert({
+        user_id: profileId, // ✅ ВИКОРИСТОВУЄМО ЗНАЙДЕНИЙ profileId
+        content,
+        media_type: mediaType,
+        media_url: mediaUrl,
+      })
+      .select()
+      .maybeSingle();
 
-    // Get current user's profile ID if authenticated
-    let currentUserProfileId = null;
-    if (user) {
-      const { data: currentProfile } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
-      currentUserProfileId = currentProfile?.id;
-    }
+    if (postError || !postData) throw postError || new Error("Post creation failed");
 
-    // Get friends count for the profile
-    const { data: friendsData } = await supabase
-      .from('friend_requests')
-      .select('id')
-      .eq('receiver_id', userProfileId)
-      .eq('status', 'accepted');
+    // === 2. Якщо є медіа, додаємо у відповідну таблицю ===
+    if (mediaUrl && mediaType) {
+      // Оновлена логіка визначення targetTable
+      let targetTable: "post_photos" | "post_videos" | null = null;
+      
+      if (mediaType === "photo") {
+        targetTable = "post_photos";
+      } else if (mediaType === "video") {
+        targetTable = "post_videos";
+      } 
+      // "document" не має окремої таблиці, тому targetTable = null
 
-    // Обробляємо дані щоб додати кількість лайків, коментарів та перевірку лайку
-    const processedPosts = data?.map(post => ({
-      ...post,
-      likes_count: post.post_likes?.length || 0,
-      comments_count: post.post_comments?.length || 0,
-      isLiked: currentUserProfileId ? post.post_likes?.some((like: any) => like.user_id === currentUserProfileId) : false,
-      author: {
-        id: post.user_id,
-        name: profileCheck.name || 'Користувач',
-        last_name: profileCheck.last_name || '',
-        avatar: profileCheck.avatar,
-        friends_count: friendsData?.length || 0
-      }
-    })) || [];
+      if (targetTable) {
+        const { error: mediaError } = await supabase
+          .from(targetTable)
+          .insert({
+            post_id: postData.id,
+            url: mediaUrl,
+          });
 
-    console.log('✅ Processed posts:', processedPosts);
-    console.log('✅ Number of processed posts:', processedPosts.length);
-    
-    return { data: processedPosts, error: null };
-  } catch (error) {
-    console.error('❌ Unexpected error in getUserPosts:', error);
-    return { data: [], error: error instanceof Error ? error : new Error('Unknown error') };
-  }
-}
+        if (mediaError) {
+          console.error(`Failed to insert into ${targetTable}:`, mediaError);
+          toast.error(`Помилка запису медіафайлу в таблицю ${targetTable}.`);
+        } else {
+          console.log(`Successfully inserted into ${targetTable}.`);
+        }
+      }
+    }
+
+    toast.success("Пост успішно створено!");
+    return { data: postData, error: null };
+  } catch (error) {
+    console.error("Failed to create post:", error);
+    toast.error("Не вдалося створити пост.");
+    return { data: null, error };
+  }
+};
+
+// ===== Коментарі =====
+export const addCommentToPost = async (postId: string, content: string) => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user)
+    return { data: null, error: new Error("User not authenticated.") };
+  
+  // Крок 1: Знайти ID профілю
+  const { data: profileData } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+  
+  const profileId = profileData?.id;
+  if (!profileId) return { data: null, error: new Error("User profile not found.") };
+
+
+  const { data, error } = await supabase
+    .from("post_comments")
+    .insert({ post_id: postId, user_id: profileId, content }) // Використовуємо profileId
+    .select("*, author:user_profiles(id,name,last_name,avatar)")
+    .maybeSingle();
+
+  return { data, error };
+};
+
+export const getCommentsForPost = async (postId: string) => {
+  const { data, error } = await supabase
+    .from("post_comments")
+    .select("*, author:user_profiles(id,name,last_name,avatar)")
+    .eq("post_id", postId)
+    .order("created_at", { ascending: true });
+
+  return { data, error };
+};
+
+// ===== Лайки =====
+export const likePost = async (postId: string) => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user)
+    return { data: null, error: new Error("User not authenticated.") };
+
+  // Крок 1: Знайти ID профілю
+  const { data: profileData } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+  
+  const profileId = profileData?.id;
+  if (!profileId) return { data: null, error: new Error("User profile not found.") };
+
+  const { data, error } = await supabase
+    .from("post_likes")
+    .insert({ post_id: postId, user_id: profileId }) // Використовуємо profileId
+    .select()
+    .maybeSingle();
+
+  return { data, error };
+};
+
+export const unlikePost = async (postId: string) => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user)
+    return { data: null, error: new Error("User not authenticated.") };
+
+  // Крок 1: Знайти ID профілю
+  const { data: profileData } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+  
+  const profileId = profileData?.id;
+  if (!profileId) return { data: null, error: new Error("User profile not found.") };
+
+  const { data, error } = await supabase
+    .from("post_likes")
+    .delete()
+    .eq("post_id", postId)
+    .eq("user_id", profileId) // Використовуємо profileId
+    .select()
+    .maybeSingle();
+
+  return { data, error };
+};
+
+// ===== Отримання постів =====
+export const getAllPosts = async () => {
+  const { data, error } = await supabase
+    .from("posts")
+    .select(`
+      *,
+      author:user_profiles(id,name,last_name,avatar),
+      post_likes(id,user_id),
+      post_photos(id,url),
+      post_videos(id,url)
+    `)
+    .order("created_at", { ascending: false });
+
+  return { data, error };
+};
+
+export const getPostsByUser = async (userId: string) => {
+  const { data, error } = await supabase
+    .from("posts")
+    .select(`
+      *,
+      author:user_profiles(id,name,last_name,avatar),
+      post_likes(id,user_id),
+      post_photos(id,url),
+      post_videos(id,url)
+    `)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  return { data, error };
+};
+
+// ===== Оновлення / Видалення постів =====
+export const updatePost = async (postId: string, newContent: string) => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user)
+    return { success: false, error: new Error("User not authenticated.") };
+
+  // Крок 1: Знайти ID профілю
+  const { data: profileData } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+  
+  const profileId = profileData?.id;
+  if (!profileId) return { success: false, error: new Error("User profile not found.") };
+
+  const { data, error } = await supabase
+    .from("posts")
+    .update({ content: newContent })
+    .eq("id", postId)
+    .eq("user_id", profileId) // Використовуємо profileId
+    .maybeSingle();
+
+  return { success: !error, error, data };
+};
+
+export const deletePost = async (postId: string) => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user)
+    return { success: false, error: new Error("User not authenticated.") };
+
+  // Крок 1: Знайти ID профілю
+  const { data: profileData } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+  
+  const profileId = profileData?.id;
+  if (!profileId) return { success: false, error: new Error("User profile not found.") };
+
+  const { error } = await supabase
+    .from("posts")
+    .delete()
+    .eq("id", postId)
+    .eq("user_id", profileId); // Використовуємо profileId
+
+  return { success: !error, error };
+};

@@ -21,19 +21,15 @@ export class AuthService {
   // Initialize auth service
   static async initialize() {
     try {
-      console.log('Initializing AuthService...');
-      
       // Get current session
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.error('Error getting session:', error.message);
         this.updateState({ user: null, profile: null, loading: false, error: error.message });
         return;
       }
 
       if (session?.user) {
-        console.log('Found existing session for:', session.user.email);
         // Get user profile
         try {
           const profile = await DatabaseService.getCurrentUserProfile();
@@ -53,13 +49,11 @@ export class AuthService {
           });
         }
       } else {
-        console.log('No existing session found');
         this.updateState({ user: null, profile: null, loading: false, error: null });
       }
 
       // Listen for auth changes
       supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.email || 'no user');
         
         if (session?.user) {
           try {
@@ -85,7 +79,6 @@ export class AuthService {
       });
 
     } catch (error) {
-      console.error('Error initializing auth:', error);
       this.updateState({ 
         user: null, 
         profile: null, 
@@ -153,14 +146,12 @@ export class AuthService {
       const { error } = await supabase.auth.signOut();
       
       if (error) {
-        console.error('Error signing out:', error.message);
         return { success: false, error: error.message };
       }
 
       return { success: true };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error signing out:', errorMessage);
       return { success: false, error: errorMessage };
     }
   }

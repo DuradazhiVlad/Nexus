@@ -3,9 +3,10 @@ import { Send, Smile, Image as ImageIcon, X } from 'lucide-react';
 import { UserProfile } from '../types';
 import { MediaUpload } from '../../../components/MediaUpload';
 import { MediaUploadResult } from '../../../lib/mediaService';
+import { EMOJIS } from "../../../lib/constants";
+import { useProfileEdit } from '../context/ProfileEditContext';
 
 interface CreatePostFormProps {
-  profile: UserProfile;
   postContent: string;
   setPostContent: (content: string) => void;
   postMediaUrl: string;
@@ -19,13 +20,12 @@ interface CreatePostFormProps {
   setShowMediaInput: (show: boolean) => void;
   characterCount: number;
   MAX_CHARACTERS: number;
-  EMOJIS: string[];
   addEmoji: (emoji: string) => void;
-  handleCreatePost: (e: any) => void;
+  handleCreatePost: (e: React.FormEvent) => void;
+
 }
 
-export const CreatePostForm = ({
-  profile,
+export const CreatePostForm: React.FC<CreatePostFormProps>  = ({
   postContent,
   setPostContent,
   postMediaUrl,
@@ -39,10 +39,10 @@ export const CreatePostForm = ({
   setShowMediaInput,
   characterCount,
   MAX_CHARACTERS,
-  EMOJIS,
   addEmoji,
   handleCreatePost
 }) => {
+  const { profile } = useProfileEdit();
   const [uploadedMedia, setUploadedMedia] = React.useState(null);
 
   const handleMediaUpload = (result: MediaUploadResult) => {

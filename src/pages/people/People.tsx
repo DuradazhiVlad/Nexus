@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from '../../components/Sidebar';
-import { ErrorNotification, useErrorNotifications } from '../../components/ErrorNotification';
+import { useErrorNotifications } from '../../components/ErrorNotification';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { PeopleService } from './services/peopleService';
 import { UserCard } from './components/UserCard';
@@ -33,25 +33,40 @@ export function People() {
   });
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
-  // Check authentication and load data on mount
-  useEffect(() => {
-    checkAuth();
-  }, []);
-  
-  // Load data when authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchUsers();
-      fetchFriendRequests();
+  const fetchUsers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const usersData = await PeopleService.getAllUsers();
+      setUsers(usersData);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      addNotification({ type: 'error', title: 'Помилка', message: 'Помилка завантаження користувачів' });
+    } finally {
+      setLoading(false);
     }
-  }, [isAuthenticated]);
-  
-  // Check if user is authenticated
+  }, [addNotification]);
+
+  const fetchFriendRequests = useCallback(async () => {
+    try {
+      const requestsData = await PeopleService.getFriendRequests();
+      setFriendRequests(requestsData);
+    } catch (error) {
+      console.error('Error fetching friend requests:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Помилка завантаження запитів на дружбу';
+      addNotification({ type: 'error', title: 'Помилка', message: errorMessage });
+    }
+  }, [addNotification]);
+
   const checkAuth = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        setCurrentUser(user.id);
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .maybeSingle();
+        setCurrentUser(userProfile?.id || null);
         setIsAuthenticated(true);
       } else {
         navigate('/login');
@@ -62,52 +77,24 @@ export function People() {
     }
   };
 
-  // Apply filters when data or filters change
   useEffect(() => {
-    applyFiltersAndSearch();
-  }, [users, searchQuery, filters]);
+    checkAuth();
+  }, []);
 
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      console.log('🔍 Fetching users...');
-      
-      const usersData = await PeopleService.getAllUsers();
-      setUsers(usersData);
-      
-      console.log('✅ Users fetched successfully');
-    } catch (error) {
-      console.error('❌ Error fetching users:', error);
-      addNotification({ type: 'error', title: 'Помилка', message: 'Помилка завантаження користувачів' });
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchUsers();
+      fetchFriendRequests();
     }
-  };
+  }, [isAuthenticated, fetchUsers, fetchFriendRequests]);
 
-  const fetchFriendRequests = async () => {
-    try {
-      console.log('🔍 Fetching friend requests...');
-      
-      const requestsData = await PeopleService.getFriendRequests();
-      setFriendRequests(requestsData);
-      
-      console.log('✅ Friend requests fetched successfully');
-    } catch (error) {
-      console.error('❌ Error fetching friend requests:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Помилка завантаження запитів на дружбу';
-      addNotification({ type: 'error', title: 'Помилка', message: errorMessage });
-    }
-  };
-
-  const applyFiltersAndSearch = () => {
+  const applyFiltersAndSearch = useCallback(() => {
     let filtered = [...users];
 
-    // Exclude current user
     if (currentUser) {
-      filtered = filtered.filter(user => user.auth_user_id !== currentUser);
+      filtered = filtered.filter(user => user.id !== currentUser);
     }
 
-    // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(user =>
@@ -118,33 +105,38 @@ export function People() {
       );
     }
 
-    // City filter
     if (filters.city) {
       filtered = filtered.filter(user =>
         user.city?.toLowerCase().includes(filters.city.toLowerCase())
       );
     }
 
-    // Online status filter
     if (filters.onlineStatus !== 'all') {
       filtered = filtered.filter(user => {
-        if (filters.onlineStatus === 'online') return user.isOnline;
-        if (filters.onlineStatus === 'offline') return !user.isOnline;
+        // Assume user.isOnline is set elsewhere, e.g., via a real-time presence channel
+        return (filters.onlineStatus === 'online' && user.isOnline) || (filters.onlineStatus === 'offline' && !user.isOnline);
+      });
+    }
+
+    if (filters.friendStatus !== 'all') {
+      filtered = filtered.filter(user => {
+        const friendStatus = getFriendStatus(user.id);
+        if (filters.friendStatus === 'friends') return friendStatus === 'friends';
+        if (filters.friendStatus === 'not_friends') return friendStatus === 'not_friends';
+        if (filters.friendStatus === 'sent') return friendStatus === 'sent';
+        if (filters.friendStatus === 'received') return friendStatus === 'received';
         return true;
       });
     }
 
-    // Has avatar filter
     if (filters.hasAvatar) {
       filtered = filtered.filter(user => user.avatar);
     }
 
-    // Has bio filter
     if (filters.hasBio) {
       filtered = filtered.filter(user => user.bio && user.bio.trim().length > 0);
     }
 
-    // Sort
     filtered.sort((a, b) => {
       let aValue: any, bValue: any;
 
@@ -181,17 +173,41 @@ export function People() {
     });
 
     setFilteredUsers(filtered);
-  };
+  }, [users, searchQuery, filters, currentUser, friendRequests]);
 
-  const addFriend = async (friendId: string) => {
+  useEffect(() => {
+    applyFiltersAndSearch();
+  }, [users, searchQuery, filters, applyFiltersAndSearch, friendRequests]);
+
+  const getFriendStatus = useCallback((userId: string) => {
+    if (!currentUser || !friendRequests) return 'not_friends';
+
+    const sentRequest = friendRequests.find(req =>
+      req.user_id === currentUser && req.friend_id === userId && req.status === 'pending'
+    );
+
+    const receivedRequest = friendRequests.find(req =>
+      req.user_id === userId && req.friend_id === currentUser && req.status === 'pending'
+    );
+
+    const acceptedRequest = friendRequests.find(req =>
+      (req.user_id === currentUser && req.friend_id === userId) ||
+      (req.user_id === userId && req.friend_id === currentUser) &&
+      req.status === 'accepted'
+    );
+
+    if (acceptedRequest) return 'friends';
+    if (sentRequest) return 'sent';
+    if (receivedRequest) return 'received';
+    return 'not_friends';
+  }, [currentUser, friendRequests]);
+
+  const handleAddFriend = async (friendId: string) => {
     try {
-      console.log('🔍 Adding friend:', friendId);
       await PeopleService.sendFriendRequest(friendId);
-      await fetchFriendRequests(); // Refresh friend requests
+      await fetchFriendRequests();
       addNotification({ type: 'success', title: 'Успіх', message: 'Запит на дружбу відправлено' });
-      console.log('✅ Friend request sent successfully');
     } catch (error) {
-      console.error('❌ Error adding friend:', error);
       const errorMessage = error instanceof Error ? error.message : 'Помилка відправки запиту на дружбу';
       addNotification({ type: 'error', title: 'Помилка', message: errorMessage });
     }
@@ -199,8 +215,6 @@ export function People() {
 
   const handleFriendRequest = async (requestId: string, action: 'accept' | 'reject') => {
     try {
-      console.log('🔍 Handling friend request:', requestId, action);
-      
       if (action === 'accept') {
         await PeopleService.acceptFriendRequest(requestId);
         addNotification({ type: 'success', title: 'Успіх', message: 'Запит на дружбу прийнято' });
@@ -208,24 +222,19 @@ export function People() {
         await PeopleService.rejectFriendRequest(requestId);
         addNotification({ type: 'success', title: 'Успіх', message: 'Запит на дружбу відхилено' });
       }
-      
-      await fetchFriendRequests(); // Refresh friend requests
-      console.log('✅ Friend request handled successfully');
+      await fetchFriendRequests();
     } catch (error) {
-      console.error('❌ Error handling friend request:', error);
       const errorMessage = error instanceof Error ? error.message : 'Помилка обробки запиту на дружбу';
       addNotification({ type: 'error', title: 'Помилка', message: errorMessage });
     }
   };
 
-  const removeFriend = async (friendId: string) => {
+  const handleRemoveFriend = async (friendId: string) => {
     try {
-      console.log('🔍 Removing friend:', friendId);
       await PeopleService.removeFriend(friendId);
+      await fetchFriendRequests();
       addNotification({ type: 'success', title: 'Успіх', message: 'Друга видалено' });
-      console.log('✅ Friend removed successfully');
     } catch (error) {
-      console.error('❌ Error removing friend:', error);
       const errorMessage = error instanceof Error ? error.message : 'Помилка видалення друга';
       addNotification({ type: 'error', title: 'Помилка', message: errorMessage });
     }
@@ -256,39 +265,24 @@ export function People() {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex h-screen">
-        <div className="flex-1 flex items-center justify-center">
-          <LoadingSpinner />
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex h-screen">
-        <Sidebar />
-        <div className="flex-1 flex items-center justify-center">
-          <LoadingSpinner />
-        </div>
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <LoadingSpinner />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
+    <div className="flex h-screen bg-gray-50">
       <Sidebar />
-      <div className="flex-1 overflow-y-auto lg:ml-64">
-        <div className="max-w-7xl mx-auto p-6">
-          <ErrorNotification />
-          
+      <div className="flex-1 overflow-y-auto lg:ml-64 p-4 md:p-8">
+        <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-8">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-3">
+            <div className="bg-white/90 backdrop-blur-md rounded-3xl p-6 md:p-8 shadow-xl border border-gray-200">
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-800 mb-2">
                 Користувачі
               </h1>
-              <p className="text-gray-600 text-lg">
+              <p className="text-gray-500 text-base sm:text-lg">
                 Знайдіть нових друзів та знайомих 👥
               </p>
             </div>
@@ -308,44 +302,51 @@ export function People() {
             activeFiltersCount={getActiveFiltersCount()}
           />
 
-          {/* Users Grid/List */}
-          <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6' : 'space-y-4'}>
-            {filteredUsers.map((user, index) => (
-              <div
-                key={user.id}
-                className="animate-fadeIn"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <UserCard
-                  user={user}
-                  currentUserId={currentUser}
-                  friendRequests={friendRequests}
-                  onAddFriend={addFriend}
-                  onAcceptFriendRequest={(requestId) => handleFriendRequest(requestId, 'accept')}
-                  onRejectFriendRequest={(requestId) => handleFriendRequest(requestId, 'reject')}
-                  onRemoveFriend={removeFriend}
-                />
-              </div>
-            ))}
-          </div>
-
-          {/* Empty State */}
-          {filteredUsers.length === 0 && !loading && (
-            <div className="text-center py-16">
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/20 max-w-md mx-auto">
-                <div className="text-gray-400 mb-6">
-                  <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full mx-auto flex items-center justify-center shadow-lg">
-                    <span className="text-3xl">👥</span>
-                  </div>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                  Користувачів не знайдено
-                </h3>
-                <p className="text-gray-600">
-                  Спробуйте змінити фільтри або пошуковий запит
-                </p>
-              </div>
+          {loading ? (
+            <div className="flex justify-center items-center h-[50vh]">
+              <LoadingSpinner />
             </div>
+          ) : (
+            <>
+              {/* Users Grid/List */}
+              <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' : 'space-y-6'}>
+                {filteredUsers.length > 0 ? (
+                  filteredUsers.map((user, index) => (
+                    <div
+                      key={user.id}
+                      className="animate-fadeIn"
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    >
+                      <UserCard
+                        user={user}
+                        currentUserId={currentUser}
+                        friendRequests={friendRequests}
+                        onAddFriend={handleAddFriend}
+                        onAcceptFriendRequest={(requestId) => handleFriendRequest(requestId, 'accept')}
+                        onRejectFriendRequest={(requestId) => handleFriendRequest(requestId, 'reject')}
+                        onRemoveFriend={handleRemoveFriend}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full text-center py-16">
+                    <div className="bg-white/90 backdrop-blur-md rounded-2xl p-8 shadow-lg border border-gray-200 max-w-md mx-auto">
+                      <div className="text-gray-400 mb-6">
+                        <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full mx-auto flex items-center justify-center shadow-lg">
+                          <span className="text-4xl">🤷‍♂️</span>
+                        </div>
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        Користувачів не знайдено
+                      </h3>
+                      <p className="text-gray-600">
+                        Спробуйте змінити фільтри або пошуковий запит.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
