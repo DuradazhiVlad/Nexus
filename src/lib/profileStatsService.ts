@@ -1,83 +1,66 @@
+
+// src/lib/profileStatsService.ts
 import { supabase } from './supabase';
 
-export interface ProfileStats {
+export type MediaItem = {
+  id: string;
+  url: string;
+  created_at: string;
+};
+
+export type ProfileStats = {
   friendsCount: number;
   photosCount: number;
   videosCount: number;
   musicCount: number;
-  postsCount: number;
-}
+  photos: MediaItem[];
+  videos: MediaItem[];
+  music: MediaItem[];
+};
 
 export const getProfileStats = async (profileId: string): Promise<ProfileStats> => {
-  try {
-    // Отримуємо кількість постів
-    const { count: postsCount, error: postsError } = await supabase
-      .from('posts')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', profileId);
+  // 1️⃣ Друзі
+  const { data: friendsData, error: friendsError } = await supabase
+    .from('friends')
+    .select('*')
+    .eq('user_id', profileId);
+  if (friendsError) console.error('Error fetching friends:', friendsError);
+  const friendsCount = friendsData?.length || 0;
 
-    if (postsError) {
-      console.error('Error fetching posts count:', postsError);
-    }
+  // 2️⃣ Фото
+  const { data: photosData, error: photosError } = await supabase
+    .from('post_photos')
+    .select('id,url,created_at,post:user_id')
+    .eq('post.user_id', profileId)
+    .order('created_at', { ascending: false });
+  if (photosError) console.error('Error fetching photos:', photosError);
+  const photosCount = photosData?.length || 0;
 
-    // Отримуємо кількість фото з постів
-    const { count: photosCount, error: photosError } = await supabase
-      .from('posts')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', profileId)
-      .eq('media_type', 'photo');
+  // 3️⃣ Відео
+  const { data: videosData, error: videosError } = await supabase
+    .from('post_videos')
+    .select('id,url,created_at,post:user_id')
+    .eq('post.user_id', profileId)
+    .order('created_at', { ascending: false });
+  if (videosError) console.error('Error fetching videos:', videosError);
+  const videosCount = videosData?.length || 0;
 
-    if (photosError) {
-      console.error('Error fetching photos count:', photosError);
-    }
+  // 4️⃣ Музика
+  const { data: musicData, error: musicError } = await supabase
+    .from('post_audio')
+    .select('id,url,created_at,post:user_id')
+    .eq('post.user_id', profileId)
+    .order('created_at', { ascending: false });
+  if (musicError) console.error('Error fetching music:', musicError);
+  const musicCount = musicData?.length || 0;
 
-    // Отримуємо кількість відео з постів
-    const { count: videosCount, error: videosError } = await supabase
-      .from('posts')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', profileId)
-      .eq('media_type', 'video');
-
-    if (videosError) {
-      console.error('Error fetching videos count:', videosError);
-    }
-
-    // Отримуємо кількість музики/документів з постів
-    const { count: musicCount, error: musicError } = await supabase
-      .from('posts')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', profileId)
-      .eq('media_type', 'document');
-
-    if (musicError) {
-      console.error('Error fetching music count:', musicError);
-    }
-
-    // Підраховуємо кількість друзів
-    const { count: friendsCount, error: friendsError } = await supabase
-      .from('friendships')
-      .select('*', { count: 'exact', head: true })
-      .or(`user1_id.eq.${profileId},user2_id.eq.${profileId}`);
-
-    if (friendsError) {
-      console.error('Error fetching friends count:', friendsError);
-    }
-
-    return {
-      friendsCount: friendsCount || 0,
-      photosCount: photosCount || 0,
-      videosCount: videosCount || 0,
-      musicCount: musicCount || 0,
-      postsCount: postsCount || 0,
-    };
-  } catch (error) {
-    console.error('Error fetching profile stats:', error);
-    return {
-      friendsCount: 0,
-      photosCount: 0,
-      videosCount: 0,
-      musicCount: 0,
-      postsCount: 0,
-    };
-  }
+  return {
+    friendsCount,
+    photosCount,
+    videosCount,
+    musicCount,
+    photos: photosData || [],
+    videos: videosData || [],
+    music: musicData || [],
+  };
 };

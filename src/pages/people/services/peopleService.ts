@@ -88,34 +88,14 @@ export class PeopleService {
    */
   static async sendFriendRequest(friendId: string): Promise<boolean> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const { data: userProfile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
-
-      if (profileError || !userProfile) {
-        throw new Error('User profile not found');
+      console.log('🔍 PeopleService: Sending friend request to:', friendId);
+      if (!friendId) {
+        throw new Error('ID користувача не вказано');
       }
-
-      const { error } = await supabase
-        .from('friend_requests')
-        .insert({
-          user_id: userProfile.id,
-          friend_id: friendId,
-          status: 'pending',
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      return true;
+      const { DatabaseService } = await import('../../../lib/database');
+      return await DatabaseService.sendFriendRequest(friendId);
     } catch (error) {
-      console.error('Error sending friend request:', error);
+      console.error('❌ PeopleService: Error sending friend request:', error);
       throw error;
     }
   }

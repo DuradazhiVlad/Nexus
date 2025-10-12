@@ -7,28 +7,21 @@ export class UserService {
    */
   static async getUserDetail(userId: string): Promise<UserDetail | null> {
     try {
-      // Try by profile id first
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('auth_user_id', userId)
         .maybeSingle();
 
-      if (error) throw error;
-
-      // If not found, try by auth_user_id
-      if (!data) {
-        const res = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('auth_user_id', userId)
-          .maybeSingle();
-        if (res.error) throw res.error;
-        data = res.data as any;
+      if (error) {
+        throw error;
       }
 
-      if (!data) return null;
-      return data as any;
+      if (!data) {
+        return null;
+      }
+
+      return data;
     } catch (error) {
       throw error;
     }

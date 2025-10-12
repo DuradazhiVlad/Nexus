@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AuthUserProfile } from '../../../lib/authUserService';
 import { ChevronDown, ChevronUp, Heart, MessageCircle, X, Play, Pause, Volume2, VolumeX } from 'lucide-react';
-// Removed LocationLanguageSelector per VK-style requirements
+import { LocationLanguageSelector } from '../../../components/LocationLanguageSelector';
 import { useProfileEdit } from '../context/ProfileEditContext';
 
 // Функція для перекладу сімейного стану
@@ -28,9 +28,6 @@ const getRelationshipStatusLabel = (status: string, gender?: string) => {
 
 export const ProfileInfo: React.FC = () => {
   const { profile } = useProfileEdit();
-  if (!profile) {
-    return null;
-  }
   const [expandedSections, setExpandedSections] = useState({
     hobbies: false,
     languages: false
@@ -43,7 +40,10 @@ export const ProfileInfo: React.FC = () => {
   const [playingVideo, setPlayingVideo] = useState<number | null>(null);
   const [videoMuted, setVideoMuted] = useState<{[key: number]: boolean}>({});
   
-  // Removed location/language picker
+  // Стан для LocationLanguageSelector
+  const [selectedCountry, setSelectedCountry] = useState(profile.country || '');
+  const [selectedCity, setSelectedCity] = useState(profile.city || '');
+  const [selectedLanguage, setSelectedLanguage] = useState('');
   
   // Заглушка для фото
   const photos = Array.from({length: 9}, (_, i) => ({
@@ -397,7 +397,18 @@ export const ProfileInfo: React.FC = () => {
           </div>
         </div>
 
-        {/* Локація та мова блок видалено */}
+        {/* Компонент вибору локації та мови */}
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Локація та мова</h3>
+          <LocationLanguageSelector
+            selectedCountry={selectedCountry}
+            selectedCity={selectedCity}
+            selectedLanguage={selectedLanguage}
+            onCountryChange={setSelectedCountry}
+            onCityChange={setSelectedCity}
+            onLanguageChange={setSelectedLanguage}
+          />
+        </div>
 
         {/* Lightbox */}
        {lightboxOpen && selectedPhoto !== null && (

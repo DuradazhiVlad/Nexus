@@ -1,12 +1,12 @@
 import React from 'react';
 import { PostCard } from '../../../components/PostCard';
-// Remove wrong import path and loosen typing to avoid crash while wiring
+import { Profile } from '../../lib/types';
 import { useProfileEdit } from '../context/ProfileEditContext';
 
 interface ProfilePostsDisplaySectionProps {
-  profile: any;
+  profile: Profile;
   loadingPosts: boolean;
-  userPosts?: any[];
+  userPosts: any[];
   currentUser: any;
   setUserPosts: React.Dispatch<React.SetStateAction<any[]>>;
 }
@@ -22,7 +22,7 @@ export const ProfilePostsDisplaySection: React.FC<ProfilePostsDisplaySectionProp
     return <div className="text-center py-4">Завантаження постів...</div>;
   }
 
-  if (!userPosts || userPosts.length === 0) {
+  if (userPosts.length === 0) {
     return <div className="text-center py-4 text-gray-500">Постів поки що немає.</div>;
   }
 

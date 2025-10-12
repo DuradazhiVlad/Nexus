@@ -1,22 +1,21 @@
 // src/pages/profile/ProfileNew.tsx
-import React from 'react';
-import { LeftColumn } from './components/LeftColumn/LeftColumn';
-import { RightColumn } from './components/RightColumn';
-import { ProfileEditProvider } from './context/ProfileEditContext';
-import { Sidebar } from '../../components/Sidebar';
-// =====================
-// React-компонент
-// =====================
+import React from "react";
+import { LeftColumn } from "./components/LeftColumn/LeftColumn";
+import { RightColumn } from "./components/RightColumn";
+import { ProfileEditProvider } from "./context/ProfileEditContext";
+
 export const ProfileNew: React.FC = () => {
   return (
     <ProfileEditProvider>
-      <div className="lg:ml-64">
-        <Sidebar />
-        <div className="max-w-6xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
+      <div className="bg-gray-100 min-h-screen py-6">
+        <div className="container mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Ліва колонка */}
+          <div className="lg:col-span-1 space-y-6">
             <LeftColumn />
           </div>
-          <div className="lg:col-span-2">
+
+          {/* Права колонка */}
+          <div className="lg:col-span-2 space-y-6">
             <RightColumn />
           </div>
         </div>
